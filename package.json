@@ -1,0 +1,13 @@
+{
+  "name": "dinosaurrr",
+  "private": true,
+  "type": "module",
+  "description": "Serveur des jeux multijoueurs de dinosaurrr (Cloudflare Workers)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  }
+}

@@ -19,6 +19,9 @@ window.SITE_CONFIG = {
   mailNom: "pipou",
   mailDomaine: "dinosaurrr.com",
 
+  // Adresse du serveur des jeux multijoueurs (Cloudflare Workers)
+  serveurJeux: "multi.dinosaurrr.com",
+
   // Message affiché dans la bulle juste après le démarrage (ordinateur)
   bienvenue: "Double-clique sur une icône pour l'ouvrir. Les jeux sont dans le dossier Jeux."
 };

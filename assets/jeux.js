@@ -15,14 +15,23 @@
    ========================================================== */
 window.JEUX = [
   {
+    id: "cercle",
+    titre: "Le Cercle",
+    fichier: "games/cercle.html",
+    icone: "cercle",
+    description: "Multijoueur jusqu'à 8. Le cercle rétrécit : pousse les autres dehors, évite les bombes et le vent. Le dernier dedans gagne.",
+    taille: [960, 680],
+    bureau: true,
+    nouveau: true
+  },
+  {
     id: "meteorites",
     titre: "Pluie de météorites",
     fichier: "games/meteorites.html",
     icone: "meteore",
     description: "Pilote ton vaisseau et esquive les météorites le plus longtemps possible. Les cristaux rapportent des points bonus.",
     taille: [760, 540],
-    bureau: true,
-    nouveau: true
+    bureau: true
   },
   {
     id: "clicker",

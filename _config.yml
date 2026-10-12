@@ -22,3 +22,9 @@ defaults:
 exclude:
   - LISEZ-MOI.md
   - README.md
+  # le serveur multijoueur (il tourne chez Cloudflare, pas sur GitHub Pages)
+  - serveur
+  - wrangler.jsonc
+  - package.json
+  - package-lock.json
+  - node_modules

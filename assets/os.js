@@ -201,7 +201,7 @@
         icone: jeu.icone,
         taille: jeu.taille || [720, 520],
         adresse: 'jeu/' + jeu.id,
-        ouvrir: (corps, etat) => contenuJeu(corps, etat, jeu)
+        ouvrir: (corps, etat, options) => contenuJeu(corps, etat, jeu, options)
       };
     });
 
@@ -545,7 +545,8 @@
       });
     }
 
-    function contenuJeu(corps, etat, jeu) {
+    function contenuJeu(corps, etat, jeu, options = {}) {
+      const source = () => jeu.fichier + (options && options.param ? '#' + encodeURIComponent(options.param) : '');
       corps.classList.add('sans-defilement');
       corps.innerHTML = `
         <div class="barre-menus">
@@ -553,8 +554,9 @@
           <button data-a="plein">${svg('agrandir', 14)}Plein écran</button>
           <button data-a="onglet">${svg('externe', 14)}Nouvel onglet</button>
         </div>
-        <iframe src="${echapper(jeu.fichier)}" title="${echapper(jeu.titre)}" allow="fullscreen; clipboard-write"></iframe>`;
+        <iframe src="${echapper(source())}" title="${echapper(jeu.titre)}" allow="fullscreen; clipboard-write"></iframe>`;
       const iframe = $('iframe', corps);
+      etat.reouvrir = nouvelles => { if (nouvelles && nouvelles.param) { options = nouvelles; iframe.src = source(); } };
       const focusJeu = () => { try { iframe.contentWindow.focus(); } catch (e) { /* rien */ } };
       etat.surFocus = focusJeu;
       iframe.addEventListener('load', () => { if (!etat.el.classList.contains('inactive')) focusJeu(); });
@@ -738,7 +740,10 @@
       const h = lireHash();
       if (!h) return false;
       if (['blog', 'jeux', 'apropos', 'contact'].includes(h)) ouvrirApp(h);
-      else if (h.startsWith('jeu/')) ouvrirApp('jeu-' + h.slice(4));
+      else if (h.startsWith('jeu/')) {
+        const [id, param] = h.slice(4).split('/');
+        ouvrirApp('jeu-' + id, param ? { param } : {});
+      }
       else if (h.startsWith('article/')) ouvrirApp('blog', { article: h.slice(8) });
       else return false;
       return true;
@@ -971,14 +976,16 @@
       }
     }
 
-    function ouvrirJeu(id, pousser) {
+    function ouvrirJeu(chemin, pousser) {
+      const [id, param] = String(chemin).split('/');
       const j = JEUX.find(x => x.id === id);
       if (!j) return;
-      ouvrirEcran(j.titre, `<iframe src="${echapper(j.fichier)}" title="${echapper(j.titre)}" allow="fullscreen; clipboard-write"></iframe>`, {
+      const src = j.fichier + (param ? '#' + encodeURIComponent(param) : '');
+      ouvrirEcran(j.titre, `<iframe src="${echapper(src)}" title="${echapper(j.titre)}" allow="fullscreen; clipboard-write"></iframe>`, {
         icone: 'recharger',
         nom: 'Recommencer',
-        faire: () => { const f = $('iframe', ecranCorps); if (f) { try { f.contentWindow.location.reload(); } catch (e) { f.src = j.fichier; } } }
-      }, 'jeu/' + j.id, true, pousser);
+        faire: () => { const f = $('iframe', ecranCorps); if (f) { try { f.contentWindow.location.reload(); } catch (e) { f.src = src; } } }
+      }, 'jeu/' + j.id + (param ? '/' + param : ''), true, pousser);
     }
 
     /* ----- Navigation ----- */

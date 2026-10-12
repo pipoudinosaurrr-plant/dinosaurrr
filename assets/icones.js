@@ -13,6 +13,7 @@ window.ICONES = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/>',
   accueil: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
 
+  cercle: '<circle cx="12" cy="12" r="9"/><path d="M10 7.5v8l2.1-1.9 1.4 3 1.5-.7-1.4-2.9H16.5z"/>',
   meteore: '<circle cx="15" cy="15" r="5"/><path d="M3 3l7.5 7.5M7 3l4.5 4.5M3 7l4.5 4.5"/>',
   processeur: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   histoire: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',

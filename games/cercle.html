@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Le Cercle</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; }
+    body { position: fixed; inset: 0; -webkit-user-select: none; user-select: none; touch-action: none; }
+
+    #toile { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+    body.menu #toile { cursor: default; }
+
+    /* ---------- Écrans (accueil, salon, résultats) ---------- */
+
+    .ecran { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; padding: 20px 16px; overflow-y: auto; touch-action: pan-y; }
+    .ecran[hidden] { display: none; }
+
+    .carte {
+      width: 100%;
+      max-width: 420px;
+      margin: auto 0;
+      padding: 24px;
+      border: 1px solid var(--bord2);
+      border-radius: 18px;
+      background: rgba(8, 8, 8, .84);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      backdrop-filter: blur(14px) saturate(140%);
+      box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(255, 255, 255, .05);
+      animation: arrivee .3s cubic-bezier(.2, .8, .2, 1);
+    }
+    @keyframes arrivee { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+
+    .carte h1 { margin: 12px 0 6px; font-size: 34px; font-weight: 800; letter-spacing: -.05em; }
+    .intro { margin: 0 0 18px; color: var(--doux); font-size: 14px; line-height: 1.55; }
+    .point-vert { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+    .etiquette { display: block; margin-bottom: 7px; color: var(--tres-doux); font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .carte input[type="text"] { width: 100%; }
+    .btn.grand { width: 100%; height: 46px; border-radius: 11px; font-size: 14.5px; }
+    .pile { display: grid; gap: 8px; margin-top: 12px; }
+    .ligne { display: flex; gap: 8px; }
+    .ligne > * { flex: 1; min-width: 0; }
+    #code-saisi { flex: 0 0 116px; font-family: var(--mono); letter-spacing: .3em; text-align: center; text-transform: uppercase; }
+
+    .separateur { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: var(--tres-doux); font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .separateur::before, .separateur::after { content: ''; flex: 1; height: 1px; background: var(--bord); }
+
+    .message { margin: 12px 0 0; padding: 10px 12px; border: 1px solid rgba(239, 68, 68, .35); border-radius: 10px; background: rgba(239, 68, 68, .08); color: #fca5a5; font-size: 13px; }
+    .message[hidden] { display: none; }
+
+    .regles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 18px; }
+    .regle { padding: 10px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); }
+    .regle b { display: block; font-size: 12.5px; font-weight: 600; }
+    .regle span { display: block; margin-top: 3px; color: var(--tres-doux); font-size: 11.5px; line-height: 1.35; }
+
+    .serveur { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: var(--tres-doux); font: 500 11px var(--mono); }
+    .serveur i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #525252; }
+    .serveur.ok i { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .serveur.ko i { background: #ef4444; }
+
+    /* salon */
+    .entete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .code-zone { margin: 18px 0 14px; padding: 16px; border: 1px solid var(--bord); border-radius: 14px; background: #050505; text-align: center; }
+    .code { margin: 2px 0 12px; font: 700 44px/1 var(--mono); letter-spacing: .22em; padding-left: .22em; color: #fff; }
+    .joueurs { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .joueurs li { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 14px; }
+    .joueurs li i { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+    .joueurs .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tag { flex: none; height: 20px; padding: 0 7px; border: 1px solid var(--bord2); border-radius: 999px; color: var(--doux); font: 500 9.5px/18px var(--mono); letter-spacing: .08em; }
+    .tag.vert { border-color: rgba(34, 197, 94, .4); color: var(--accent-clair); }
+    .victoires { flex: none; color: var(--tres-doux); font: 500 11px var(--mono); }
+    .compteur { margin: 14px 0 8px; color: var(--tres-doux); font: 500 11px var(--mono); letter-spacing: .06em; }
+    .attente { margin: 14px 0 0; color: var(--doux); font-size: 13px; text-align: center; }
+    .attente[hidden], #hote-zone[hidden], #fin-actions[hidden] { display: none; }
+
+    /* résultats */
+    .classement { display: grid; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+    .classement li { display: grid; grid-template-columns: 30px 10px 1fr auto; align-items: center; gap: 10px; height: 40px; padding: 0 12px; border: 1px solid var(--bord); border-radius: 10px; font-size: 14px; }
+    .classement li.moi { border-color: rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .04); }
+    .classement .place { color: var(--tres-doux); font: 600 12px var(--mono); }
+    .classement li:first-child .place { color: var(--accent-clair); }
+    .classement i { width: 10px; height: 10px; border-radius: 3px; }
+    .classement .temps { color: var(--tres-doux); font: 500 12px var(--mono); }
+
+    /* ---------- Pendant la partie ---------- */
+
+    #hud { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+    #hud[hidden] { display: none; }
+
+    .hud-haut { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 8px; }
+    .hud-haut > :last-child { justify-self: end; }
+    .pilule {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--bord2);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .62);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      color: var(--doux);
+      font: 500 11px var(--mono);
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+    .pilule b { color: var(--texte); font-weight: 600; }
+    .pilule.alerte { border-color: rgba(255, 255, 255, .3); color: #fff; animation: clignote .5s steps(2) infinite; }
+    .pilule.alerte.tourbillon { border-color: rgba(34, 211, 238, .5); color: #67e8f9; }
+    .pilule.alerte.actif { animation: none; }
+    .pilule[hidden] { display: none; }
+    .pilule svg { width: 14px; height: 14px; }
+    @keyframes clignote { 50% { opacity: .45; } }
+
+    .fil { position: absolute; top: calc(max(12px, env(safe-area-inset-top)) + 42px); left: 12px; display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+    .fil li { justify-self: start; padding: 5px 9px; border-radius: 7px; background: rgba(0, 0, 0, .6); color: var(--doux); font-size: 12px; animation: arrivee .2s; transition: opacity .4s; }
+    .fil li b { color: var(--texte); font-weight: 600; }
+    .fil li.moi { color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
+
+    .decompte { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font: 800 min(26vw, 140px)/1 var(--mono); text-shadow: 0 0 40px rgba(255, 255, 255, .25); }
+    .decompte[hidden] { display: none; }
+    .decompte.go { color: var(--accent); text-shadow: 0 0 40px rgba(34, 197, 94, .45); }
+
+    .statut { position: absolute; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 140px); padding: 10px 16px; border: 1px solid var(--bord2); border-radius: 12px; background: rgba(0, 0, 0, .72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 13.5px; text-align: center; }
+    .statut[hidden] { display: none; }
+    .statut b { font-weight: 700; }
+
+    .aide { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); color: var(--tres-doux); font: 500 11px var(--mono); white-space: nowrap; transition: opacity .6s; }
+
+    .btn-foncer {
+      --p: 1;
+      position: absolute;
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(22px, env(safe-area-inset-bottom));
+      display: grid;
+      place-items: center;
+      width: 86px;
+      height: 86px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: conic-gradient(rgba(255, 255, 255, .9) calc(var(--p) * 360deg), rgba(255, 255, 255, .12) 0);
+      color: #fff;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .btn-foncer span { display: grid; place-items: center; width: 78px; height: 78px; border-radius: 50%; background: rgba(10, 10, 10, .88); font: 700 11.5px var(--mono); letter-spacing: .08em; }
+    .btn-foncer.pret span { background: #fafafa; color: #000; }
+    .btn-foncer[hidden] { display: none; }
+
+    @media (max-height: 640px) {
+      .regles { display: none; }
+      .carte h1 { margin-top: 8px; font-size: 28px; }
+      .intro { margin-bottom: 12px; }
+    }
+
+    @media (max-width: 420px) {
+      .carte { padding: 20px 18px; }
+      .carte h1 { font-size: 30px; }
+      .regle span { font-size: 11px; }
+    }
+  </style>
+</head>
+<body class="menu">
+  <canvas id="toile" aria-label="Arène du jeu"></canvas>
+
+  <div id="hud" hidden>
+    <div class="hud-haut">
+      <div><span class="pilule"><span class="point-vert"></span>EN VIE <b id="nb-vivants">0/0</b></span></div>
+      <span class="pilule alerte" id="alerte" hidden></span>
+      <span class="pilule"><b id="chrono">0:00</b></span>
+    </div>
+    <ul class="fil" id="fil"></ul>
+    <div class="decompte" id="decompte" hidden></div>
+    <div class="statut" id="statut" hidden></div>
+    <div class="aide" id="aide">Souris : bouger · Clic ou Espace : foncer</div>
+    <button class="btn-foncer" id="btn-foncer" hidden aria-label="Foncer"><span>FONCER</span></button>
+  </div>
+
+  <!-- Accueil -->
+  <section class="ecran" id="accueil">
+    <div class="carte">
+      <span class="pastille"><span class="point-vert"></span>Multijoueur · 1 à 8</span>
+      <h1>Le Cercle</h1>
+      <p class="intro">Le cercle rétrécit. Pousse les autres dehors, évite les bombes, résiste au vent. Le dernier curseur dans le cercle gagne.</p>
+
+      <label class="etiquette" for="pseudo">Ton pseudo</label>
+      <input type="text" id="pseudo" maxlength="14" autocomplete="off" spellcheck="false">
+
+      <div class="pile">
+        <button class="btn primaire grand" id="creer">Créer une partie</button>
+        <div class="separateur">ou rejoindre</div>
+        <div class="ligne">
+          <input type="text" id="code-saisi" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Code de la partie">
+          <button class="btn grand" id="rejoindre">Rejoindre</button>
+        </div>
+        <button class="btn grand" id="solo">S'entraîner contre des bots</button>
+      </div>
+
+      <p class="message" id="message" hidden></p>
+
+      <div class="regles">
+        <div class="regle"><b>Bouger</b><span id="regle-bouger">Ton curseur suit la souris.</span></div>
+        <div class="regle"><b>Foncer</b><span id="regle-foncer">Clic ou Espace pour pousser.</span></div>
+        <div class="regle"><b>Survivre</b><span>Bombes, vent, tourbillons.</span></div>
+      </div>
+
+      <div class="serveur" id="serveur"><i></i><span>Vérification du serveur…</span></div>
+    </div>
+  </section>
+
+  <!-- Salon -->
+  <section class="ecran" id="salon" hidden>
+    <div class="carte">
+      <div class="entete">
+        <span class="pastille"><span class="point-vert"></span>Salon</span>
+        <button class="btn petit" id="quitter">Quitter</button>
+      </div>
+      <div class="code-zone">
+        <span class="etiquette">Code de la partie</span>
+        <div class="code" id="code">····</div>
+        <div class="ligne">
+          <button class="btn" id="copier">Copier le lien</button>
+          <button class="btn" id="partager">Partager</button>
+        </div>
+      </div>
+      <div class="compteur" id="compteur">Connexion…</div>
+      <ul class="joueurs" id="joueurs"></ul>
+      <div id="hote-zone" hidden>
+        <div class="ligne" style="margin-top:12px">
+          <button class="btn" id="moins-bot">− Bot</button>
+          <button class="btn" id="plus-bot">+ Bot</button>
+        </div>
+        <div class="pile"><button class="btn primaire grand" id="lancer">Lancer la partie</button></div>
+      </div>
+      <p class="attente" id="attente" hidden>En attente de l'hôte…</p>
+    </div>
+  </section>
+
+  <!-- Résultats -->
+  <section class="ecran" id="fin" hidden>
+    <div class="carte">
+      <span class="pastille">Résultats</span>
+      <h1 id="fin-titre">Partie terminée</h1>
+      <p class="intro" id="fin-sous"></p>
+      <ol class="classement" id="classement"></ol>
+      <div class="pile" id="fin-actions">
+        <button class="btn primaire grand" id="rejouer">Rejouer</button>
+        <button class="btn grand" id="menu">Menu</button>
+      </div>
+      <p class="attente" id="fin-attente" hidden></p>
+    </div>
+  </section>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import * as M from './cercle/moteur.js';
+
+    const $ = id => document.getElementById(id);
+    const toile = $('toile');
+    const ctx = toile.getContext('2d');
+
+    /* ---------- Réglages ---------- */
+
+    const TACTILE = matchMedia('(hover: none), (pointer: coarse)').matches;
+    const conf = window.SITE_CONFIG || {};
+    const params = new URLSearchParams(location.search);
+    const EN_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const SERVEUR = params.get('serveur') || (EN_LOCAL ? '127.0.0.1:8787' : (conf.serveurJeux || ''));
+    const SECURISE = !/^(localhost|127\.)/.test(SERVEUR);
+    const urlSalle = code => `${SECURISE ? 'wss' : 'ws'}://${SERVEUR}/cercle/${code}`;
+    const urlSante = `${SECURISE ? 'https' : 'http'}://${SERVEUR}/sante`;
+    const LETTRES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const POLICE = '"JetBrains Mono", ui-monospace, monospace';
+
+    const stock = {
+      lire(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
+      ecrire(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* rien */ } }
+    };
+    const echapper = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const lien = code => `${location.origin}/#jeu/cercle/${code}`;
+
+    if (TACTILE) {
+      $('regle-bouger').textContent = 'Ton curseur suit ton doigt.';
+      $('regle-foncer').textContent = 'Bouton FONCER pour pousser.';
+      $('aide').textContent = 'Glisse le doigt pour bouger';
+    }
+
+    /* ---------- État ---------- */
+
+    let ecran = 'accueil';
+    let demo = null;              // partie de bots en fond des menus
+    let solo = null;              // partie solo du joueur
+    let enLigne = false;          // une partie en ligne est affichée
+    let moi = null;
+    let equipe = new Map();
+    let spectateur = false;
+    let ws = null, codeSalle = '', salle = null, quitte = false, minuteriePing = null;
+    let tampon = [];
+    let serveurOk = false;
+
+    const camera = { x: M.CENTRE, y: M.CENTRE, v: M.TAILLE };
+    const transfo = { s: 1, ox: 0, oy: 0 };
+    const souris = { x: 0, y: 0, active: false };
+    const traces = new Map();
+    let particules = [];
+    let anneaux = [];
+    let secousse = 0;
+    let horloge = 0;
+
+    /* ---------- Parties locales (fond + solo) ---------- */
+
+    function partieLocale(liste) {
+      const e = M.creerPartie(liste);
+      let acc = 0;
+      return {
+        e,
+        equipe: new Map(M.equipe(e).map(j => [j.id, j])),
+        avancer(dt) {
+          acc += Math.min(dt, 0.1);
+          while (acc >= 1 / 60) { M.piloterBots(e, 1 / 60); M.etape(e, 1 / 60); acc -= 1 / 60; }
+          const evts = e.evts; e.evts = [];
+          return evts;
+        },
+        vue: () => lire(M.instantane(e))
+      };
+    }
+
+    function bots(n, depart = 0) {
+      return Array.from({ length: n }, (_, i) => ({ id: 'bot' + i, nom: M.NOMS_BOTS[i], couleur: M.COULEURS[(i + depart) % M.COULEURS.length], bot: true }));
+    }
+
+    function lire(s) {
+      return {
+        t: s.t, r: s.r, cx: s.c[0], cy: s.c[1], n: s.n,
+        joueurs: s.j.map(a => ({ id: a[0], x: a[1], y: a[2], vivant: !!a[3], cd: a[4], dash: !!a[5], choc: !!a[6] })),
+        bombes: s.b.map(a => ({ id: a[0], x: a[1], y: a[2], meche: a[3] })),
+        vent: s.v ? { dx: s.v[0], dy: s.v[1], i: s.v[2], alerte: !!s.v[3] } : null,
+        tb: s.w ? { x: s.w[0], y: s.w[1], i: s.w[2], alerte: !!s.w[3], sens: s.w[4] } : null
+      };
+    }
+
+    // en ligne : on affiche avec 90 ms de retard pour lisser entre deux images du serveur
+    function vueReseau() {
+      if (!tampon.length) return null;
+      const rendu = performance.now() - 90;
+      while (tampon.length > 2 && tampon[1].recu <= rendu) tampon.shift();
+      const a = tampon[0], b = tampon[1];
+      if (!b || rendu <= a.recu) return a.vue;
+      const k = Math.min(1, (rendu - a.recu) / Math.max(1, b.recu - a.recu));
+      const va = a.vue, vb = b.vue;
+      const avant = new Map(va.joueurs.map(j => [j.id, j]));
+      return {
+        ...vb,
+        r: va.r + (vb.r - va.r) * k,
+        cx: va.cx + (vb.cx - va.cx) * k,
+        cy: va.cy + (vb.cy - va.cy) * k,
+        joueurs: vb.joueurs.map(j => {
+          const p = avant.get(j.id);
+          if (!p || !p.vivant || !j.vivant) return j;
+          return { ...j, x: p.x + (j.x - p.x) * k, y: p.y + (j.y - p.y) * k };
+        })
+      };
+    }
+
+    /* ---------- Écrans ---------- */
+
+    function montrer(nom) {
+      ecran = nom;
+      for (const id of ['accueil', 'salon', 'fin']) $(id).hidden = id !== nom;
+      $('hud').hidden = !(nom === 'jeu' || nom === 'fin');
+      document.body.classList.toggle('menu', nom !== 'jeu');
+      $('fil').innerHTML = '';
+    }
+
+    function message(texte) {
+      $('message').textContent = texte || '';
+      $('message').hidden = !texte;
+    }
+
+    function pseudo() {
+      const p = $('pseudo').value.trim().slice(0, 14) || 'Joueur';
+      stock.ecrire('cercle-pseudo', p);
+      return p;
+    }
+
+    $('pseudo').value = stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900));
+
+    function retourAccueil(texte) {
+      enLigne = false;
+      solo = null;
+      montrer('accueil');
+      message(texte);
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* rien */ }
+    }
+
+    /* ---------- Serveur ---------- */
+
+    function etatServeur(ok, texte) {
+      serveurOk = ok;
+      const el = $('serveur');
+      el.className = 'serveur ' + (ok ? 'ok' : 'ko');
+      el.querySelector('span').textContent = texte;
+      $('creer').disabled = !ok;
+      $('rejoindre').disabled = !ok;
+    }
+
+    async function verifierServeur() {
+      if (!SERVEUR) return etatServeur(false, 'Mode en ligne pas encore branché. Le mode solo marche.');
+      try {
+        const ctrl = new AbortController();
+        const minuterie = setTimeout(() => ctrl.abort(), 5000);
+        const r = await fetch(urlSante, { signal: ctrl.signal, cache: 'no-store' });
+        clearTimeout(minuterie);
+        etatServeur(r.ok, r.ok ? 'Serveur en ligne' : 'Serveur indisponible. Le mode solo marche.');
+      } catch (e) {
+        etatServeur(false, 'Serveur hors ligne pour l’instant. Le mode solo marche.');
+      }
+    }
+
+    function nouveauCode() {
+      const o = crypto.getRandomValues(new Uint8Array(4));
+      return Array.from(o, x => LETTRES[x % LETTRES.length]).join('');
+    }
+
+    function connecter(code) {
+      message('');
+      quitte = false;
+      codeSalle = code;
+      salle = null;
+      moi = null;
+      $('code').textContent = code;
+      $('joueurs').innerHTML = '';
+      $('compteur').textContent = 'Connexion…';
+      $('hote-zone').hidden = true;
+      $('attente').hidden = true;
+      montrer('salon');
+      try { history.replaceState(null, '', '#' + code); } catch (e) { /* rien */ }
+
+      try { ws = new WebSocket(urlSalle(code)); } catch (e) { return retourAccueil('Impossible de joindre le serveur.'); }
+      const ceWs = ws;
+      ceWs.onopen = () => {
+        ceWs.send(JSON.stringify({ t: 'salut', nom: pseudo() }));
+        clearInterval(minuteriePing);
+        minuteriePing = setInterval(() => { if (ceWs.readyState === 1) ceWs.send('ping'); }, 25000);
+      };
+      ceWs.onmessage = ev => {
+        if (ev.data === 'pong') return;
+        let m;
+        try { m = JSON.parse(ev.data); } catch (e) { return; }
+        recevoir(m);
+      };
+      ceWs.onclose = () => {
+        if (ceWs !== ws) return;
+        clearInterval(minuteriePing);
+        if (!quitte) retourAccueil('La connexion avec la partie a été coupée.');
+      };
+    }
+
+    function quitter() {
+      quitte = true;
+      try { if (ws) ws.close(); } catch (e) { /* rien */ }
+      ws = null;
+      retourAccueil('');
+    }
+
+    function envoyer(msg) {
+      if (ws && ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+
+    function recevoir(m) {
+      switch (m.t) {
+        case 'bienvenue':
+          moi = m.id;
+          break;
+        case 'salle':
+          salle = m;
+          if (m.phase === 'salon' && ecran !== 'salon' && (ecran === 'fin' || !enLigne)) { enLigne = false; montrer('salon'); }
+          majSalon();
+          break;
+        case 'debut':
+          equipe = new Map(m.equipe.map(j => [j.id, j]));
+          spectateur = !equipe.has(moi);
+          tampon = [];
+          traces.clear();
+          particules = [];
+          anneaux = [];
+          enLigne = true;
+          solo = null;
+          montrer('jeu');
+          $('aide').style.opacity = 1;
+          setTimeout(() => { $('aide').style.opacity = 0; }, 6000);
+          break;
+        case 'etat':
+          tampon.push({ recu: performance.now(), vue: lire(m.s) });
+          if (tampon.length > 40) tampon.shift();
+          if (m.e) evenements(m.e, true);
+          break;
+        case 'fin':
+          setTimeout(() => afficherFin(m.classement, true), 900);
+          break;
+        case 'erreur':
+          quitte = true;
+          retourAccueil(m.message);
+          break;
+      }
+    }
+
+    function majSalon() {
+      if (!salle) return;
+      const suisHote = salle.hote === moi;
+      $('joueurs').innerHTML = salle.joueurs.map(j => `
+        <li>
+          <i style="background:${echapper(j.couleur)}"></i>
+          <span class="nom">${echapper(j.nom)}</span>
+          ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
+          ${j.hote ? '<span class="tag">HÔTE</span>' : ''}
+          ${j.bot ? '<span class="tag">BOT</span>' : ''}
+          <span class="victoires">${j.victoires || 0} V</span>
+        </li>`).join('');
+      const humains = salle.joueurs.filter(j => !j.bot).length;
+      $('compteur').textContent = `${salle.joueurs.length} / ${salle.max} joueurs` + (humains < 2 ? ' · envoie le lien à tes potes' : '');
+      $('hote-zone').hidden = !suisHote;
+      $('attente').hidden = suisHote;
+      $('attente').textContent = salle.phase === 'salon' ? 'En attente de l’hôte…' : 'Partie en cours. Tu joues à la prochaine.';
+      $('plus-bot').disabled = salle.joueurs.length >= salle.max;
+      $('moins-bot').disabled = !salle.joueurs.some(j => j.bot);
+    }
+
+    /* ---------- Solo ---------- */
+
+    function lancerSolo() {
+      message('');
+      solo = partieLocale([{ id: 'moi', nom: pseudo(), couleur: M.COULEURS[0] }, ...bots(5, 1)]);
+      solo.annonce = false;
+      moi = 'moi';
+      equipe = solo.equipe;
+      spectateur = false;
+      enLigne = false;
+      traces.clear();
+      particules = [];
+      anneaux = [];
+      montrer('jeu');
+      $('aide').style.opacity = 1;
+      setTimeout(() => { $('aide').style.opacity = 0; }, 6000);
+    }
+
+    /* ---------- Résultats ---------- */
+
+    function afficherFin(classement, reseau) {
+      if (reseau && !enLigne) return;
+      const c = classement.find(x => x.id === moi);
+      const n = classement.length;
+      $('fin-titre').textContent = c ? (c.place === 1 ? 'Victoire.' : `${c.place}e sur ${n}`) : 'Partie terminée';
+      $('fin-sous').textContent = c
+        ? (c.place === 1 ? `Dernier curseur dans le cercle, après ${String(c.temps).replace('.', ',')} s.` : `Tu as tenu ${String(c.temps).replace('.', ',')} s.`)
+        : `Gagnant : ${classement[0] ? classement[0].nom : '?'}.`;
+      $('classement').innerHTML = classement.map(x => `
+        <li class="${x.id === moi ? 'moi' : ''}">
+          <span class="place">${x.place === 1 ? '1er' : x.place + 'e'}</span>
+          <i style="background:${echapper(x.couleur)}"></i>
+          <span>${echapper(x.nom)}${x.bot ? ' <span class="tag">BOT</span>' : ''}</span>
+          <span class="temps">${String(x.temps).replace('.', ',')} s</span>
+        </li>`).join('');
+      $('fin-actions').hidden = reseau;
+      $('fin-attente').hidden = !reseau;
+      if (reseau) {
+        let reste = 4;
+        $('fin-attente').textContent = `Retour au salon dans ${reste} s…`;
+        const iv = setInterval(() => {
+          reste--;
+          if (ecran !== 'fin' || reste <= 0) return clearInterval(iv);
+          $('fin-attente').textContent = `Retour au salon dans ${reste} s…`;
+        }, 1000);
+      }
+      montrer('fin');
+    }
+
+    /* ---------- Effets ---------- */
+
+    function eclats(x, y, couleur, n, vitesse, vie = 0.6) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, v = vitesse * (0.3 + Math.random() * 0.7);
+        particules.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vie: vie * (0.6 + Math.random() * 0.4), max: vie, couleur, taille: 2 + Math.random() * 3 });
+      }
+    }
+
+    function nomDe(id) { const j = equipe.get(id); return j ? j.nom : '?'; }
+
+    function annoncer(html, estMoi) {
+      const li = document.createElement('li');
+      li.innerHTML = html;
+      if (estMoi) li.className = 'moi';
+      const fil = $('fil');
+      fil.append(li);
+      while (fil.children.length > 4) fil.firstChild.remove();
+      setTimeout(() => { li.style.opacity = 0; setTimeout(() => li.remove(), 400); }, 3800);
+    }
+
+    function evenements(evts, visible) {
+      for (const ev of evts) {
+        switch (ev[0]) {
+          case 'boum': {
+            anneaux.push({ x: ev[1], y: ev[2], t: 0, duree: 0.42, max: M.BOMBE_RAYON });
+            eclats(ev[1], ev[2], '#ef4444', 18, 520, 0.55);
+            eclats(ev[1], ev[2], '#fafafa', 8, 380, 0.4);
+            if (visible) {
+              const j = vueActuelle && vueActuelle.joueurs.find(p => p.id === moi && p.vivant);
+              secousse = Math.max(secousse, j && Math.hypot(j.x - ev[1], j.y - ev[2]) < M.BOMBE_RAYON * 1.4 ? 12 : 5);
+            }
+            break;
+          }
+          case 'choc':
+            eclats(ev[1], ev[2], '#fafafa', 4 + ev[3] * 2, 300, 0.35);
+            if (visible && ev[3] >= 4) secousse = Math.max(secousse, 4);
+            break;
+          case 'sortie': {
+            const j = equipe.get(ev[1]);
+            eclats(ev[3], ev[4], j ? j.couleur : '#ffffff', 26, 420, 0.8);
+            if (visible) {
+              const estMoi = ev[1] === moi || ev[5] === moi;
+              const nom = `<b>${echapper(nomDe(ev[1]))}</b>`;
+              annoncer(ev[5] ? `<b>${echapper(nomDe(ev[5]))}</b> a éjecté ${nom}` : `${nom} est sorti du cercle`, estMoi);
+              if (ev[1] === moi) secousse = Math.max(secousse, 10);
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    /* ---------- Commandes ---------- */
+
+    function versMonde(x, y) {
+      return { x: (x - transfo.ox) / transfo.s, y: (y - transfo.oy) / transfo.s };
+    }
+
+    function foncer() {
+      if (ecran !== 'jeu' || spectateur) return;
+      if (solo) M.foncer(solo.e, 'moi');
+      else if (enLigne) envoyer('{"t":"fonce"}');
+    }
+
+    toile.addEventListener('pointermove', e => { souris.x = e.clientX; souris.y = e.clientY; souris.active = true; });
+    toile.addEventListener('pointerdown', e => {
+      souris.x = e.clientX; souris.y = e.clientY; souris.active = true;
+      if (e.pointerType === 'mouse' && e.button === 0) foncer();
+    });
+    window.addEventListener('keydown', e => {
+      if (e.code === 'Space' && ecran === 'jeu') { e.preventDefault(); if (!e.repeat) foncer(); }
+    });
+    $('btn-foncer').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); foncer(); });
+
+    // en ligne : on envoie la position visée 20 fois par seconde
+    let dernierEnvoi = '';
+    setInterval(() => {
+      if (!enLigne || ecran !== 'jeu' || !souris.active || spectateur) return;
+      const w = versMonde(souris.x, souris.y);
+      const msg = `{"t":"vise","x":${Math.round(w.x)},"y":${Math.round(w.y)}}`;
+      if (msg !== dernierEnvoi) { envoyer(msg); dernierEnvoi = msg; }
+    }, 50);
+
+    /* ---------- Boutons ---------- */
+
+    $('creer').addEventListener('click', () => connecter(nouveauCode()));
+    $('rejoindre').addEventListener('click', () => {
+      const code = $('code-saisi').value.trim().toUpperCase();
+      if (!/^[A-Z0-9]{4}$/.test(code)) { message('Le code fait 4 caractères (ex : K7QF).'); return; }
+      connecter(code);
+    });
+    $('code-saisi').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+    $('code-saisi').addEventListener('keydown', e => { if (e.key === 'Enter') $('rejoindre').click(); });
+    $('pseudo').addEventListener('change', pseudo);
+    $('solo').addEventListener('click', lancerSolo);
+    $('quitter').addEventListener('click', quitter);
+    $('lancer').addEventListener('click', () => envoyer({ t: 'lance' }));
+    $('plus-bot').addEventListener('click', () => envoyer({ t: 'bot', ajout: true }));
+    $('moins-bot').addEventListener('click', () => envoyer({ t: 'bot', ajout: false }));
+    $('rejouer').addEventListener('click', lancerSolo);
+    $('menu').addEventListener('click', () => retourAccueil(''));
+
+    $('copier').addEventListener('click', async e => {
+      const b = e.currentTarget;
+      try { await navigator.clipboard.writeText(lien(codeSalle)); b.textContent = 'Lien copié'; }
+      catch (err) { b.textContent = codeSalle; }
+      setTimeout(() => { b.textContent = 'Copier le lien'; }, 1600);
+    });
+    $('partager').addEventListener('click', async () => {
+      const donnees = { title: 'Le Cercle', text: `Rejoins ma partie du Cercle : code ${codeSalle}`, url: lien(codeSalle) };
+      if (navigator.share) { try { await navigator.share(donnees); } catch (e) { /* annulé */ } }
+      else $('copier').click();
+    });
+    if (!navigator.share) $('partager').hidden = true;
+
+    // lien d'invitation : games/cercle.html#K7QF
+    function lireInvitation() {
+      const code = location.hash.slice(1).toUpperCase();
+      if (/^[A-Z0-9]{4}$/.test(code) && ecran === 'accueil') {
+        $('code-saisi').value = code;
+        $('rejoindre').textContent = 'Rejoindre ' + code;
+        $('rejoindre').classList.add('primaire');
+        $('creer').classList.remove('primaire');
+      }
+    }
+    window.addEventListener('hashchange', lireInvitation);
+    lireInvitation();
+
+    /* ---------- Dessin ---------- */
+
+    let dpr = 1, W = 0, H = 0;
+    function redimensionner() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth; H = window.innerHeight;
+      toile.width = Math.round(W * dpr);
+      toile.height = Math.round(H * dpr);
+    }
+    window.addEventListener('resize', redimensionner);
+    redimensionner();
+
+    const vents = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), l: 30 + Math.random() * 80, v: 0.6 + Math.random() * 0.8 }));
+    const FLECHE = [[0, 0], [0, 17.5], [4.2, 13.6], [7.2, 20.4], [10.2, 19.1], [7.3, 12.4], [12.6, 12.4]];
+    let vueActuelle = null;
+
+    function dessiner(v, dt, plein) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      if (!v) return;
+
+      // caméra : suit le cercle et zoome quand il rétrécit
+      const marge = W < H ? 70 : 200;
+      const cible = plein ? { x: M.CENTRE, y: M.CENTRE, v: M.TAILLE } : { x: v.cx, y: v.cy, v: Math.max(W < H ? 420 : 560, Math.min(M.TAILLE, 2 * v.r + marge)) };
+      const k = 1 - Math.exp(-dt * 2.2);
+      camera.x += (cible.x - camera.x) * k;
+      camera.y += (cible.y - camera.y) * k;
+      camera.v += (cible.v - camera.v) * k;
+
+      const s = Math.min(W, H) / camera.v;
+      let ox = W / 2 - camera.x * s, oy = H / 2 - camera.y * s;
+      transfo.s = s; transfo.ox = ox; transfo.oy = oy;
+      if (secousse > 0.2) {
+        ox += (Math.random() - 0.5) * secousse;
+        oy += (Math.random() - 0.5) * secousse;
+        secousse *= Math.exp(-dt * 9);
+      } else secousse = 0;
+
+      const x0 = -ox / s, y0 = -oy / s, x1 = (W - ox) / s, y1 = (H - oy) / s;
+      const px = 1 / s;
+
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(s, s);
+
+      // zone dangereuse : rayures rouges très sombres
+      ctx.strokeStyle = 'rgba(239, 68, 68, .07)';
+      ctx.lineWidth = 6 * px;
+      ctx.beginPath();
+      const pas = 34;
+      for (let d = Math.floor((x0 + y0) / pas) * pas; d < x1 + y1; d += pas) { ctx.moveTo(d - y0, y0); ctx.lineTo(d - y1, y1); }
+      ctx.stroke();
+
+      // intérieur du cercle
+      ctx.beginPath();
+      ctx.arc(v.cx, v.cy, Math.max(0, v.r), 0, Math.PI * 2);
+      const fond = ctx.createRadialGradient(v.cx, v.cy, 0, v.cx, v.cy, Math.max(1, v.r));
+      fond.addColorStop(0, '#0d0d0d');
+      fond.addColorStop(1, '#060606');
+      ctx.fillStyle = fond;
+      ctx.fill();
+
+      // grille de points
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = 'rgba(255, 255, 255, .07)';
+      const g = 50, t = 2.2 * px;
+      for (let x = Math.floor(x0 / g) * g; x < x1; x += g) for (let y = Math.floor(y0 / g) * g; y < y1; y += g) ctx.fillRect(x - t / 2, y - t / 2, t, t);
+      ctx.restore();
+
+      // bord du cercle
+      ctx.beginPath();
+      ctx.arc(v.cx, v.cy, Math.max(0, v.r), 0, Math.PI * 2);
+      ctx.lineWidth = 2.5 * px;
+      ctx.strokeStyle = '#fafafa';
+      ctx.shadowColor = 'rgba(255, 255, 255, .55)';
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // tourbillon
+      if (v.tb) {
+        const w = v.tb;
+        if (w.alerte) {
+          ctx.setLineDash([10 * px, 10 * px]);
+          ctx.lineWidth = 2 * px;
+          ctx.strokeStyle = `rgba(34, 211, 238, ${0.25 + 0.25 * Math.sin(horloge * 10)})`;
+          ctx.beginPath(); ctx.arc(w.x, w.y, M.TOURBILLON_RAYON, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+        } else {
+          const halo = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, M.TOURBILLON_RAYON);
+          halo.addColorStop(0, `rgba(34, 211, 238, ${0.18 * w.i})`);
+          halo.addColorStop(1, 'rgba(34, 211, 238, 0)');
+          ctx.fillStyle = halo;
+          ctx.beginPath(); ctx.arc(w.x, w.y, M.TOURBILLON_RAYON, 0, Math.PI * 2); ctx.fill();
+          const rot = horloge * 2.6 * w.sens;
+          ctx.lineWidth = 3 * px;
+          for (let bras = 0; bras < 5; bras++) {
+            ctx.beginPath();
+            for (let a = 0; a <= 1.0001; a += 0.05) {
+              const rr = (1 - a) * M.TOURBILLON_RAYON;
+              const ang = rot + bras * Math.PI * 2 / 5 + a * 2.4 * w.sens;
+              const px2 = w.x + Math.cos(ang) * rr, py2 = w.y + Math.sin(ang) * rr;
+              a === 0 ? ctx.moveTo(px2, py2) : ctx.lineTo(px2, py2);
+            }
+            ctx.strokeStyle = `rgba(103, 232, 249, ${0.35 * w.i})`;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // bombes
+      for (const b of v.bombes) {
+        const p = Math.max(0, b.meche / M.BOMBE_MECHE);
+        ctx.beginPath(); ctx.arc(b.x, b.y, M.BOMBE_RAYON, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(239, 68, 68, ${0.03 + 0.07 * (1 - p)})`;
+        ctx.fill();
+        ctx.setLineDash([8 * px, 8 * px]);
+        ctx.lineWidth = 1.5 * px;
+        ctx.strokeStyle = `rgba(239, 68, 68, ${0.18 + 0.4 * (1 - p)})`;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        const clign = p < 0.35 && Math.sin(horloge * 34) > 0;
+        ctx.beginPath(); ctx.arc(b.x, b.y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = clign ? '#ef4444' : '#151515';
+        ctx.fill();
+        ctx.lineWidth = 2 * px;
+        ctx.strokeStyle = '#ef4444';
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(b.x, b.y, 21, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2);
+        ctx.lineWidth = 3 * px;
+        ctx.stroke();
+      }
+
+      // anneaux d'explosion
+      anneaux = anneaux.filter(a => (a.t += dt) < a.duree);
+      for (const a of anneaux) {
+        const q = a.t / a.duree;
+        ctx.beginPath(); ctx.arc(a.x, a.y, a.max * (0.15 + 0.85 * Math.sqrt(q)), 0, Math.PI * 2);
+        ctx.lineWidth = (10 * (1 - q) + 1) * px;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * (1 - q)})`;
+        ctx.stroke();
+        if (q < 0.3) { ctx.fillStyle = `rgba(255, 120, 80, ${0.25 * (1 - q / 0.3)})`; ctx.fill(); }
+      }
+
+      // joueurs
+      const taille = Math.max(26, 18 * px);
+      for (const j of v.joueurs) {
+        const info = equipe.get(j.id) || { couleur: '#ffffff', nom: '?' };
+        let hist = traces.get(j.id);
+        if (!hist) traces.set(j.id, hist = []);
+        if (!j.vivant) { hist.length = 0; continue; }
+        hist.push({ x: j.x, y: j.y, d: j.dash || j.choc });
+        if (hist.length > 9) hist.shift();
+
+        // traînée quand ça fonce ou quand on se fait pousser
+        if (hist.some(h => h.d)) {
+          ctx.lineCap = 'round';
+          for (let i = 1; i < hist.length; i++) {
+            ctx.beginPath();
+            ctx.moveTo(hist[i - 1].x, hist[i - 1].y);
+            ctx.lineTo(hist[i].x, hist[i].y);
+            ctx.lineWidth = 1.5 + i * 1.3;
+            ctx.strokeStyle = info.couleur + Math.round(20 + i * 12).toString(16).padStart(2, '0');
+            ctx.stroke();
+          }
+        }
+
+        // pare-chocs (la zone qui touche les autres)
+        ctx.beginPath(); ctx.arc(j.x, j.y, M.RAYON_JOUEUR, 0, Math.PI * 2);
+        ctx.fillStyle = info.couleur + '22';
+        ctx.fill();
+        ctx.lineWidth = 1.5 * px;
+        ctx.strokeStyle = info.couleur + (j.id === moi ? 'ff' : '88');
+        ctx.stroke();
+
+        // recharge du « foncer » (seulement pour toi)
+        if (j.id === moi) {
+          const p = 1 - Math.min(1, j.cd / M.DASH_RECHARGE);
+          ctx.beginPath(); ctx.arc(j.x, j.y, M.RAYON_JOUEUR + 6 * px + 3, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2);
+          ctx.lineWidth = 2.5 * px;
+          ctx.strokeStyle = p >= 1 ? 'rgba(255, 255, 255, .85)' : 'rgba(255, 255, 255, .3)';
+          ctx.stroke();
+        }
+
+        // le curseur
+        const kf = taille / 20;
+        ctx.beginPath();
+        FLECHE.forEach(([a, b], i) => i ? ctx.lineTo(j.x + a * kf, j.y + b * kf) : ctx.moveTo(j.x + a * kf, j.y + b * kf));
+        ctx.closePath();
+        ctx.fillStyle = j.choc ? '#ffffff' : info.couleur;
+        ctx.fill();
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1.6 * px;
+        ctx.strokeStyle = '#000';
+        ctx.stroke();
+
+        // nom
+        ctx.font = `${j.id === moi ? 600 : 500} ${11 * px}px ${POLICE}`;
+        ctx.fillStyle = j.id === moi ? '#ffffff' : info.bot ? '#8a8a8a' : '#c4c4c4';
+        ctx.textBaseline = 'top';
+        ctx.fillText(j.id === moi ? (info.nom + ' (toi)') : info.nom, j.x + taille * 0.7, j.y + taille * 1.02);
+      }
+
+      // particules
+      particules = particules.filter(p => (p.vie -= dt) > 0);
+      for (const p of particules) {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.vx *= Math.exp(-dt * 4); p.vy *= Math.exp(-dt * 4);
+        ctx.globalAlpha = Math.max(0, p.vie / p.max);
+        ctx.fillStyle = p.couleur;
+        ctx.fillRect(p.x - p.taille / 2, p.y - p.taille / 2, p.taille, p.taille);
+      }
+      ctx.globalAlpha = 1;
+
+      // ta visée (là où est ta souris)
+      if (!plein && souris.active && !TACTILE && moi && !spectateur) {
+        const w = versMonde(souris.x, souris.y);
+        ctx.lineWidth = 1.5 * px;
+        ctx.strokeStyle = 'rgba(255, 255, 255, .45)';
+        ctx.beginPath();
+        ctx.moveTo(w.x - 7 * px, w.y); ctx.lineTo(w.x + 7 * px, w.y);
+        ctx.moveTo(w.x, w.y - 7 * px); ctx.lineTo(w.x, w.y + 7 * px);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // vent (en coordonnées écran)
+      if (v.vent && v.vent.i > 0) {
+        const { dx, dy, i } = v.vent;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 1.5;
+        for (const f of vents) {
+          f.x += dx * f.v * (0.35 + 0.65 * i) * dt * 1.4 * (H / W > 1 ? 1 : H / W);
+          f.y += dy * f.v * (0.35 + 0.65 * i) * dt * 1.4;
+          f.x = (f.x + 1.2) % 1.2; f.y = (f.y + 1.2) % 1.2;
+          const sx = (f.x - 0.1) * W, sy = (f.y - 0.1) * H;
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 + 0.18 * i})`;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx - dx * f.l * i, sy - dy * f.l * i);
+          ctx.stroke();
+        }
+      }
+    }
+
+    /* ---------- Interface pendant la partie ---------- */
+
+    const flecheSvg = a => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${a}rad)"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+    let dernierHud = '';
+
+    function majHud(v) {
+      if (!v) return;
+      const total = v.joueurs.length;
+      const vivants = v.joueurs.filter(j => j.vivant).length;
+      const t = Math.max(0, v.t);
+      const chrono = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+      let alerte = '', classe = '';
+      if (v.tb && v.tb.alerte) { alerte = 'TOURBILLON'; classe = 'tourbillon'; }
+      else if (v.tb) { alerte = 'TOURBILLON'; classe = 'tourbillon actif'; }
+      if (v.vent) { alerte = flecheSvg(Math.atan2(v.vent.dy, v.vent.dx)) + 'VENT'; classe = v.vent.alerte ? '' : 'actif'; }
+      const j = v.joueurs.find(p => p.id === moi);
+      let statut = '';
+      if (spectateur) statut = 'Partie en cours · tu joues à la prochaine';
+      else if (j && !j.vivant && ecran === 'jeu') statut = `<b>Éliminé</b> · tu regardes la fin de la partie`;
+      const dec = v.t < 0 ? String(Math.ceil(-v.t)) : v.t < 0.7 ? 'GO' : '';
+      const cle = [vivants, total, chrono, alerte, classe, statut, dec].join('|');
+      if (cle !== dernierHud) {
+        dernierHud = cle;
+        $('nb-vivants').textContent = `${vivants}/${total}`;
+        $('chrono').textContent = chrono;
+        const al = $('alerte');
+        al.hidden = !alerte;
+        al.className = 'pilule alerte ' + classe;
+        al.innerHTML = alerte;
+        $('statut').hidden = !statut;
+        $('statut').innerHTML = statut;
+        const d = $('decompte');
+        d.hidden = !dec || ecran !== 'jeu';
+        d.textContent = dec;
+        d.classList.toggle('go', dec === 'GO');
+      }
+      const bouton = $('btn-foncer');
+      const montrerBouton = TACTILE && ecran === 'jeu' && j && j.vivant && !spectateur;
+      bouton.hidden = !montrerBouton;
+      if (montrerBouton) {
+        const p = 1 - Math.min(1, j.cd / M.DASH_RECHARGE);
+        bouton.style.setProperty('--p', p.toFixed(3));
+        bouton.classList.toggle('pret', p >= 1);
+      }
+    }
+
+    /* ---------- Boucle principale ---------- */
+
+    let avant = performance.now();
+    let finDemo = 0;
+
+    function boucle(maintenant) {
+      const dt = Math.min(0.05, (maintenant - avant) / 1000);
+      avant = maintenant;
+      horloge += dt;
+      let v = null, plein = false;
+
+      if (ecran === 'jeu' || ecran === 'fin') {
+        if (solo) {
+          if (souris.active) { const w = versMonde(souris.x, souris.y); M.viser(solo.e, 'moi', w.x, w.y); }
+          evenements(solo.avancer(dt), true);
+          v = solo.vue();
+          if (solo.e.fini && !solo.annonce) {
+            solo.annonce = true;
+            const classement = solo.e.classement;
+            setTimeout(() => { if (solo && ecran === 'jeu') afficherFin(classement, false); }, 1100);
+          }
+        } else if (enLigne) {
+          v = vueReseau();
+        }
+      } else {
+        if (!demo || (demo.e.fini && (finDemo += dt) > 2)) {
+          demo = partieLocale(bots(7));
+          finDemo = 0;
+        }
+        const sauve = equipe;
+        equipe = demo.equipe;
+        evenements(demo.avancer(dt), false);
+        v = demo.vue();
+        plein = true;
+        vueActuelle = v;
+        ctx.globalAlpha = 1;
+        dessiner(v, dt, true);
+        // assombrir le fond derrière les menus
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(0, 0, 0, .45)';
+        ctx.fillRect(0, 0, toile.width, toile.height);
+        equipe = sauve;
+        requestAnimationFrame(boucle);
+        return;
+      }
+
+      vueActuelle = v;
+      dessiner(v, dt, plein);
+      majHud(v);
+      requestAnimationFrame(boucle);
+    }
+
+    requestAnimationFrame(boucle);
+    verifierServeur();
+  </script>
+</body>
+</html>

@@ -24,8 +24,10 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `.pages.yml` | Les réglages de l'éditeur Pages CMS |
 | `_config.yml`, `posts.json` | La « mécanique » du blog (pas besoin d'y toucher) |
 | `CNAME` | Le nom de domaine du site (à changer si tu prends une autre extension que `.com`) |
+| `serveur/`, `wrangler.jsonc`, `package.json` | Le serveur des jeux multijoueurs (il tourne chez Cloudflare, voir étape 7) |
+| `games/cercle/moteur.js` | Les règles du Cercle, utilisées à la fois par le mode solo et par le serveur |
 
-Les jeux : Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
+Les jeux : Le Cercle (multijoueur), Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
 
 ---
 
@@ -116,6 +118,22 @@ Astuce : dans un article, un lien vers `/#jeu/meteorites` ouvre directement le j
 
 Sur GitHub, tu peux modifier n'importe quel fichier directement : ouvre-le, clique sur l'icône crayon, puis **Commit changes**.
 
+## 7. Activer le multijoueur (Le Cercle)
+
+Le mode solo contre des bots marche tout de suite. Pour jouer en ligne avec tes potes, il faut allumer le petit serveur chez Cloudflare (gratuit). À faire une seule fois :
+
+1. Sur [dash.cloudflare.com](https://dash.cloudflare.com), va dans **Workers & Pages**, puis **Create application**.
+2. À côté de **Import a repository**, clique **Get started**. Connecte ton compte GitHub et choisis le dépôt `dinosaurrr`.
+3. Laisse les réglages par défaut (nom `dinosaurrr`, pas de commande de build, commande de déploiement `npx wrangler deploy`) et clique **Save and Deploy**.
+4. Quand c'est fini, ouvre le Worker `dinosaurrr` → **Settings** → **Domains & Routes** → **Add** → **Custom domain**, et écris `multi.dinosaurrr.com`.
+5. Ouvre `https://multi.dinosaurrr.com` : la page doit dire « Serveur de jeux dinosaurrr : en ligne. ». Dans Le Cercle, le point en bas de l'accueil devient vert.
+
+Ensuite, chaque modification envoyée sur GitHub met aussi le serveur à jour tout seul.
+
+- **Inviter des potes** : crée une partie, puis « Copier le lien ». Le lien ressemble à `dinosaurrr.com/#jeu/cercle/K7QF`.
+- **Gratuit** : l'offre gratuite de Cloudflare permet 100 000 requêtes par jour, largement assez pour des dizaines de parties par jour.
+- **Pas de chat** : exprès. Les parties sont privées (code à 4 caractères) et on ne voit que les pseudos.
+
 ## Si quelque chose ne marche pas
 
 - **Le site ne change pas** : attends 2 minutes puis recharge avec **Ctrl + F5** (ou **Cmd + Maj + R** sur Mac).
@@ -123,6 +141,7 @@ Sur GitHub, tu peux modifier n'importe quel fichier directement : ouvre-le, cliq
 - **Le domaine ne s'affiche pas** : les changements DNS peuvent prendre jusqu'à 24 h. Vérifie qu'il ne reste pas d'ancien A/AAAA.
 - **« Enforce HTTPS » est grisé** : c'est normal au début, GitHub prépare le certificat. Réessaie plus tard.
 - **Les mails n'arrivent pas** : vérifie que seuls les MX d'Apple sont présents.
+- **Le Cercle dit « Serveur hors ligne »** : vérifie l'étape 7 (le domaine `multi.dinosaurrr.com` doit être ajouté au Worker). Dans Cloudflare, l'onglet **Deployments** du Worker montre si le dernier envoi a marché.
 
 ---
 

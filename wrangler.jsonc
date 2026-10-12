@@ -1,0 +1,14 @@
+// Réglages du serveur de jeux multijoueurs (Cloudflare Workers)
+// Le code est dans serveur/index.js. Cloudflare le met en ligne tout seul
+// à chaque modification sur GitHub (Workers Builds).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dinosaurrr",
+  "main": "serveur/index.js",
+  "compatibility_date": "2025-10-01",
+  "durable_objects": {
+    "bindings": [{ "name": "SALLES", "class_name": "Salle" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Salle"] }],
+  "observability": { "enabled": true }
+}
