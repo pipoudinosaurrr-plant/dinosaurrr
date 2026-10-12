@@ -1,0 +1,15 @@
+---
+layout: null
+---
+[
+{% for post in site.posts %}{% assign mots = post.content | strip_html | number_of_words %}  {
+    "title": {{ post.title | jsonify }},
+    "date": {{ post.date | date: "%Y-%m-%d" | jsonify }},
+    "url": {{ post.url | relative_url | jsonify }},
+    "categorie": {{ post.categorie | default: "" | jsonify }},
+    "resume": {% if post.resume %}{{ post.resume | jsonify }}{% else %}{{ post.excerpt | strip_html | strip_newlines | truncate: 170 | jsonify }}{% endif %},
+    "minutes": {{ mots | divided_by: 200 | plus: 1 }},
+    "cover": {% if post.cover %}{{ post.cover | relative_url | jsonify }}{% else %}null{% endif %},
+    "content": {{ post.content | jsonify }}
+  }{% unless forloop.last %},{% endunless %}
+{% endfor %}]

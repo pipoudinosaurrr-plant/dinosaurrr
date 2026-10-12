@@ -1,0 +1,24 @@
+# Réglages Jekyll (le moteur de GitHub Pages qui fabrique le blog)
+title: dinosaurrr
+description: Le site de pipou_dinosaurrr — mini-jeux faits maison et blog.
+lang: fr
+url: "https://dinosaurrr.com"
+timezone: Europe/Brussels
+
+# Adresse des articles : dinosaurrr.com/blog/2026/10/12/titre-de-l-article/
+permalink: /blog/:year/:month/:day/:title/
+
+markdown: kramdown
+
+# Tous les articles utilisent la mise en page _layouts/post.html
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
+
+# Fichiers à ne pas publier
+exclude:
+  - LISEZ-MOI.md
+  - README.md

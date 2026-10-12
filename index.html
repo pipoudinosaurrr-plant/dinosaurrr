@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>dinosaurrr</title>
+  <meta name="description" content="Blog et mini-jeux faits maison. Pas de pub, pas de compte à créer.">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:title" content="dinosaurrr">
+  <meta property="og:description" content="Blog et mini-jeux faits maison.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="assets/os.css">
+</head>
+<body>
+
+  <!-- Écran de démarrage -->
+  <div id="boot" aria-hidden="true">
+    <div class="boot-centre">
+      <img class="boot-logo" src="assets/favicon.svg" alt="">
+      <div class="boot-nom" data-nom-site>dinosaurrr</div>
+      <div class="boot-barre"><i></i></div>
+    </div>
+    <div class="boot-pied">© 2026 <span data-nom-site>dinosaurrr</span></div>
+  </div>
+
+  <!-- Le site se construit ici (bureau sur ordinateur, appli sur téléphone) -->
+  <div id="app"></div>
+
+  <noscript>
+    <div style="position:fixed;inset:0;display:grid;place-items:center;background:#000;color:#ededed;font:15px system-ui,sans-serif;text-align:center;padding:24px;z-index:20000">
+      Ce site a besoin de JavaScript. Les articles restent lisibles sur <a href="blog/" style="color:#fff">la page du blog</a>.
+    </div>
+  </noscript>
+
+  <script src="assets/config.js"></script>
+  <script src="assets/icones.js"></script>
+  <script src="assets/jeux.js"></script>
+  <script src="assets/os.js"></script>
+</body>
+</html>
