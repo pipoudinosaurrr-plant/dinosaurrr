@@ -1,0 +1,125 @@
+/* Style commun à tous les jeux du site — thème noir */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+:root {
+  --fond: #000;
+  --panneau: #0b0b0b;
+  --panneau2: #121212;
+  --panneau3: #181818;
+  --bord: #1f1f1f;
+  --bord2: #2a2a2a;
+  --bord3: #3a3a3a;
+  --texte: #ededed;
+  --doux: #a1a1a1;
+  --tres-doux: #6b6b6b;
+  --accent: #22c55e;
+  --accent-clair: #4ade80;
+  --accent-fond: rgba(34, 197, 94, .1);
+  --danger: #ef4444;
+  --police: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* anciens noms, gardés pour les jeux que tu crées à partir du modèle */
+  --vert: var(--accent);
+  --rouge: var(--danger);
+  --jaune: #fafafa;
+  --violet: var(--doux);
+  --pixel: var(--police);
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+html { background: var(--fond); }
+
+body {
+  background: var(--fond);
+  color: var(--texte);
+  font: 14px/1.5 var(--police);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3 { margin: 0 0 .4em; font-family: var(--police); font-weight: 700; letter-spacing: -.03em; }
+h1 { font-size: 28px; line-height: 1.1; }
+h2 { font-size: 20px; }
+p { margin: 0 0 .8em; }
+
+.doux { color: var(--doux); }
+.mono { font-family: var(--mono); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--bord2);
+  border-radius: 9px;
+  background: var(--panneau2);
+  color: var(--texte);
+  font: 500 13.5px var(--police);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+
+.btn:hover { background: var(--panneau3); border-color: var(--bord3); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.btn svg { width: 16px; height: 16px; }
+.btn.primaire, .btn.vert { background: #fafafa; border-color: #fafafa; color: #000; }
+.btn.primaire:hover, .btn.vert:hover { background: #fff; border-color: #fff; }
+.btn.rouge { background: transparent; border-color: rgba(239, 68, 68, .4); color: #f87171; }
+.btn.rouge:hover { background: rgba(239, 68, 68, .1); }
+.btn.petit { height: 30px; padding: 0 11px; font-size: 12px; border-radius: 8px; }
+
+.panneau { padding: 14px; border: 1px solid var(--bord); border-radius: 12px; background: var(--panneau); }
+
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--bord2);
+  border-radius: 999px;
+  color: var(--doux);
+  font: 500 10.5px var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+input[type="text"] {
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--bord2);
+  border-radius: 10px;
+  background: var(--panneau);
+  color: var(--texte);
+  font: 16px var(--police);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+input[type="text"]::placeholder { color: var(--tres-doux); }
+input[type="text"]:focus { border-color: var(--bord3); box-shadow: 0 0 0 3px rgba(255, 255, 255, .06); }
+
+.centre { display: grid; place-items: center; text-align: center; }
+
+kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--bord2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--panneau2);
+  font: 12px var(--mono);
+}
+
+::selection { background: rgba(34, 197, 94, .3); }

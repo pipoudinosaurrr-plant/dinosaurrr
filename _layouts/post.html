@@ -1,0 +1,19 @@
+---
+layout: base
+---
+{% assign mots = content | strip_html | number_of_words %}
+<article class="article">
+  <header class="article-tete">
+    {% if page.categorie %}<span class="pastille">{{ page.categorie }}</span>{% endif %}
+    <h1>{{ page.title }}</h1>
+    <div class="meta"><span>{{ page.date | date: "%d/%m/%Y" }}</span><span>{{ mots | divided_by: 200 | plus: 1 }} min de lecture</span></div>
+  </header>
+  {% if page.cover %}<img class="couverture" src="{{ page.cover | relative_url }}" alt="">{% endif %}
+  <div class="prose">
+    {{ content }}
+  </div>
+  <footer class="article-actions">
+    <a class="btn" href="{{ '/blog/' | relative_url }}">← Tous les articles</a>
+    <a class="btn btn-primaire" href="{{ '/#article/' | relative_url }}{{ page.url | relative_url | url_encode }}">Ouvrir dans le site</a>
+  </footer>
+</article>

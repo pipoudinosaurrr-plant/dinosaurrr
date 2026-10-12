@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paint</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ---------- Barre d'outils ---------- */
+
+    .barre {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--bord);
+      background: var(--panneau);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .barre::-webkit-scrollbar { display: none; }
+
+    .groupe { display: flex; flex: none; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--bord); border-radius: 10px; background: #070707; }
+
+    .outil {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 0;
+      border-radius: 7px;
+      background: none;
+      color: var(--doux);
+      cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .outil svg { width: 17px; height: 17px; }
+    .outil:hover { background: var(--panneau3); color: var(--texte); }
+    .outil[aria-pressed="true"] { background: #fafafa; color: #000; }
+    .outil.bascule[aria-pressed="true"] { background: var(--accent-fond); color: var(--accent-clair); box-shadow: inset 0 0 0 1px rgba(34, 197, 94, .35); }
+
+    .reglage { display: flex; flex: none; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border: 1px solid var(--bord); border-radius: 10px; background: #070707; color: var(--tres-doux); font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .reglage output { min-width: 34px; color: var(--texte); font: 500 12px var(--mono); letter-spacing: 0; text-align: right; }
+
+    input[type="range"] { width: 96px; height: 4px; margin: 0; border-radius: 4px; background: #262626; -webkit-appearance: none; appearance: none; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fafafa; -webkit-appearance: none; appearance: none; }
+    input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fafafa; }
+
+    .espace { flex: 1; }
+
+    /* ---------- Feuille ---------- */
+
+    .scene {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      padding: 12px;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .07) 1px, transparent 0) 0 0 / 18px 18px,
+        #050505;
+    }
+
+    .feuille {
+      position: relative;
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 24px 60px -20px rgba(0, 0, 0, .9);
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .feuille canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border-radius: 4px; }
+    #toile { background: #fff; }
+    #calque { pointer-events: none; }
+
+    .indice {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #c4c4c4;
+      font: 500 12px var(--mono);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    /* ---------- Bas ---------- */
+
+    .bas {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px;
+      border-top: 1px solid var(--bord);
+      background: var(--panneau);
+    }
+
+    .couleur-active {
+      position: relative;
+      flex: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      box-shadow: 0 0 0 1px var(--bord3), inset 0 0 0 1px rgba(0, 0, 0, .25);
+    }
+    .couleur-active input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+    .hex { flex: none; width: 66px; color: var(--doux); font: 500 12px var(--mono); text-transform: uppercase; }
+
+    .palette { display: grid; grid-template-columns: repeat(10, 20px); gap: 4px; flex: none; }
+    .palette button {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 0;
+      border-radius: 5px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1);
+      cursor: pointer;
+      transition: transform .1s;
+    }
+    .palette button:hover { transform: scale(1.12); }
+    .palette button.choisie { box-shadow: 0 0 0 2px #000, 0 0 0 3px #fafafa; }
+
+    .etat { margin-left: auto; color: var(--tres-doux); font: 500 11px var(--mono); white-space: nowrap; }
+
+    @media (max-width: 620px) {
+      .barre { flex-wrap: wrap; justify-content: center; overflow: visible; }
+      .espace { display: none; }
+      .etat, .hex { display: none; }
+      .bas { justify-content: center; }
+      input[type="range"] { width: 72px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="barre" role="toolbar" aria-label="Outils">
+    <div class="groupe">
+      <button class="outil" data-outil="pinceau" title="Pinceau (B)" aria-label="Pinceau" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4.5-1L19.3 8.2a2.1 2.1 0 0 0-3-3L5.5 16 4 20z"/><path d="M14.5 7l2.5 2.5"/></svg>
+      </button>
+      <button class="outil" data-outil="gomme" title="Gomme (E)" aria-label="Gomme" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21l-4.3-4.3a2.4 2.4 0 0 1 0-3.4l9.6-9.6a2.4 2.4 0 0 1 3.4 0l5.6 5.6a2.4 2.4 0 0 1 0 3.4L13 21"/><path d="M22 21H7"/><path d="M5 11l9 9"/></svg>
+      </button>
+      <button class="outil" data-outil="seau" title="Pot de peinture (F)" aria-label="Pot de peinture" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11l-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2a2 2 0 0 0 2.8 0L19 11z"/><path d="M5 2l5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4z"/></svg>
+      </button>
+      <button class="outil" data-outil="pipette" title="Pipette (I)" aria-label="Pipette" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22l1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3L15 6z"/></svg>
+      </button>
+    </div>
+
+    <div class="groupe">
+      <button class="outil" data-outil="ligne" title="Ligne (L) · Maj = 45°" aria-label="Ligne" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 19L19 5"/></svg>
+      </button>
+      <button class="outil" data-outil="rectangle" title="Rectangle (R) · Maj = carré" aria-label="Rectangle" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg>
+      </button>
+      <button class="outil" data-outil="ellipse" title="Ellipse (O) · Maj = cercle" aria-label="Ellipse" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg>
+      </button>
+      <button class="outil bascule" id="plein" title="Formes pleines" aria-label="Formes pleines" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="5" y="5" width="14" height="14" rx="2.5" fill="currentColor" fill-opacity=".35"/></svg>
+      </button>
+    </div>
+
+    <label class="reglage">Taille <input type="range" id="taille" min="1" max="60" value="8"> <output id="valeur-taille">8 px</output></label>
+
+    <div class="espace"></div>
+
+    <div class="groupe">
+      <button class="outil" id="annuler" title="Annuler (Ctrl+Z)" aria-label="Annuler">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button class="outil" id="effacer" title="Tout effacer" aria-label="Tout effacer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+      <button class="outil" id="enregistrer" title="Enregistrer en PNG" aria-label="Enregistrer en PNG">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="scene" id="scene">
+    <div class="feuille" id="feuille">
+      <canvas id="toile" width="960" height="600" aria-label="Zone de dessin"></canvas>
+      <canvas id="calque" width="960" height="600" aria-hidden="true"></canvas>
+      <div class="indice" id="indice">Dessine ici</div>
+    </div>
+  </div>
+
+  <div class="bas">
+    <div class="couleur-active" id="apercu" title="Couleur personnalisée">
+      <input type="color" id="perso" value="#111111" aria-label="Couleur personnalisée">
+    </div>
+    <span class="hex" id="hex">#111111</span>
+    <div class="palette" id="palette"></div>
+    <span class="etat" id="etat">Pinceau · 8 px</span>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  const toile = document.getElementById('toile');
+  const calque = document.getElementById('calque');
+  const feuille = document.getElementById('feuille');
+  const ctx = toile.getContext('2d', { willReadFrequently: true });
+  const cq = calque.getContext('2d');
+
+  const COULEURS = ['#111111', '#525252', '#a3a3a3', '#ffffff', '#ef4444', '#f97316', '#facc15', '#22c55e', '#06b6d4', '#3b82f6',
+                    '#262626', '#737373', '#d4d4d4', '#fde68a', '#991b1b', '#c2410c', '#a16207', '#15803d', '#0e7490', '#6366f1'];
+  const NOMS = { pinceau: 'Pinceau', gomme: 'Gomme', seau: 'Pot de peinture', pipette: 'Pipette', ligne: 'Ligne', rectangle: 'Rectangle', ellipse: 'Ellipse' };
+  const FORMES = ['ligne', 'rectangle', 'ellipse'];
+
+  let outil = 'pinceau';
+  let outilPrecedent = 'pinceau';
+  let couleur = '#111111';
+  let taille = 8;
+  let plein = false;
+  let dessine = false;
+  let dernier = null;
+  let depart = null;
+  const historique = [];
+
+  const $ = id => document.getElementById(id);
+
+  function remplirBlanc() {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, toile.width, toile.height);
+  }
+
+  function memoriser() {
+    historique.push(ctx.getImageData(0, 0, toile.width, toile.height));
+    if (historique.length > 30) historique.shift();
+  }
+
+  function annuler() {
+    const image = historique.pop();
+    if (image) ctx.putImageData(image, 0, 0);
+  }
+
+  function position(e) {
+    const r = toile.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * toile.width / r.width,
+      y: (e.clientY - r.top) * toile.height / r.height
+    };
+  }
+
+  function majEtat(p) {
+    let texte = NOMS[outil];
+    if (outil !== 'seau' && outil !== 'pipette') texte += ` · ${taille} px`;
+    if (p) texte += ` · ${Math.round(p.x)}, ${Math.round(p.y)}`;
+    $('etat').textContent = texte;
+  }
+
+  function choisirOutil(nom) {
+    if (nom !== 'pipette') outilPrecedent = nom;
+    outil = nom;
+    document.querySelectorAll('[data-outil]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.outil === nom)));
+    feuille.style.cursor = nom === 'seau' ? 'cell' : nom === 'pipette' ? 'copy' : 'crosshair';
+    majEtat();
+  }
+
+  function choisirCouleur(c) {
+    couleur = c.toLowerCase();
+    $('apercu').style.background = couleur;
+    $('perso').value = couleur;
+    $('hex').textContent = couleur;
+    document.querySelectorAll('#palette button').forEach(b => b.classList.toggle('choisie', b.dataset.c === couleur));
+  }
+
+  /* ---------- Pinceau et gomme ---------- */
+
+  function preparer(c, contexte) {
+    contexte.strokeStyle = c;
+    contexte.fillStyle = c;
+    contexte.lineWidth = taille;
+    contexte.lineCap = 'round';
+    contexte.lineJoin = 'round';
+  }
+
+  function trait(a, b) {
+    preparer(outil === 'gomme' ? '#ffffff' : couleur, ctx);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  /* ---------- Formes ---------- */
+
+  function contraindre(a, b, maj) {
+    if (!maj) return b;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    if (outil === 'ligne') {
+      const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * (Math.PI / 4);
+      const d = Math.hypot(dx, dy);
+      return { x: a.x + Math.cos(angle) * d, y: a.y + Math.sin(angle) * d };
+    }
+    const c = Math.max(Math.abs(dx), Math.abs(dy));
+    return { x: a.x + Math.sign(dx || 1) * c, y: a.y + Math.sign(dy || 1) * c };
+  }
+
+  function forme(contexte, a, b) {
+    preparer(couleur, contexte);
+    contexte.beginPath();
+    if (outil === 'ligne') {
+      contexte.moveTo(a.x, a.y);
+      contexte.lineTo(b.x, b.y);
+      contexte.stroke();
+      return;
+    }
+    const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+    const w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+    if (outil === 'rectangle') contexte.rect(x, y, w, h);
+    else contexte.ellipse(x + w / 2, y + h / 2, Math.max(.5, w / 2), Math.max(.5, h / 2), 0, 0, Math.PI * 2);
+    if (plein) contexte.fill();
+    contexte.stroke();
+  }
+
+  function viderCalque() { cq.clearRect(0, 0, calque.width, calque.height); }
+
+  /* ---------- Pot de peinture ---------- */
+
+  function hexVersRvb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function remplir(x0, y0) {
+    x0 = Math.floor(x0); y0 = Math.floor(y0);
+    const w = toile.width, h = toile.height;
+    if (x0 < 0 || y0 < 0 || x0 >= w || y0 >= h) return;
+    const image = ctx.getImageData(0, 0, w, h);
+    const d = image.data;
+    const i0 = (y0 * w + x0) * 4;
+    const cible = [d[i0], d[i0 + 1], d[i0 + 2]];
+    const [r, g, b] = hexVersRvb(couleur);
+    if (Math.abs(cible[0] - r) + Math.abs(cible[1] - g) + Math.abs(cible[2] - b) < 6) return;
+    const tolerance = 60;
+    const pareil = i => Math.abs(d[i] - cible[0]) + Math.abs(d[i + 1] - cible[1]) + Math.abs(d[i + 2] - cible[2]) <= tolerance;
+    const vu = new Uint8Array(w * h);
+    const pile = [[x0, y0]];
+    while (pile.length) {
+      const [x, y] = pile.pop();
+      let gx = x;
+      while (gx >= 0 && !vu[y * w + gx] && pareil((y * w + gx) * 4)) gx--;
+      gx++;
+      let hautOk = false, basOk = false;
+      for (let cx = gx; cx < w; cx++) {
+        const p = y * w + cx;
+        if (vu[p] || !pareil(p * 4)) break;
+        vu[p] = 1;
+        d[p * 4] = r; d[p * 4 + 1] = g; d[p * 4 + 2] = b; d[p * 4 + 3] = 255;
+        if (y > 0) {
+          const q = p - w;
+          const ok = !vu[q] && pareil(q * 4);
+          if (ok && !hautOk) pile.push([cx, y - 1]);
+          hautOk = ok;
+        }
+        if (y < h - 1) {
+          const q = p + w;
+          const ok = !vu[q] && pareil(q * 4);
+          if (ok && !basOk) pile.push([cx, y + 1]);
+          basOk = ok;
+        }
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+  }
+
+  /* ---------- Pipette ---------- */
+
+  function prelever(p) {
+    const x = Math.max(0, Math.min(toile.width - 1, Math.floor(p.x)));
+    const y = Math.max(0, Math.min(toile.height - 1, Math.floor(p.y)));
+    const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+    choisirCouleur('#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''));
+    choisirOutil(outilPrecedent);
+  }
+
+  /* ---------- Souris / doigt ---------- */
+
+  feuille.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const p = position(e);
+    const indice = $('indice');
+    if (indice) indice.remove();
+    if (outil === 'pipette') { prelever(p); return; }
+    memoriser();
+    if (outil === 'seau') { remplir(p.x, p.y); return; }
+    dessine = true;
+    feuille.setPointerCapture(e.pointerId);
+    if (FORMES.includes(outil)) { depart = p; return; }
+    dernier = p;
+    trait(p, { x: p.x + 0.01, y: p.y });
+  });
+
+  feuille.addEventListener('pointermove', e => {
+    const p = position(e);
+    majEtat(p);
+    if (!dessine) return;
+    if (depart) {
+      viderCalque();
+      forme(cq, depart, contraindre(depart, p, e.shiftKey));
+      return;
+    }
+    const evts = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of evts) {
+      const q = position(ev);
+      trait(dernier, q);
+      dernier = q;
+    }
+  });
+
+  function finir(e) {
+    if (dessine && depart) {
+      viderCalque();
+      forme(ctx, depart, contraindre(depart, position(e), e.shiftKey));
+    }
+    dessine = false;
+    dernier = null;
+    depart = null;
+  }
+
+  feuille.addEventListener('pointerup', finir);
+  feuille.addEventListener('pointercancel', () => { viderCalque(); dessine = false; dernier = null; depart = null; });
+  feuille.addEventListener('pointerleave', () => { if (!dessine) majEtat(); });
+
+  /* ---------- Boutons ---------- */
+
+  document.querySelectorAll('[data-outil]').forEach(b => b.addEventListener('click', () => choisirOutil(b.dataset.outil)));
+
+  $('plein').addEventListener('click', e => {
+    plein = !plein;
+    e.currentTarget.setAttribute('aria-pressed', String(plein));
+    if (!FORMES.includes(outil)) choisirOutil('rectangle');
+  });
+
+  $('taille').addEventListener('input', e => {
+    taille = Number(e.target.value);
+    $('valeur-taille').textContent = taille + ' px';
+    majEtat();
+  });
+
+  $('annuler').addEventListener('click', annuler);
+  $('effacer').addEventListener('click', () => { memoriser(); remplirBlanc(); });
+  $('perso').addEventListener('input', e => choisirCouleur(e.target.value));
+
+  $('enregistrer').addEventListener('click', () => {
+    toile.toBlob(blob => {
+      if (!blob) return;
+      const lien = document.createElement('a');
+      lien.href = URL.createObjectURL(blob);
+      lien.download = 'dessin.png';
+      document.body.append(lien);
+      lien.click();
+      lien.remove();
+      setTimeout(() => URL.revokeObjectURL(lien.href), 2000);
+    }, 'image/png');
+  });
+
+  const palette = $('palette');
+  palette.innerHTML = COULEURS.map(c => `<button style="background:${c}" data-c="${c}" title="${c}" aria-label="Couleur ${c}"></button>`).join('');
+  palette.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) choisirCouleur(b.dataset.c);
+  });
+
+  window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); annuler(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    const raccourcis = { b: 'pinceau', e: 'gomme', f: 'seau', i: 'pipette', l: 'ligne', r: 'rectangle', o: 'ellipse' };
+    const nom = raccourcis[e.key.toLowerCase()];
+    if (nom) choisirOutil(nom);
+  });
+
+  /* ---------- Taille de la feuille à l'écran ---------- */
+
+  const scene = $('scene');
+  function ajuster() {
+    const r = scene.getBoundingClientRect();
+    const ratio = toile.width / toile.height;
+    let w = Math.max(50, r.width - 24);
+    let h = w / ratio;
+    if (h > r.height - 24) {
+      h = Math.max(30, r.height - 24);
+      w = h * ratio;
+    }
+    feuille.style.width = Math.floor(w) + 'px';
+    feuille.style.height = Math.floor(h) + 'px';
+  }
+  if (window.ResizeObserver) new ResizeObserver(ajuster).observe(scene);
+  window.addEventListener('resize', ajuster);
+  ajuster();
+
+  /* ---------- Démarrage ---------- */
+
+  // Sur un écran en hauteur (téléphone), la feuille passe en portrait
+  const zone = scene.getBoundingClientRect();
+  if (zone.height > zone.width * 1.1) {
+    const largeur = 720;
+    const hauteur = Math.min(1400, Math.round(largeur * (zone.height - 24) / Math.max(1, zone.width - 24)));
+    toile.width = calque.width = largeur;
+    toile.height = calque.height = hauteur;
+    ajuster();
+  }
+
+  remplirBlanc();
+  choisirCouleur(couleur);
+  choisirOutil('pinceau');
+})();
+</script>
+</body>
+</html>

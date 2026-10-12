@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test de réflexes</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; }
+
+    #zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      height: 100%;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      transition: background-color .06s;
+    }
+
+    #zone[data-etat="accueil"], #zone[data-etat="resultat"], #zone[data-etat="fin"], #zone[data-etat="trop-tot"] {
+      background: radial-gradient(520px 320px at 50% 30%, rgba(255, 255, 255, .05), transparent 70%), #000;
+    }
+    #zone[data-etat="attente"] { background: #1a0606; }
+    #zone[data-etat="go"] { background: #22c55e; color: #000; }
+
+    .etiquette { color: var(--tres-doux); font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    #zone[data-etat="attente"] .etiquette { color: #f87171; }
+    #zone[data-etat="go"] .etiquette { color: rgba(0, 0, 0, .6); }
+
+    .gros { font: 800 clamp(34px, 8vw, 56px)/1.02 var(--police); letter-spacing: -.045em; }
+    .chiffre { font: 700 clamp(48px, 12vw, 84px)/1 var(--mono); letter-spacing: -.04em; }
+    .chiffre small { font-size: .35em; color: var(--doux); letter-spacing: 0; }
+    .sous { max-width: 420px; margin: 0; color: var(--doux); font-size: 15px; }
+    #zone[data-etat="go"] .sous { color: rgba(0, 0, 0, .65); }
+    .action { margin-top: 10px; color: var(--accent-clair); font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+    .points { display: flex; gap: 6px; margin-top: 8px; }
+    .points i { width: 22px; height: 3px; border-radius: 3px; background: #2a2a2a; }
+    .points i.fait { background: var(--accent); }
+    #zone[data-etat="go"] .points i { background: rgba(0, 0, 0, .2); }
+    #zone[data-etat="go"] .points i.fait { background: #000; }
+
+    .tableau { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 0; }
+    .tableau span { padding: 5px 10px; border: 1px solid var(--bord2); border-radius: 8px; font: 12.5px var(--mono); }
+    .rang { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px; border: 1px solid rgba(34, 197, 94, .4); border-radius: 999px; background: var(--accent-fond); color: var(--accent-clair); font: 600 14px var(--police); }
+  </style>
+</head>
+<body>
+  <div id="zone" data-etat="accueil" role="button" tabindex="0" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const zone = document.getElementById('zone');
+  const TACTILE = window.matchMedia('(hover: none)').matches;
+  const CONSIGNE = TACTILE ? 'Touche l’écran pour commencer' : 'Clique ou appuie sur Espace';
+  const TOURS = 5;
+  const CLE = 'reflexes-record';
+
+  const RANGS = [
+    [200, 'Légende', 'Des réflexes de pro. Rien ne t’échappe.'],
+    [250, 'Or', 'Très rapide. La moyenne des humains tourne autour de 250 ms.'],
+    [300, 'Argent', 'Solide, tu es dans la bonne moyenne.'],
+    [380, 'Bronze', 'Pas mal. Encore un peu d’entraînement.'],
+    [Infinity, 'Endormi', 'L’écran était vert depuis un moment.']
+  ];
+
+  let etat = 'accueil';
+  let resultats = [];
+  let minuterie = null;
+  let debut = 0;
+  let record = lireRecord();
+
+  function lireRecord() {
+    try { return Number(localStorage.getItem(CLE)) || 0; } catch (e) { return 0; }
+  }
+
+  const points = () => `<div class="points">${Array.from({ length: TOURS }, (_, i) => `<i class="${i < resultats.length ? 'fait' : ''}"></i>`).join('')}</div>`;
+
+  function afficher(html) {
+    zone.dataset.etat = etat;
+    zone.innerHTML = html;
+  }
+
+  function accueil() {
+    etat = 'accueil';
+    resultats = [];
+    afficher(`
+      <div class="etiquette">Test de réflexes · ${TOURS} essais</div>
+      <div class="gros">Clique au vert.</div>
+      <p class="sous">Quand l’écran devient vert, clique le plus vite possible. On fait la moyenne de ${TOURS} essais.</p>
+      ${record ? `<p class="sous mono" style="font-size:13px">Record : ${record} ms</p>` : ''}
+      <div class="action">${CONSIGNE}</div>`);
+  }
+
+  function attendre() {
+    etat = 'attente';
+    afficher(`<div class="etiquette">Essai ${resultats.length + 1} / ${TOURS}</div><div class="gros">Attends…</div><p class="sous">Ne clique pas encore.</p>${points()}`);
+    minuterie = setTimeout(() => {
+      etat = 'go';
+      debut = performance.now();
+      afficher(`<div class="etiquette">Maintenant</div><div class="gros">Clique !</div>${points()}`);
+    }, 1500 + Math.random() * 3000);
+  }
+
+  function tropTot() {
+    clearTimeout(minuterie);
+    etat = 'trop-tot';
+    afficher(`<div class="etiquette" style="color:#f87171">Trop tôt</div><div class="gros">Patience.</div><p class="sous">Attends bien que l’écran devienne vert.</p>${points()}<div class="action">${TACTILE ? 'Touche' : 'Clique'} pour réessayer</div>`);
+  }
+
+  function noter() {
+    const ms = Math.round(performance.now() - debut);
+    resultats.push(ms);
+    if (resultats.length >= TOURS) return fin();
+    etat = 'resultat';
+    afficher(`<div class="etiquette">Essai ${resultats.length} / ${TOURS}</div><div class="chiffre">${ms}<small> ms</small></div><p class="sous">${commentaire(ms)}</p>${points()}<div class="action">${TACTILE ? 'Touche' : 'Clique'} pour continuer</div>`);
+  }
+
+  function commentaire(ms) {
+    if (ms < 180) return 'Très suspect. Tu as anticipé ?';
+    if (ms < 250) return 'Très rapide.';
+    if (ms < 320) return 'Correct.';
+    return 'Tu peux faire mieux.';
+  }
+
+  function fin() {
+    etat = 'fin';
+    const moyenne = Math.round(resultats.reduce((a, b) => a + b, 0) / resultats.length);
+    const [, nom, phrase] = RANGS.find(r => moyenne < r[0]);
+    let nouveau = false;
+    if (!record || moyenne < record) {
+      record = moyenne;
+      nouveau = true;
+      try { localStorage.setItem(CLE, String(record)); } catch (e) { /* rien */ }
+    }
+    afficher(`
+      <div class="etiquette">Moyenne sur ${TOURS} essais</div>
+      <div class="chiffre">${moyenne}<small> ms</small></div>
+      <span class="rang">${nom}</span>
+      <p class="sous">${phrase}</p>
+      <div class="tableau">${resultats.map(r => `<span>${r}</span>`).join('')}</div>
+      <p class="sous mono" style="font-size:13px">${nouveau ? 'Nouveau record' : 'Record : ' + record + ' ms'}</p>
+      <div class="action">${TACTILE ? 'Touche' : 'Clique'} pour rejouer</div>`);
+  }
+
+  function action() {
+    if (etat === 'accueil') attendre();
+    else if (etat === 'attente') tropTot();
+    else if (etat === 'go') noter();
+    else if (etat === 'resultat' || etat === 'trop-tot') attendre();
+    else if (etat === 'fin') { resultats = []; attendre(); }
+  }
+
+  zone.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    action();
+  });
+
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      e.preventDefault();
+      if (!e.repeat) action();
+    }
+  });
+
+  accueil();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 1. Change le titre de ton jeu ici -->
+  <title>Mon nouveau jeu</title>
+  <!-- Le style commun du site (thème noir, boutons, polices…) -->
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    /* 2. Ton CSS à toi va ici */
+    body {
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #compteur {
+      font: 700 72px var(--mono);
+      letter-spacing: -.04em;
+      color: var(--texte);
+    }
+  </style>
+</head>
+<body>
+  <!-- 3. Le HTML de ton jeu -->
+  <main>
+    <span class="pastille">Exemple</span>
+    <h1 style="margin-top:12px">Mon nouveau jeu</h1>
+    <p class="doux">Clique le plus de fois possible en 10 secondes.</p>
+    <div id="compteur">0</div>
+    <p><button class="btn primaire" id="bouton">Clique</button></p>
+    <p class="doux" id="temps">10 s</p>
+  </main>
+
+<script>
+/* 4. Le JavaScript de ton jeu.
+   Astuce : pour retenir un record, utilise localStorage
+   (comme dans l'exemple ci-dessous). */
+(() => {
+  'use strict';
+
+  const compteur = document.getElementById('compteur');
+  const bouton = document.getElementById('bouton');
+  const temps = document.getElementById('temps');
+
+  let clics = 0;
+  let reste = 10;
+  let minuterie = null;
+
+  bouton.addEventListener('click', () => {
+    if (reste <= 0) return;
+    if (!minuterie) {
+      minuterie = setInterval(() => {
+        reste--;
+        temps.textContent = reste + ' s';
+        if (reste <= 0) {
+          clearInterval(minuterie);
+          bouton.textContent = 'Terminé';
+          let record = 0;
+          try { record = Number(localStorage.getItem('mon-jeu-record')) || 0; } catch (e) {}
+          if (clics > record) {
+            try { localStorage.setItem('mon-jeu-record', String(clics)); } catch (e) {}
+            temps.textContent = 'Nouveau record : ' + clics + ' clics';
+          } else {
+            temps.textContent = 'Record : ' + record + ' clics';
+          }
+        }
+      }, 1000);
+    }
+    clics++;
+    compteur.textContent = clics;
+  });
+})();
+</script>
+</body>
+</html>

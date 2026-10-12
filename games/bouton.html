@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Le bouton qui fuit</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; }
+
+    body {
+      background:
+        radial-gradient(600px 360px at 50% 0%, rgba(255, 255, 255, .05), transparent 70%),
+        linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px) 0 0 / 32px 32px,
+        linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px) 0 0 / 32px 32px,
+        #000;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #terrain { position: absolute; inset: 0; touch-action: none; }
+
+    #message { position: absolute; top: 26px; left: 16px; right: 16px; z-index: 2; text-align: center; pointer-events: none; }
+    #message .etiquette { color: var(--tres-doux); font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    #message h1 { margin: 8px 0 4px; font: 800 clamp(24px, 5vw, 34px)/1.1 var(--police); letter-spacing: -.04em; }
+    #message p { margin: 0; color: var(--doux); }
+
+    #bouton {
+      position: absolute;
+      z-index: 3;
+      height: 48px;
+      padding: 0 24px;
+      border: 1px solid #fafafa;
+      border-radius: 12px;
+      background: #fafafa;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .6), 0 0 0 6px rgba(255, 255, 255, .04);
+      color: #000;
+      font: 600 15px var(--police);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: left .16s cubic-bezier(.2, .8, .2, 1), top .16s cubic-bezier(.2, .8, .2, 1), transform .15s;
+    }
+
+    #bouton:active { transform: scale(.97); }
+    #bouton.fatigue { border-color: var(--bord3); background: var(--panneau3); color: var(--texte); box-shadow: 0 0 0 6px rgba(34, 197, 94, .1), 0 0 0 1px rgba(34, 197, 94, .5); }
+
+    #compteur { position: absolute; left: 0; right: 0; bottom: 16px; color: var(--tres-doux); font: 12px var(--mono); text-align: center; pointer-events: none; }
+
+    .victoire { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, .75); backdrop-filter: blur(4px); text-align: center; }
+    .victoire .boite { width: min(360px, 100%); padding: 28px 24px 22px; border: 1px solid var(--bord2); border-radius: 18px; background: #0b0b0b; animation: pop .3s cubic-bezier(.2, .8, .2, 1); }
+    .victoire h1 { margin: 12px 0 6px; font-size: 26px; }
+    .victoire p { color: var(--doux); }
+    .victoire .btn { width: 100%; height: 44px; margin-top: 8px; }
+    @keyframes pop { from { transform: translateY(10px) scale(.96); opacity: 0; } }
+
+    .confetti { position: absolute; top: -12px; z-index: 4; width: 6px; height: 10px; border-radius: 1px; pointer-events: none; animation: tombe linear forwards; }
+    @keyframes tombe { to { transform: translateY(110vh) rotate(720deg); } }
+  </style>
+</head>
+<body>
+  <div id="terrain">
+    <div id="message"><div class="etiquette">Le bouton qui fuit</div><h1>Clique sur le bouton.</h1><p>C’est tout. Rien de plus simple.</p></div>
+    <button id="bouton">Clique-moi !</button>
+    <div id="compteur"></div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  const terrain = document.getElementById('terrain');
+  const bouton = document.getElementById('bouton');
+  const message = document.getElementById('message');
+  const compteur = document.getElementById('compteur');
+  const tactile = window.matchMedia('(hover: none)').matches;
+  const MAX = tactile ? 14 : 26;
+
+  const TAQUINERIES = ['Raté', 'Non', 'Trop lent', 'Presque', 'Par ici', 'Essaie encore', 'Pas aujourd’hui', 'Toujours pas', 'Raté, encore', 'Hop'];
+  const ETAPES = [
+    [0, 'Clique sur le bouton.', 'C’est tout. Rien de plus simple.'],
+    [3, 'Hmm.', 'Il a l’air un peu timide.'],
+    [8, 'Il est rapide, ce bouton…', 'Vraiment très rapide.'],
+    [14, 'Tu sais qu’il ne veut pas être cliqué ?', 'Mais il commence à transpirer.'],
+    [20, 'Encore un petit effort…', 'Il fatigue, on dirait.']
+  ];
+
+  let fuites = 0;
+  let debut = null;
+  let fini = false;
+
+  function placer(x, y) {
+    bouton.style.left = x + 'px';
+    bouton.style.top = y + 'px';
+  }
+
+  function centrer() {
+    const r = terrain.getBoundingClientRect();
+    placer((r.width - bouton.offsetWidth) / 2, (r.height - bouton.offsetHeight) / 2);
+  }
+
+  function fuir(px, py) {
+    if (!debut) debut = performance.now();
+    const r = terrain.getBoundingClientRect();
+    const bw = bouton.offsetWidth, bh = bouton.offsetHeight;
+    const haut = 90, marge = 12;
+    let x = 0, y = 0;
+    for (let essai = 0; essai < 30; essai++) {
+      x = marge + Math.random() * Math.max(1, r.width - bw - marge * 2);
+      y = haut + Math.random() * Math.max(1, r.height - bh - haut - 40);
+      const dx = x + bw / 2 - px, dy = y + bh / 2 - py;
+      if (Math.hypot(dx, dy) > Math.min(r.width, r.height) * 0.4) break;
+    }
+    placer(x, y);
+    fuites++;
+    bouton.textContent = TAQUINERIES[Math.floor(Math.random() * TAQUINERIES.length)];
+    const etape = [...ETAPES].reverse().find(e => fuites >= e[0]);
+    message.innerHTML = `<div class="etiquette">Tentatives : ${fuites}</div><h1>${etape[1]}</h1><p>${etape[2]}</p>`;
+    compteur.textContent = `${fuites} / ${MAX}`;
+    if (fuites >= MAX) epuise();
+  }
+
+  function epuise() {
+    bouton.classList.add('fatigue');
+    bouton.textContent = 'D’accord, j’abandonne';
+    message.innerHTML = '<div class="etiquette">Il est à bout de souffle</div><h1>Le bouton est épuisé.</h1><p>C’est le moment.</p>';
+  }
+
+  terrain.addEventListener('pointermove', e => {
+    if (fini || fuites >= MAX || e.pointerType === 'touch') return;
+    const b = bouton.getBoundingClientRect();
+    const t = terrain.getBoundingClientRect();
+    const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+    const zoneX = b.width / 2 + 40, zoneY = b.height / 2 + 40;
+    if (Math.abs(e.clientX - cx) < zoneX && Math.abs(e.clientY - cy) < zoneY) {
+      fuir(e.clientX - t.left, e.clientY - t.top);
+    }
+  });
+
+  bouton.addEventListener('pointerdown', e => {
+    if (fini || fuites >= MAX) return;
+    // sur téléphone, il se téléporte juste avant qu'on le touche
+    e.preventDefault();
+    const t = terrain.getBoundingClientRect();
+    fuir(e.clientX - t.left, e.clientY - t.top);
+  });
+
+  bouton.addEventListener('click', e => {
+    if (fini) return;
+    if (fuites < MAX && e.detail !== 0) return;
+    gagner(e.detail === 0 && fuites < MAX);
+  });
+
+  function gagner(triche) {
+    fini = true;
+    const secondes = debut ? Math.round((performance.now() - debut) / 1000) : 0;
+    confettis();
+    const v = document.createElement('div');
+    v.className = 'victoire';
+    v.innerHTML = `
+      <div class="boite">
+        <span class="pastille">${triche ? 'Raccourci clavier' : 'Victoire'}</span>
+        <h1>${triche ? 'Malin.' : 'Tu l’as eu.'}</h1>
+        <p>${triche ? 'Le clavier, fallait y penser.' : `${fuites} tentatives, ${secondes} secondes de poursuite.`}</p>
+        <button class="btn primaire" id="rejouer">Rejouer</button>
+      </div>`;
+    terrain.append(v);
+    document.getElementById('rejouer').addEventListener('click', () => {
+      v.remove();
+      fuites = 0;
+      debut = null;
+      fini = false;
+      bouton.classList.remove('fatigue');
+      bouton.textContent = 'Clique-moi !';
+      message.innerHTML = `<div class="etiquette">Le bouton qui fuit</div><h1>${ETAPES[0][1]}</h1><p>${ETAPES[0][2]}</p>`;
+      compteur.textContent = '';
+      centrer();
+    });
+  }
+
+  function confettis() {
+    const couleurs = ['#22c55e', '#4ade80', '#ffffff', '#a3a3a3', '#525252'];
+    for (let i = 0; i < 90; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + '%';
+      c.style.background = couleurs[i % couleurs.length];
+      c.style.animationDuration = (1.6 + Math.random() * 1.8) + 's';
+      c.style.animationDelay = (Math.random() * 0.6) + 's';
+      document.body.append(c);
+      setTimeout(() => c.remove(), 4200);
+    }
+  }
+
+  window.addEventListener('resize', () => { if (!fini) centrer(); });
+  centrer();
+})();
+</script>
+</body>
+</html>

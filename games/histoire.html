@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>L'histoire du jeu vidéo</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    :root { --y0: 860px; --hud: 72px; }
+
+    body { background: #000; }
+
+    #hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      height: var(--hud);
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--bord);
+      background: rgba(0, 0, 0, .82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .quand small { display: block; color: var(--tres-doux); font: 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .quand b { display: block; font: 700 22px/1.15 var(--police); letter-spacing: -.02em; text-transform: capitalize; }
+    .quand span { color: var(--doux); font: 12px var(--mono); }
+    .infos { color: var(--tres-doux); font: 11.5px var(--mono); text-align: right; }
+    .infos strong { color: var(--accent-clair); font-weight: 500; }
+    .sauts { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+    .sauts .btn { white-space: nowrap; }
+    .sauts select { height: 30px; padding: 0 8px; border: 1px solid var(--bord2); border-radius: 8px; background: var(--panneau2); color: var(--texte); font: 12px var(--police); cursor: pointer; }
+
+    #ligne { position: fixed; left: 0; right: 0; z-index: 4; height: 0; border-top: 1px dashed rgba(74, 222, 128, .45); pointer-events: none; }
+    #ligne::before {
+      content: "TOI";
+      position: absolute;
+      right: 10px;
+      top: -10px;
+      padding: 2px 7px;
+      border: 1px solid rgba(74, 222, 128, .4);
+      border-radius: 999px;
+      background: #000;
+      color: var(--accent-clair);
+      font: 500 10px var(--mono);
+      letter-spacing: .08em;
+    }
+
+    #frise { position: relative; }
+
+    .intro {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--y0);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: calc(var(--hud) + 36px) 22px 30px;
+      text-align: center;
+      background: radial-gradient(500px 300px at 50% 20%, rgba(34, 197, 94, .1), transparent 70%);
+    }
+
+    .intro h1 { margin: 14px 0 12px; font: 800 36px/1.05 var(--police); letter-spacing: -.045em; }
+    .intro p { max-width: 460px; margin: 0 auto .7em; color: var(--doux); font-size: 15px; }
+    .intro .fleche { margin-top: 10px; color: var(--tres-doux); font-size: 22px; animation: rebond 1.4s infinite; }
+    @keyframes rebond { 50% { transform: translateY(6px); } }
+
+    .decennie { position: absolute; left: 0; right: 0; border-top: 1px solid var(--bord); }
+    .decennie .nom-decennie {
+      position: sticky;
+      top: calc(var(--hud) + 8px);
+      display: inline-block;
+      margin: 8px 0 0 76px;
+      padding: 3px 9px;
+      border: 1px solid var(--bord2);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .7);
+      color: var(--doux);
+      font: 500 10.5px var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .regle { position: absolute; top: var(--y0); left: 0; width: 62px; border-right: 1px solid var(--bord2); }
+    .graduation { position: absolute; right: 6px; transform: translateY(-50%); color: var(--tres-doux); font: 10px var(--mono); white-space: nowrap; }
+    .graduation.decade { color: var(--texte); font-weight: 700; }
+    .graduation::after { content: ""; position: absolute; right: -7px; top: 50%; width: 6px; border-top: 1px solid #3a3a3a; }
+
+    .repere {
+      position: absolute;
+      left: 84px;
+      right: 16px;
+      max-width: 460px;
+      padding: 14px 16px;
+      border: 1px solid var(--bord);
+      border-radius: 12px;
+      background: rgba(11, 11, 11, .97);
+      transform: translateY(-20px);
+    }
+
+    .repere::before { content: ""; position: absolute; left: -22px; top: 19px; width: 22px; border-top: 1px solid #3a3a3a; }
+    .repere::after { content: ""; position: absolute; left: -26px; top: 16px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .repere.dessus { transform: translateY(calc(-100% - 14px)); }
+    .repere.dessus::before { top: auto; bottom: -15px; left: -22px; width: 22px; height: 15px; border-top: 0; border-left: 1px solid #3a3a3a; border-bottom: 1px solid #3a3a3a; }
+    .repere.dessus::after { display: none; }
+    .repere .date { color: var(--accent-clair); font: 11.5px var(--mono); }
+    .repere h2 { margin: 4px 0 6px; font: 650 17px/1.3 var(--police); letter-spacing: -.015em; }
+    .repere p { margin: 0; color: var(--doux); font-size: 13.5px; line-height: 1.55; }
+
+    .remplissage { position: absolute; left: 84px; right: 16px; color: var(--tres-doux); font: 12px var(--mono); text-align: center; }
+
+    .fin { position: absolute; left: 0; right: 0; padding: 30px 20px 120px; text-align: center; }
+    .fin h2 { font-size: 28px; letter-spacing: -.035em; }
+    .fin p { max-width: 460px; margin: 0 auto 1em; color: var(--doux); }
+
+    @media (max-width: 480px) {
+      #hud { padding: 8px 12px; }
+      .quand b { font-size: 18px; }
+      .infos .d-label { display: none; }
+      .sauts .btn, .sauts select { height: 28px; padding: 0 7px; font-size: 11px; }
+      .repere { left: 74px; }
+      .decennie .nom-decennie { margin-left: 70px; }
+      .regle { width: 54px; }
+      .intro h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <header id="hud">
+    <div class="quand"><small>Tu es en…</small><b id="date-lecture">octobre 2026</b><span id="il-y-a">cette année</span></div>
+    <div>
+      <div class="infos"><span class="d-label">Décennie : </span><strong id="decennie">années 2020</strong> · <span id="metres">0 m scrollés</span></div>
+      <div class="sauts">
+        <select id="aller" aria-label="Aller à une décennie">
+          <option value="">Aller à…</option>
+          <option value="2010">Années 2010</option>
+          <option value="2000">Années 2000</option>
+          <option value="1990">Années 1990</option>
+          <option value="1980">Années 1980</option>
+          <option value="1970">Années 1970</option>
+          <option value="1960">Années 1960</option>
+          <option value="1950">Années 1950</option>
+        </select>
+        <button class="btn petit" id="vers-haut">↑ Aujourd'hui</button>
+      </div>
+    </div>
+  </header>
+  <div id="ligne"></div>
+  <main id="frise"></main>
+
+<script>
+(() => {
+  'use strict';
+
+  const JOUR = 86400000;
+  const MM_PAR_PX = 0.2646;                 // taille d'un pixel CSS (96 ppp)
+  const AUJOURDHUI = new Date();
+  const ANNEE_FIN = 1946;
+  const frise = document.getElementById('frise');
+  const y0 = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--y0')) || 860;
+  const lecture = () => window.innerHeight * 0.45;
+
+  const jours = iso => Math.max(0, Math.round((AUJOURDHUI - new Date(iso + 'T12:00:00')) / JOUR));
+  const px = iso => y0() + jours(iso);
+  const FIN_JOURS = jours(ANNEE_FIN + '-01-01');
+
+  // date, emoji, titre, texte, (affichage de la date si elle est approximative)
+  const REPERES = [
+    ['2025-06-05', '🕹️', 'Nintendo Switch 2', 'La suite de la Switch sort dans le monde entier.'],
+    ['2023-12-05', '🎬', 'Bande-annonce de GTA VI', 'La toute première bande-annonce bat des records de vues en 24 heures.'],
+    ['2020-11-12', '🎮', 'PS5 et Xbox Series X|S', 'Nouvelle génération de consoles : Xbox Series X|S le 10 novembre 2020, PlayStation 5 le 12 novembre (le 19 en Europe).'],
+    ['2017-03-03', '🕹️', 'Nintendo Switch', 'Une console de salon qu’on peut aussi emporter partout.'],
+    ['2016-07-06', '📱', 'Pokémon GO', 'Des millions de joueurs partent chasser des Pokémon… dans la vraie rue.'],
+    ['2011-11-18', '⛏️', 'Minecraft 1.0', 'La version finale de Minecraft sort, après deux ans et demi de versions de test.'],
+    ['2008-07-10', '🛍️', 'L’App Store', 'Les applis et les jeux débarquent sur smartphone.'],
+    ['2007-06-29', '📱', 'Le premier iPhone', 'Il sort aux États-Unis. Le smartphone moderne est né.'],
+    ['2006-11-19', '🎾', 'Wii', 'Sa manette détecte les mouvements : on joue en bougeant les bras.'],
+    ['2005-04-23', '▶️', 'Première vidéo sur YouTube', '« Me at the zoo » : 19 secondes devant des éléphants.'],
+    ['2004-11-23', '⚔️', 'World of Warcraft', 'Le jeu en ligne massivement multijoueur qui a marqué toute une génération.'],
+    ['2001-10-25', '🪟', 'Windows XP', 'Le bureau de ce site s’en inspire : fenêtres, barre des tâches et bouton démarrer.'],
+    ['2000-03-04', '💿', 'PlayStation 2', 'Sortie au Japon. Elle lit aussi les DVD, et sert de lecteur de films dans beaucoup de salons.'],
+    ['1998-09-04', '🔎', 'Google', 'Deux étudiants de Stanford créent l’entreprise Google.'],
+    ['1996-02-27', '⚡', 'Pokémon Rouge et Vert', 'Sortie au Japon sur Game Boy.'],
+    ['1994-12-03', '🎮', 'PlayStation', 'La première console de Sony sort au Japon.'],
+    ['1993-12-10', '🎯', 'DOOM', 'Un des jeux qui ont lancé le jeu de tir à la première personne moderne.'],
+    ['1991-08-06', '🌐', 'Le Web devient public', 'Tim Berners-Lee, au CERN, ouvre le World Wide Web à tout le monde.'],
+    ['1989-04-21', '🔋', 'Game Boy', 'La console portable de Nintendo sort au Japon.'],
+    ['1985-09-13', '🍄', 'Super Mario Bros.', 'Sortie au Japon sur Famicom. Le jeu entier tient dans environ 40 Ko.'],
+    ['1984-06-06', '🧱', 'Tetris', 'Créé par Alexeï Pajitnov, à Moscou.'],
+    ['1983-07-15', '📟', 'Famicom', 'La console de Nintendo sort au Japon. En Occident, elle s’appellera la NES.'],
+    ['1981-08-12', '🖥️', 'IBM PC', 'Le « PC », tel qu’on l’appelle encore aujourd’hui, vient de là.'],
+    ['1980-05-22', '🟡', 'Pac-Man', 'Sortie au Japon, dans les salles d’arcade.'],
+    ['1978-06-15', '👾', 'Space Invaders', 'Un énorme succès dans les salles d’arcade.', 'juin 1978'],
+    ['1977-09-11', '🕹️', 'Atari 2600', 'Une console à cartouches : pour changer de jeu, on change de cartouche.'],
+    ['1972-11-29', '🏓', 'Pong', 'Premier gros succès du jeu vidéo en arcade. Quelques mois plus tôt, la Magnavox Odyssey devenait la première console de salon.'],
+    ['1971-10-01', '📧', 'Le premier e-mail', 'Ray Tomlinson envoie un message entre deux ordinateurs et choisit le symbole @.', '1971'],
+    ['1969-10-29', '💬', 'Premier message sur ARPANET', 'L’ancêtre d’Internet. Le message devait être « LOGIN », mais le système a planté après « LO ».'],
+    ['1962-02-01', '🚀', 'Spacewar!', 'Un des tout premiers jeux vidéo, créé au MIT sur un ordinateur PDP-1.', '1962'],
+    ['1958-10-18', '🎾', 'Tennis for Two', 'Un jeu de tennis affiché sur un oscilloscope, présenté au public dans un laboratoire américain.'],
+    ['1946-02-15', '🧮', 'ENIAC', 'Un des premiers ordinateurs électroniques : environ 27 tonnes, et une pièce entière rien que pour lui.', 'février 1946']
+  ];
+
+  const REMPLISSAGES = [
+    ['2024-01-01', 'Une année = 365 pixels. Continue !'],
+    ['2013-06-01', 'Déjà plus de dix ans en arrière.'],
+    ['2002-06-01', 'Ici, pas encore de smartphones.'],
+    ['1987-03-01', 'Une seule photo de téléphone pèse aujourd’hui bien plus que Super Mario Bros. en entier.'],
+    ['1975-06-01', 'Toujours là ? Respect.'],
+    ['1966-01-01', 'Les ordinateurs occupent encore des pièces entières.'],
+    ['1952-01-01', 'Presque au bout…']
+  ];
+
+  function dateLongue(iso, affichage) {
+    if (affichage) return affichage;
+    return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function construire() {
+    const anneeActuelle = AUJOURDHUI.getFullYear();
+    frise.style.height = (y0() + FIN_JOURS + 620) + 'px';
+
+    let html = `
+      <section class="intro">
+        <span class="pastille">1 pixel = 1 jour</span>
+        <h1>L'histoire du jeu vidéo</h1>
+        <p>On part d'aujourd'hui et on remonte jusqu'aux tout premiers ordinateurs, en 1946. Consoles, jeux cultes, Internet : tout défile, un jour par pixel.</p>
+        <p>Garde un œil sur la date en haut à gauche.</p>
+        <div class="fleche">↓</div>
+      </section>`;
+
+    let alterne = false;
+    for (let d = Math.floor(anneeActuelle / 10) * 10; d >= 1940; d -= 10) {
+      const haut = d + 10 > anneeActuelle ? 0 : jours(`${d + 10}-01-01`);
+      const bas = d <= ANNEE_FIN ? FIN_JOURS : jours(`${d}-01-01`);
+      const teinte = alterne ? 'rgba(255, 255, 255, .014)' : 'transparent';
+      alterne = !alterne;
+      html += `<div class="decennie" style="top:${y0() + haut}px;height:${bas - haut}px;background:${teinte}"><span class="nom-decennie">Années ${d}</span></div>`;
+    }
+
+    html += `<div class="regle" style="height:${FIN_JOURS}px">`;
+    for (let a = anneeActuelle; a >= ANNEE_FIN; a--) {
+      const top = jours(`${a}-01-01`);
+      html += `<span class="graduation${a % 10 === 0 ? ' decade' : ''}" style="top:${top}px">${a}</span>`;
+    }
+    html += '</div>';
+
+    for (const [iso, t] of REMPLISSAGES) {
+      html += `<div class="remplissage" style="top:${px(iso)}px">${t}</div>`;
+    }
+
+    html += `
+      <article class="repere dessus" style="top:${y0()}px">
+        <div class="date">${dateLongue(AUJOURDHUI.toISOString().slice(0, 10))}</div>
+        <h2>Aujourd'hui</h2>
+        <p>La ligne juste en dessous, c'est maintenant. Chaque pixel plus bas recule d'un jour : une année, c'est 365 pixels.</p>
+      </article>`;
+
+    for (const [iso, emo, titre, texte, affichage] of REPERES) {
+      html += `
+        <article class="repere" data-top="${px(iso)}" style="top:${px(iso)}px">
+          <div class="date">${dateLongue(iso, affichage)}</div>
+          <h2>${titre}</h2>
+          <p>${texte}</p>
+        </article>`;
+    }
+
+    const metres = Math.round((y0() + FIN_JOURS) * MM_PAR_PX / 1000 * 10) / 10;
+    html += `
+      <section class="fin" style="top:${y0() + FIN_JOURS + 40}px">
+        <span class="pastille">Fin</span>
+        <h2 style="margin-top:14px">Tu es arrivé au bout.</h2>
+        <p>Tu viens de remonter environ ${anneeActuelle - ANNEE_FIN} ans, soit <b>${FIN_JOURS.toLocaleString('fr-FR')} jours</b> et à peu près <b>${metres.toLocaleString('fr-FR')} mètres</b> de scroll.</p>
+        <p>Fun fact : au départ, le mot « computer » désignait des personnes dont le métier était de faire des calculs à la main.</p>
+        <button class="btn primaire" id="remonter">↑ Retour à aujourd'hui</button>
+      </section>`;
+
+    frise.innerHTML = html;
+    document.getElementById('remonter').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    placerCartes();
+  }
+
+  // évite que deux cartes très proches dans le temps se chevauchent
+  function placerCartes() {
+    let bas = -Infinity;
+    document.querySelectorAll('.repere[data-top]').forEach(carte => {
+      let top = Number(carte.dataset.top);
+      if (top - 22 < bas + 10) top = bas + 10 + 22;
+      carte.style.top = top + 'px';
+      bas = top - 22 + carte.offsetHeight;
+    });
+  }
+
+  function mettreAJour() {
+    const ligne = lecture();
+    document.getElementById('ligne').style.top = ligne + 'px';
+    const j = Math.max(0, Math.min(FIN_JOURS, Math.round(window.scrollY + ligne - y0())));
+    const date = new Date(AUJOURDHUI.getTime() - j * JOUR);
+    document.getElementById('date-lecture').textContent = date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const ans = Math.floor(j / 365.25);
+    document.getElementById('il-y-a').textContent = ans < 1 ? 'cette année' : `il y a ${ans} an${ans > 1 ? 's' : ''}`;
+    const d = Math.floor(date.getFullYear() / 10) * 10;
+    document.getElementById('decennie').textContent = 'années ' + d;
+    const metres = window.scrollY * MM_PAR_PX / 1000;
+    document.getElementById('metres').textContent = metres.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' m scrollés';
+  }
+
+  let enAttente = false;
+  window.addEventListener('scroll', () => {
+    if (enAttente) return;
+    enAttente = true;
+    requestAnimationFrame(() => { enAttente = false; mettreAJour(); });
+  }, { passive: true });
+  window.addEventListener('resize', () => { placerCartes(); mettreAJour(); });
+
+  document.getElementById('aller').addEventListener('change', e => {
+    const decennie = Number(e.target.value);
+    if (!decennie) return;
+    window.scrollTo({ top: px(`${decennie + 9}-12-31`) - lecture() + 2, behavior: 'smooth' });
+    e.target.value = '';
+  });
+  document.getElementById('vers-haut').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  construire();
+  mettreAJour();
+})();
+</script>
+</body>
+</html>

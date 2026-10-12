@@ -1,0 +1,18 @@
+---
+layout: base
+title: Blog
+permalink: /blog/
+---
+<section class="liste-tete">
+  <h1>Blog</h1>
+  <p class="meta"><span>{{ site.posts.size }} article{% if site.posts.size > 1 %}s{% endif %}</span></p>
+</section>
+<div class="liste">
+  {% for post in site.posts %}
+  <a class="carte-article" href="{{ post.url | relative_url }}">
+    <div class="meta"><span>{{ post.date | date: "%d/%m/%Y" }}</span>{% if post.categorie %}<span>{{ post.categorie }}</span>{% endif %}</div>
+    <h3>{{ post.title }}</h3>
+    <p>{% if post.resume %}{{ post.resume }}{% else %}{{ post.excerpt | strip_html | strip_newlines | truncate: 170 }}{% endif %}</p>
+  </a>
+  {% endfor %}
+</div>

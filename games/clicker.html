@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Clicker</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    body {
+      display: grid;
+      grid-template-columns: 1fr minmax(290px, 350px);
+      height: 100%;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .zone-puce {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 55%, rgba(34, 197, 94, .1) 0, transparent 42%),
+        linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px) 0 0 / 32px 32px,
+        linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px) 0 0 / 32px 32px,
+        #000;
+    }
+
+    .compteur { text-align: center; }
+    .compteur b { display: block; font: 700 38px/1 var(--mono); letter-spacing: -.02em; }
+    .compteur small { display: block; margin-top: 8px; color: var(--doux); font: 12px var(--mono); }
+
+    #puce {
+      position: relative;
+      width: min(176px, 30vh);
+      aspect-ratio: 1;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
+      filter: drop-shadow(0 18px 28px rgba(0, 0, 0, .8));
+      transition: transform .07s;
+      touch-action: manipulation;
+    }
+
+    #puce svg { width: 100%; height: 100%; }
+    #puce:active { transform: scale(.94); }
+    #puce .led { transition: fill .1s; }
+    #puce.pulse .led { fill: #86efac; }
+    #puce.pulse { filter: drop-shadow(0 0 26px rgba(34, 197, 94, .35)) drop-shadow(0 18px 28px rgba(0, 0, 0, .8)); }
+    #puce.niveau-sup { animation: niveauSup .9s; }
+    #puce:focus-visible { outline: 2px solid var(--bord3); outline-offset: 10px; border-radius: 16px; }
+
+    @keyframes niveauSup {
+      0%, 100% { transform: none; }
+      30% { transform: scale(1.06); }
+      60% { transform: scale(.97); }
+      85% { transform: scale(1.1); filter: brightness(1.8) drop-shadow(0 0 40px rgba(34, 197, 94, .6)); }
+    }
+
+    .progression { width: min(300px, 82%); }
+    .progression-tete { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--tres-doux); font: 11px var(--mono); }
+    .progression-tete b { color: var(--accent-clair); font-weight: 500; }
+    .barre { height: 4px; overflow: hidden; border-radius: 4px; background: #1a1a1a; }
+    .barre i { display: block; width: 0; height: 100%; border-radius: 4px; background: var(--accent); box-shadow: 0 0 10px var(--accent); transition: width .15s; }
+
+    .plus {
+      position: absolute;
+      color: var(--accent-clair);
+      font: 600 14px var(--mono);
+      pointer-events: none;
+      animation: monte .9s ease-out forwards;
+    }
+
+    @keyframes monte { to { transform: translateY(-64px); opacity: 0; } }
+
+    .cote { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--bord); background: var(--panneau); }
+
+    .onglets { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--bord); }
+    .onglets button { flex: 1; height: 34px; border: 0; border-radius: 8px; background: none; color: var(--doux); font: 500 13px var(--police); cursor: pointer; }
+    .onglets button:hover { color: var(--texte); }
+    .onglets button[aria-selected="true"] { background: var(--panneau3); color: #fff; box-shadow: inset 0 0 0 1px var(--bord2); }
+    .onglets small { color: var(--tres-doux); font: 11px var(--mono); }
+
+    .liste { flex: 1; min-height: 0; padding: 8px; overflow: auto; }
+
+    .achat {
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 6px;
+      padding: 10px;
+      border: 1px solid var(--bord);
+      border-radius: 12px;
+      background: var(--panneau2);
+      color: var(--texte);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+
+    .achat:hover:not(:disabled) { border-color: var(--bord3); background: var(--panneau3); }
+    .achat:disabled { cursor: not-allowed; }
+    .achat:disabled .icone, .achat:disabled strong, .achat:disabled small { opacity: .45; }
+    .achat .icone { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--bord2); border-radius: 10px; background: linear-gradient(180deg, #1c1c1c, #0d0d0d); color: #f0f0f0; }
+    .achat .icone svg { width: 19px; height: 19px; }
+    .achat strong { display: block; font-size: 13.5px; font-weight: 600; }
+    .achat small { display: block; color: var(--doux); font: 11.5px var(--mono); }
+    .achat .prix { color: var(--accent-clair); }
+    .achat:disabled .prix { color: var(--tres-doux); }
+    .achat .nb { color: var(--doux); font: 600 18px var(--mono); text-align: right; }
+
+    .succes { display: grid; gap: 6px; }
+    .ligne-succes { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--bord); border-radius: 12px; background: var(--panneau2); }
+    .ligne-succes .icone { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 8px; background: var(--accent-fond); color: var(--accent-clair); }
+    .ligne-succes.verrouille .icone { background: var(--panneau3); color: var(--tres-doux); }
+    .ligne-succes .icone svg { width: 15px; height: 15px; }
+    .ligne-succes strong { display: block; font-size: 13px; font-weight: 600; }
+    .ligne-succes small { display: block; color: var(--doux); font-size: 12px; }
+    .ligne-succes.verrouille strong, .ligne-succes.verrouille small { color: var(--tres-doux); }
+    .ligne-succes .niv { margin-left: auto; color: var(--tres-doux); font: 11px var(--mono); }
+
+    .pied { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--bord); color: var(--tres-doux); font: 11.5px var(--mono); }
+
+    .modale { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .78); backdrop-filter: blur(4px); }
+    .modale[hidden] { display: none; }
+    .modale .boite { width: min(340px, 100%); padding: 26px 24px 22px; border: 1px solid var(--bord2); border-radius: 18px; background: #0b0b0b; box-shadow: 0 30px 80px rgba(0, 0, 0, .8); text-align: center; animation: pop .3s cubic-bezier(.2, .8, .2, 1); }
+    @keyframes pop { from { transform: translateY(10px) scale(.96); opacity: 0; } }
+    .modale .niveau-grand { margin: 14px 0 4px; color: #fff; font: 700 54px/1 var(--mono); letter-spacing: -.04em; }
+    .modale h2 { margin: 8px 0 6px; font-size: 20px; }
+    .modale p { margin: 0 0 20px; color: var(--doux); }
+    .modale .btn { width: 100%; height: 44px; }
+
+    .toast { position: fixed; left: 50%; bottom: 16px; z-index: 20; max-width: calc(100% - 24px); padding: 10px 16px; border: 1px solid var(--bord2); border-radius: 999px; background: #141414; font-size: 13px; transform: translateX(-50%); }
+
+    @media (max-width: 640px) {
+      body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow: auto; }
+      .zone-puce { padding: 22px 14px 18px; }
+      #puce { width: min(130px, 26vh); }
+      .compteur b { font-size: 32px; }
+      .cote { min-height: 340px; border-left: 0; border-top: 1px solid var(--bord); }
+    }
+  </style>
+</head>
+<body>
+  <section class="zone-puce" id="zone">
+    <span class="pastille" id="niveau">Niveau 1</span>
+    <div class="compteur"><b id="donnees">0 o</b><small><span id="parsec">0 o</span> / seconde</small></div>
+    <button id="puce" aria-label="Produire des données">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="boitier" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2a2a2a"/>
+            <stop offset="1" stop-color="#0a0a0a"/>
+          </linearGradient>
+          <linearGradient id="capot" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f5f5f5"/>
+            <stop offset=".6" stop-color="#bdbdbd"/>
+            <stop offset="1" stop-color="#8a8a8a"/>
+          </linearGradient>
+        </defs>
+        <g stroke="#3a3a3a" stroke-width="4" stroke-linecap="round">
+          <path d="M36 6v14M50 6v14M64 6v14M78 6v14M92 6v14M36 100v14M50 100v14M64 100v14M78 100v14M92 100v14"/>
+          <path d="M6 36h14M6 50h14M6 64h14M6 78h14M6 92h14M100 36h14M100 50h14M100 64h14M100 78h14M100 92h14"/>
+        </g>
+        <rect x="20" y="20" width="80" height="80" rx="10" fill="url(#boitier)" stroke="#3a3a3a" stroke-width="1.5"/>
+        <rect x="34" y="34" width="52" height="52" rx="6" fill="url(#capot)"/>
+        <text x="60" y="57" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" font-weight="700" fill="#2a2a2a">DATA</text>
+        <text x="60" y="70" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="6.5" fill="#4a4a4a">X-2026</text>
+        <circle class="led" cx="29" cy="29" r="3" fill="#22c55e"/>
+      </svg>
+    </button>
+    <div class="progression">
+      <div class="progression-tete"><span>Niveau suivant</span><b id="pourcent">0 %</b></div>
+      <div class="barre" aria-hidden="true"><i id="progres"></i></div>
+    </div>
+  </section>
+
+  <aside class="cote">
+    <div class="onglets" role="tablist">
+      <button role="tab" aria-selected="true" data-onglet="boutique">Matériel</button>
+      <button role="tab" aria-selected="false" data-onglet="succes">Succès <small id="nb-succes">0/19</small></button>
+    </div>
+    <div class="liste" id="liste"></div>
+    <div class="pied">
+      <span id="bonus">Bonus +0 %</span>
+      <button class="btn petit rouge" id="reset">Réinitialiser</button>
+    </div>
+  </aside>
+
+  <div class="modale" id="modale" hidden>
+    <div class="boite">
+      <span class="pastille">Succès débloqué</span>
+      <div class="niveau-grand" id="m-niveau">2</div>
+      <h2 id="m-nom">Branché</h2>
+      <p id="m-desc"></p>
+      <button class="btn primaire" id="m-ok">Continuer</button>
+    </div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  const CLE = 'dataclicker-sauvegarde';
+  const $ = id => document.getElementById(id);
+
+  const TRACES = {
+    souris: '<rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/>',
+    disquette: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 3v5h7V3M8 21v-7h8v7"/>',
+    cd: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
+    portable: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/>',
+    tour: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 6h4M10 9h4"/><circle cx="12" cy="16" r="1.5"/>',
+    serveur: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+    datacenter: '<path d="M4 21V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v16"/><path d="M2 21h20M8 8h2M14 8h2M8 12h2M14 12h2M8 16h2M14 16h2"/>',
+    quantique: '<circle cx="12" cy="12" r="1.5"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>',
+    check: '<path d="m5 12 5 5 9-10"/>',
+    cadenas: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+  };
+  const svg = nom => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TRACES[nom]}</svg>`;
+
+  const SUCCES = [
+    ['Branché', 'Ton premier niveau. Tout commence ici.'],
+    ['Ça s’allume', 'Les LED clignotent, c’est bon signe.'],
+    ['Ventilos à fond', 'On entend la machine depuis le salon.'],
+    ['RGB activé', '+10 % de performances (selon les rumeurs).'],
+    ['Overclocké', 'Plus vite, plus chaud, plus fort.'],
+    ['Ping 1 ms', 'Zéro lag. Enfin.'],
+    ['Full HD', 'Les pixels se voient de moins en moins.'],
+    ['4K', 'Chaque pixel compte.'],
+    ['Ray tracing', 'Les reflets sont magnifiques.'],
+    ['Ultra settings', 'Tout au maximum, et ça tient.'],
+    ['Serveur dédié', 'Ta propre machine dans un datacenter.'],
+    ['Cloud perso', 'Tes données flottent quelque part.'],
+    ['Big Data', 'Tu ne sais plus quoi faire de toutes ces données.'],
+    ['Intelligence artificielle', 'Elle te dit bonjour le matin.'],
+    ['Superordinateur', 'Il calcule plus vite que toi. Beaucoup plus vite.'],
+    ['Quantique', 'Tes octets sont à la fois 0 et 1.'],
+    ['En orbite', 'Ton réseau fait le tour de la planète.'],
+    ['Multivers', 'Des données stockées dans d’autres dimensions.'],
+    ['Fin d’Internet', 'Tu as tout téléchargé. Absolument tout.']
+  ];
+
+  const BOUTIQUE = [
+    { id: 'souris', nom: 'Souris gaming', desc: '+1 o par clic', prix: 25, croissance: 1.6, clic: 1 },
+    { id: 'disquette', nom: 'Disquette', desc: '+0,5 o/s', prix: 15, croissance: 1.15, prod: 0.5 },
+    { id: 'cd', nom: 'Lecteur CD', desc: '+3 o/s', prix: 110, croissance: 1.15, prod: 3 },
+    { id: 'portable', nom: 'PC portable', desc: '+12 o/s', prix: 750, croissance: 1.15, prod: 12 },
+    { id: 'tour', nom: 'Tour gaming', desc: '+50 o/s', prix: 5000, croissance: 1.15, prod: 50 },
+    { id: 'serveur', nom: 'Baie de serveurs', desc: '+220 o/s', prix: 32000, croissance: 1.15, prod: 220 },
+    { id: 'datacenter', nom: 'Datacenter', desc: '+1 Ko/s', prix: 200000, croissance: 1.15, prod: 1000 },
+    { id: 'quantique', nom: 'Ordinateur quantique', desc: '+5 Ko/s', prix: 1500000, croissance: 1.15, prod: 5000 }
+  ];
+
+  const nouveau = () => ({ donnees: 0, total: 0, achats: {}, niveau: 1, seuil: 60, progres: 0, derniere: Date.now() });
+
+  function charger() {
+    try {
+      const d = JSON.parse(localStorage.getItem(CLE));
+      if (d && typeof d.donnees === 'number') return Object.assign(nouveau(), d);
+    } catch (e) { /* rien */ }
+    return nouveau();
+  }
+
+  function sauver() {
+    etat.derniere = Date.now();
+    try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) { /* rien */ }
+  }
+
+  let etat = charger();
+  let onglet = 'boutique';
+  let enPause = false;
+
+  const succesObtenus = () => etat.niveau - 1;
+  const multiplicateur = () => 1 + 0.05 * succesObtenus();
+  const nb = id => etat.achats[id] || 0;
+  const prix = item => Math.ceil(item.prix * Math.pow(item.croissance, nb(item.id)));
+  const parSeconde = () => BOUTIQUE.reduce((t, i) => t + (i.prod || 0) * nb(i.id), 0) * multiplicateur();
+  const parClic = () => (1 + nb('souris')) * multiplicateur();
+
+  const UNITES = ['o', 'Ko', 'Mo', 'Go', 'To', 'Po', 'Eo', 'Zo', 'Yo'];
+  function octets(n) {
+    if (n < 1000) {
+      const v = n < 10 && n % 1 ? n.toFixed(1).replace('.', ',') : Math.floor(n);
+      return v + ' o';
+    }
+    let i = 0;
+    while (n >= 1000 && i < UNITES.length - 1) { n /= 1000; i++; }
+    return n.toLocaleString('fr-FR', { maximumFractionDigits: n < 10 ? 2 : 1 }) + ' ' + UNITES[i];
+  }
+
+  const succesDuNiveau = n => SUCCES[n - 2] || ['Niveau ' + n, 'Tu as dépassé tous les succès. Continue.'];
+
+  function gagner(q) {
+    etat.donnees += q;
+    etat.total += q;
+    etat.progres += q;
+    if (!enPause && etat.progres >= etat.seuil) monterDeNiveau();
+  }
+
+  /* ---------- Clic sur la puce ---------- */
+
+  const puce = $('puce');
+  let minuterieLed = null;
+  puce.addEventListener('pointerdown', e => {
+    if (enPause) return;
+    const q = parClic();
+    gagner(q);
+    puce.classList.add('pulse');
+    clearTimeout(minuterieLed);
+    minuterieLed = setTimeout(() => puce.classList.remove('pulse'), 90);
+    const zone = $('zone').getBoundingClientRect();
+    const plus = document.createElement('div');
+    plus.className = 'plus';
+    plus.textContent = '+' + octets(q);
+    plus.style.left = (e.clientX - zone.left - 16 + (Math.random() * 30 - 15)) + 'px';
+    plus.style.top = (e.clientY - zone.top - 22) + 'px';
+    $('zone').append(plus);
+    setTimeout(() => plus.remove(), 900);
+    afficher();
+  });
+  puce.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!enPause) { gagner(parClic()); afficher(); }
+    }
+  });
+
+  /* ---------- Niveaux ---------- */
+
+  function monterDeNiveau() {
+    enPause = true;
+    puce.classList.add('niveau-sup');
+    setTimeout(() => {
+      puce.classList.remove('niveau-sup');
+      etat.niveau += 1;
+      etat.progres = 0;
+      etat.seuil = Math.ceil(etat.seuil * 1.8);
+      const [nom, desc] = succesDuNiveau(etat.niveau);
+      $('m-niveau').textContent = etat.niveau;
+      $('m-nom').textContent = nom;
+      $('m-desc').textContent = desc + ' Production +5 %.';
+      $('modale').hidden = false;
+      $('m-ok').focus();
+      sauver();
+      dessinerListe();
+    }, 900);
+  }
+
+  $('m-ok').addEventListener('click', () => {
+    $('modale').hidden = true;
+    enPause = false;
+    puce.focus();
+    afficher();
+  });
+
+  /* ---------- Matériel et succès ---------- */
+
+  function dessinerListe() {
+    const liste = $('liste');
+    if (onglet === 'boutique') {
+      liste.innerHTML = BOUTIQUE.map(i => `
+        <button class="achat" data-id="${i.id}">
+          <span class="icone">${svg(i.id)}</span>
+          <span><strong>${i.nom}</strong><small>${i.desc} · <span class="prix">${octets(prix(i))}</span></small></span>
+          <span class="nb">${nb(i.id)}</span>
+        </button>`).join('');
+    } else {
+      liste.innerHTML = `<div class="succes">${SUCCES.map(([nom, desc], i) => {
+        const obtenu = i < succesObtenus();
+        return `<div class="ligne-succes${obtenu ? '' : ' verrouille'}">
+          <span class="icone">${svg(obtenu ? 'check' : 'cadenas')}</span>
+          <span><strong>${obtenu ? nom : 'Verrouillé'}</strong><small>${obtenu ? desc : 'Atteins le niveau ' + (i + 2)}</small></span>
+          <span class="niv">N${i + 2}</span>
+        </div>`;
+      }).join('')}</div>`;
+    }
+    afficher();
+  }
+
+  $('liste').addEventListener('click', e => {
+    const b = e.target.closest('.achat');
+    if (!b) return;
+    const item = BOUTIQUE.find(i => i.id === b.dataset.id);
+    const p = prix(item);
+    if (etat.donnees < p) return;
+    etat.donnees -= p;
+    etat.achats[item.id] = nb(item.id) + 1;
+    sauver();
+    dessinerListe();
+  });
+
+  document.querySelector('.onglets').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    onglet = b.dataset.onglet;
+    document.querySelectorAll('.onglets button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+    dessinerListe();
+  });
+
+  $('reset').addEventListener('click', () => {
+    if (!confirm('Tout réinitialiser ? Tu perdras tes données, ton matériel et tes succès.')) return;
+    etat = nouveau();
+    sauver();
+    dessinerListe();
+  });
+
+  /* ---------- Affichage ---------- */
+
+  function afficher() {
+    $('donnees').textContent = octets(etat.donnees);
+    $('parsec').textContent = octets(parSeconde());
+    $('niveau').textContent = 'Niveau ' + etat.niveau;
+    const pct = Math.min(100, etat.progres / etat.seuil * 100);
+    $('progres').style.width = pct + '%';
+    $('pourcent').textContent = Math.floor(pct) + ' %';
+    $('bonus').textContent = `Bonus +${succesObtenus() * 5} %`;
+    $('nb-succes').textContent = `${Math.min(succesObtenus(), SUCCES.length)}/${SUCCES.length}`;
+    document.querySelectorAll('.achat').forEach(b => {
+      const item = BOUTIQUE.find(i => i.id === b.dataset.id);
+      b.disabled = etat.donnees < prix(item);
+    });
+  }
+
+  function toast(texte) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = texte;
+    document.body.append(t);
+    setTimeout(() => t.remove(), 5000);
+  }
+
+  /* ---------- Production automatique ---------- */
+
+  const absence = (Date.now() - (etat.derniere || Date.now())) / 1000;
+  if (absence > 60 && parSeconde() > 0) {
+    const gain = parSeconde() * Math.min(absence, 7200) * 0.5;
+    gagner(gain);
+    toast(`Pendant ton absence, ton matériel a produit ${octets(gain)}.`);
+  }
+
+  let avant = performance.now();
+  setInterval(() => {
+    const maintenant = performance.now();
+    const dt = Math.max(0, Math.min(3600, (maintenant - avant) / 1000));
+    avant = maintenant;
+    const q = parSeconde() * dt;
+    if (q > 0) gagner(q);
+    afficher();
+  }, 100);
+
+  setInterval(sauver, 5000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) sauver(); });
+  window.addEventListener('pagehide', sauver);
+
+  dessinerListe();
+})();
+</script>
+</body>
+</html>
