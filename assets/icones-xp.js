@@ -181,6 +181,49 @@
     <circle cx="16" cy="16" r="12.5" fill="url(#gl)" stroke="#0b4019"/>
     <g fill="none" stroke="#e8ffe9" stroke-width="1.2" opacity=".85"><ellipse cx="16" cy="16" rx="5.5" ry="12.5"/><path d="M3.5 16h25M5.5 10h21M5.5 22h21"/></g></svg>`;
 
+
+  // Jeux à plusieurs
+  D.puissance4 = `<svg viewBox="0 0 32 32"><defs>${lin('p4', '#4a4a4a', '#151515')}${rad('pr', '#ff9c9c', '#ef4444', '#8f1b1b')}${rad('pj', '#fff4a8', '#facc15', '#9a6a05')}</defs>
+    <rect x="3.5" y="5.5" width="25" height="21" rx="3" fill="url(#p4)" stroke="#000"/>
+    <g fill="#050505"><circle cx="9" cy="11" r="2.6"/><circle cx="16" cy="11" r="2.6"/><circle cx="23" cy="11" r="2.6"/></g>
+    <circle cx="9" cy="18" r="2.6" fill="url(#pr)"/><circle cx="16" cy="18" r="2.6" fill="url(#pj)"/><circle cx="23" cy="18" r="2.6" fill="url(#pr)"/>
+    <circle cx="16" cy="11" r="2.6" fill="url(#pj)"/><rect x="6" y="27" width="20" height="2" rx="1" fill="#333"/></svg>`;
+  D.morpion = `<svg viewBox="0 0 32 32"><defs>${lin('mp', '#ffffff', '#d9d9d9', 1, 1)}</defs>
+    <rect x="3.5" y="3.5" width="25" height="25" rx="3" fill="url(#mp)" stroke="#555"/>
+    <g stroke="#9a9a9a" stroke-width="1.2"><path d="M12 6v20M20 6v20M6 12h20M6 20h20"/></g>
+    <path d="M7 7l3 3M10 7l-3 3M15 15l3 3M18 15l-3 3M23 23l2.5 2.5M25.5 23l-2.5 2.5" stroke="#16a34a" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="16" cy="8.5" r="1.9" fill="none" stroke="#f97316" stroke-width="1.8"/><circle cx="8.5" cy="16" r="1.9" fill="none" stroke="#f97316" stroke-width="1.8"/></svg>`;
+  D.navale = `<svg viewBox="0 0 32 32"><defs>${lin('mer', '#2a6fa8', '#0b2740')}${lin('coque', '#9aa3ad', '#3f4750')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#mer)" stroke="#06192a"/>
+    <path d="M5 19h22l-3 5H8z" fill="url(#coque)" stroke="#1f252b"/>
+    <path d="M9 19v-4h12v4M12 15v-3h5v3M14.5 12V8" fill="#6b7580" stroke="#1f252b"/>
+    <path d="M3 26c2 0 2-1 4-1s2 1 4 1 2-1 4-1 2 1 4 1 2-1 4-1 2 1 4 1" fill="none" stroke="#9fd0ff" stroke-width="1.2"/>
+    <circle cx="23" cy="9" r="2.6" fill="#f97316" opacity=".9"/><path d="M20.5 9h5M23 6.5v5" stroke="#fff" stroke-width="1"/></svg>`;
+  D.pong = `<svg viewBox="0 0 32 32"><defs>${lin('pg', '#1b1b1b', '#050505')}</defs>
+    <rect x="2.5" y="4.5" width="27" height="23" rx="3" fill="url(#pg)" stroke="#000"/>
+    <path d="M16 6.5v19" stroke="#3a3a3a" stroke-dasharray="2 2"/>
+    <rect x="5" y="9" width="2.6" height="8" rx="1" fill="#fafafa"/><rect x="24.4" y="14" width="2.6" height="8" rx="1" fill="#4ade80"/>
+    <circle cx="13" cy="12" r="1.8" fill="#fff"/><circle cx="13" cy="12" r="3.2" fill="#fff" opacity=".18"/></svg>`;
+  D.tron = `<svg viewBox="0 0 32 32"><defs>${lin('tr', '#14141e', '#030305', 1, 1)}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#tr)" stroke="#000"/>
+    <path d="M6 26V12h8v8h7V6h5" fill="none" stroke="#22d3ee" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M26 26H18v-4" fill="none" stroke="#f97316" stroke-width="2.2" stroke-linejoin="round"/>
+    <rect x="24.6" y="4.6" width="3" height="3" fill="#fff"/><rect x="16.6" y="20.6" width="3" height="3" fill="#fff"/></svg>`;
+  D.chrono = `<svg viewBox="0 0 32 32"><defs>${rad('ch', '#ffffff', '#f0f0f0', '#c9c9c9', .45, .4)}${lin('cb', '#5ee07a', '#13702d')}</defs>
+    <rect x="13" y="2.5" width="6" height="3.5" rx="1" fill="#777" stroke="#333"/>
+    <circle cx="16" cy="18" r="11.5" fill="url(#cb)" stroke="#0b4019"/>
+    <circle cx="16" cy="18" r="8.8" fill="url(#ch)" stroke="#333"/>
+    <path d="M16 18v-6M16 18l4 2" stroke="#111" stroke-width="1.9" stroke-linecap="round"/><circle cx="16" cy="18" r="1.3" fill="#c0392b"/></svg>`;
+  D.quiz = `<svg viewBox="0 0 32 32"><defs>${rad('qz', '#c4b5fd', '#7c3aed', '#3b0f8a')}</defs>
+    <path d="M16 3.5c7 0 12.5 4.9 12.5 11s-5.5 11-12.5 11c-1.4 0-2.8-.2-4-.6L6 28l1.2-5.2C4.9 20.8 3.5 17.8 3.5 14.5c0-6.1 5.5-11 12.5-11z" fill="url(#qz)" stroke="#2e0b6b"/>
+    <ellipse cx="13" cy="9" rx="7" ry="3" fill="#fff" opacity=".25"/>
+    <path d="M12.6 11.6a3.5 3.5 0 1 1 4.8 3.2c-.9.4-1.4 1.1-1.4 2v.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/><circle cx="16" cy="20.8" r="1.5" fill="#fff"/></svg>`;
+  D.crayon = `<svg viewBox="0 0 32 32"><defs>${lin('fe', '#ffffff', '#dcdcdc', 1, 1)}${lin('cr', '#ffd56b', '#e0901a', 1, 0)}</defs>
+    <rect x="3.5" y="5.5" width="22" height="20" rx="1.5" fill="url(#fe)" stroke="#555"/>
+    <path d="M7 20c2-4 4-6 6-3s4 1 6-4" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M26.5 6.5l3 3L16 23l-4.2 1.2L13 20z" fill="url(#cr)" stroke="#7a4a05" stroke-linejoin="round"/>
+    <path d="M13 20l3 3" stroke="#7a4a05"/><path d="M11.8 24.2l1.2-4.2 3 3z" fill="#f2d7a8" stroke="#7a4a05" stroke-linejoin="round"/></svg>`;
+
   // Un cache pour ne fabriquer chaque image qu'une fois
   const cache = {};
   window.ICONES_XP = D;

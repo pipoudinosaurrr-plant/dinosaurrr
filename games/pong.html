@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pong</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; }
+    #jeu[hidden] { display: none; }
+    #toile { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: none; }
+    .noms { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; display: flex; gap: 6px; pointer-events: none; }
+    .aide { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); color: var(--tres-doux); font: 500 11px var(--mono); pointer-events: none; transition: opacity .6s; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <canvas id="toile"></canvas>
+    <div class="noms" id="noms"></div>
+    <div class="aide" id="aide"></div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur, { W, H, RAQ_X, RAQ_DEMI, RAQ_EP, BALLE, BUT } from './multi/jeux/pong.js';
+
+    const toile = document.getElementById('toile');
+    const ctx2 = toile.getContext('2d');
+    let dpr = 1, cw = 0, ch = 0;
+    function taille() {
+      dpr = Math.min(2, devicePixelRatio || 1);
+      cw = innerWidth; ch = innerHeight;
+      toile.width = Math.round(cw * dpr);
+      toile.height = Math.round(ch * dpr);
+    }
+    addEventListener('resize', taille);
+    taille();
+
+    let vue = null, recue = 0, ctxJeu = null;
+    let mi = 0;
+    const moi = { y: H / 2, cible: H / 2 };
+    let autreY = H / 2;
+    let eclairs = [];
+    let dernierEnvoi = 0, dernierEnvoye = -1;
+    const vertical = () => ch > cw * 1.05;
+
+    // conversion « vue de mon côté » → écran
+    function repere() {
+      if (vertical()) {
+        const s = Math.min(cw / H, (ch - 60) / W) * 0.94;
+        return { s, ox: (cw - H * s) / 2, oy: (ch - W * s) / 2 + 10, v: true };
+      }
+      const s = Math.min(cw / W, (ch - 60) / H) * 0.94;
+      return { s, ox: (cw - W * s) / 2, oy: (ch - H * s) / 2 + 12, v: false };
+    }
+    const persp = x => (mi === 1 ? W - x : x);
+    function ecran(R, x, y) {
+      const px = persp(x);
+      return R.v ? [R.ox + y * R.s, R.oy + (W - px) * R.s] : [R.ox + px * R.s, R.oy + y * R.s];
+    }
+
+    function viser(clientX, clientY) {
+      const R = repere();
+      const y = R.v ? (clientX - R.ox) / R.s : (clientY - R.oy) / R.s;
+      moi.cible = Math.max(RAQ_DEMI, Math.min(H - RAQ_DEMI, y));
+    }
+    toile.addEventListener('pointermove', e => viser(e.clientX, e.clientY));
+    toile.addEventListener('pointerdown', e => viser(e.clientX, e.clientY));
+    const touches = {};
+    addEventListener('keydown', e => { touches[e.key] = true; });
+    addEventListener('keyup', e => { touches[e.key] = false; });
+
+    function afficher(v, ctx) {
+      ctxJeu = ctx;
+      mi = Math.max(0, v.j.indexOf(ctx.moi));
+      if (!vue) autreY = v.p[1 - mi];
+      vue = v;
+      recue = performance.now();
+      document.getElementById('noms').innerHTML = v.j.map((id, i) => `<span class="pastille-joueur"><i style="background:${i === mi ? '#fafafa' : ctx.couleur(id)}"></i>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''}</span>`).join('');
+    }
+
+    function evenement(ev) {
+      if (ev[0] === 'tape') eclairs.push({ t: 0, cote: ev[1], type: 'tape' });
+      if (ev[0] === 'point') eclairs.push({ t: 0, cote: ev[1], type: 'point' });
+    }
+
+    let avant = performance.now();
+    function boucle(maintenant) {
+      requestAnimationFrame(boucle);
+      const dt = Math.min(0.05, (maintenant - avant) / 1000);
+      avant = maintenant;
+      ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx2.fillStyle = '#000';
+      ctx2.fillRect(0, 0, cw, ch);
+      if (!vue) return;
+
+      // ma raquette : bouge tout de suite chez moi (même vitesse que sur le serveur)
+      if (touches.ArrowUp || touches.w || touches.z) moi.cible = Math.max(RAQ_DEMI, moi.cible - 900 * dt);
+      if (touches.ArrowDown || touches.s) moi.cible = Math.min(H - RAQ_DEMI, moi.cible + 900 * dt);
+      const d = moi.cible - moi.y;
+      moi.y += Math.sign(d) * Math.min(Math.abs(d), 950 * dt);
+      if (ctxJeu && !ctxJeu.spectateur && maintenant - dernierEnvoi > 33 && Math.round(moi.cible) !== dernierEnvoye) {
+        dernierEnvoi = maintenant;
+        dernierEnvoye = Math.round(moi.cible);
+        ctxJeu.envoyer({ t: 'y', y: dernierEnvoye });
+      }
+      autreY += (vue.p[1 - mi] - autreY) * (1 - Math.exp(-dt * 18));
+      const mesY = ctxJeu && ctxJeu.spectateur ? vue.p[mi] : moi.y;
+
+      // balle : on prolonge sa trajectoire depuis la dernière image reçue
+      const ecoule = (maintenant - recue) / 1000;
+      const pause = Math.max(0, vue.pause - ecoule * 1000);
+      let bx = vue.b[0], by = vue.b[1];
+      if (!vue.fini && vue.pause === 0) {
+        const tt = Math.min(0.12, ecoule);
+        bx += vue.v[0] * tt;
+        by += vue.v[1] * tt;
+        if (by < BALLE) by = 2 * BALLE - by;
+        if (by > H - BALLE) by = 2 * (H - BALLE) - by;
+      }
+
+      const R = repere();
+      const [x0, y0] = ecran(R, 0, 0), [x1, y1] = ecran(R, W, H);
+      const gx = Math.min(x0, x1), gy = Math.min(y0, y1), gw = Math.abs(x1 - x0), gh = Math.abs(y1 - y0);
+
+      // terrain
+      ctx2.fillStyle = '#070707';
+      ctx2.fillRect(gx, gy, gw, gh);
+      ctx2.strokeStyle = '#2a2a2a';
+      ctx2.lineWidth = 2;
+      ctx2.strokeRect(gx, gy, gw, gh);
+      ctx2.setLineDash([10, 12]);
+      ctx2.strokeStyle = '#262626';
+      ctx2.beginPath();
+      const [m0x, m0y] = ecran(R, W / 2, 0), [m1x, m1y] = ecran(R, W / 2, H);
+      ctx2.moveTo(m0x, m0y); ctx2.lineTo(m1x, m1y);
+      ctx2.stroke();
+      ctx2.setLineDash([]);
+
+      // scores
+      const [smx, smy] = ecran(R, W * 0.25, H / 2), [sax, say] = ecran(R, W * 0.75, H / 2);
+      ctx2.font = `800 ${Math.round(R.s * 120)}px "JetBrains Mono", monospace`;
+      ctx2.textAlign = 'center';
+      ctx2.textBaseline = 'middle';
+      ctx2.fillStyle = 'rgba(255,255,255,.07)';
+      ctx2.fillText(vue.s[mi], smx, smy);
+      ctx2.fillText(vue.s[1 - mi], sax, say);
+
+      // raquettes
+      const raquette = (x, y, couleur, lueur) => {
+        const [a, b] = ecran(R, x - RAQ_EP / 2, y - RAQ_DEMI), [c, e] = ecran(R, x + RAQ_EP / 2, y + RAQ_DEMI);
+        ctx2.shadowColor = lueur;
+        ctx2.shadowBlur = 14;
+        ctx2.fillStyle = couleur;
+        const rx = Math.min(a, c), ry = Math.min(b, e);
+        ctx2.beginPath();
+        ctx2.roundRect(rx, ry, Math.abs(c - a), Math.abs(e - b), 4);
+        ctx2.fill();
+        ctx2.shadowBlur = 0;
+      };
+      const moiX = RAQ_X[mi], luiX = RAQ_X[1 - mi];
+      const coulLui = ctxJeu ? ctxJeu.couleur(vue.j[1 - mi]) : '#f97316';
+      raquette(moiX, mesY, '#fafafa', 'rgba(255,255,255,.5)');
+      raquette(luiX, autreY, coulLui, coulLui);
+
+      // balle
+      if (!vue.fini) {
+        const [px, py] = ecran(R, bx, by);
+        ctx2.shadowColor = 'rgba(255,255,255,.8)';
+        ctx2.shadowBlur = 16;
+        ctx2.fillStyle = '#fff';
+        ctx2.beginPath();
+        ctx2.arc(px, py, BALLE * R.s, 0, Math.PI * 2);
+        ctx2.fill();
+        ctx2.shadowBlur = 0;
+      }
+
+      // éclairs quand on tape, « +1 » quand on marque
+      eclairs = eclairs.filter(f => (f.t += dt) < 0.6);
+      for (const f of eclairs) {
+        const a = 1 - f.t / 0.6;
+        if (f.type === 'tape') {
+          const [px, py] = ecran(R, RAQ_X[f.cote], f.cote === mi ? mesY : autreY);
+          ctx2.strokeStyle = `rgba(255,255,255,${a * .6})`;
+          ctx2.lineWidth = 2;
+          ctx2.beginPath();
+          ctx2.arc(px, py, (20 + f.t * 120) * R.s * 2, 0, Math.PI * 2);
+          ctx2.stroke();
+        } else {
+          const [px, py] = ecran(R, f.cote === mi ? W * 0.25 : W * 0.75, H * 0.3);
+          ctx2.fillStyle = `rgba(74,222,128,${a})`;
+          ctx2.font = `800 ${Math.round(R.s * 60)}px "JetBrains Mono", monospace`;
+          ctx2.fillText('+1', px, py - f.t * 60);
+        }
+      }
+
+      // décompte avant le service
+      if (pause > 0 && !vue.fini) {
+        const [cx, cy] = ecran(R, W / 2, H / 2);
+        ctx2.fillStyle = 'rgba(255,255,255,.85)';
+        ctx2.font = `800 ${Math.round(R.s * 90)}px "JetBrains Mono", monospace`;
+        ctx2.fillText(pause > 1500 ? 'PRÊT ?' : String(Math.ceil(pause / 500)), cx, cy);
+      }
+      ctx2.textAlign = 'start';
+      ctx2.textBaseline = 'alphabetic';
+    }
+    requestAnimationFrame(boucle);
+
+    demarrerJeu({
+      id: 'pong',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Pong',
+      intro: `Le grand classique, en 1 contre 1. Renvoie la balle, elle accélère à chaque coup. Premier à ${BUT} points.`,
+      regles: [['Bouger', 'La souris (ou ↑ ↓).'], ['Viser', 'Le bord de la raquette donne de l’angle.'], ['Gagner', `Premier à ${BUT} points.`]],
+      reglesTactile: [['Bouger', 'Glisse le doigt.'], ['Viser', 'Le bord de la raquette donne de l’angle.'], ['Gagner', `Premier à ${BUT} points.`]],
+      debut() {
+        vue = null;
+        eclairs = [];
+        moi.y = moi.cible = H / 2;
+        const aide = document.getElementById('aide');
+        aide.textContent = TACTILE ? 'Glisse le doigt pour bouger ta raquette (en bas)' : 'Bouge la souris pour déplacer ta raquette (à gauche)';
+        aide.style.opacity = 1;
+        setTimeout(() => { aide.style.opacity = 0; }, 5000);
+      },
+      afficher,
+      evenement
+    });
+  </script>
+</body>
+</html>

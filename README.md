@@ -26,8 +26,13 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `CNAME` | Le nom de domaine du site (à changer si tu prends une autre extension que `.com`) |
 | `serveur/`, `wrangler.jsonc`, `package.json` | Le serveur des jeux multijoueurs (il tourne chez Cloudflare, voir étape 7) |
 | `games/cercle/moteur.js` | Les règles du Cercle, utilisées à la fois par le mode solo et par le serveur |
+| `games/multi/` | Le salon commun des autres jeux à plusieurs (`salon.js`) et leurs règles (`jeux/`) |
+| `games/multi/jeux/questions.js` | Les questions du Quiz battle (ajoute les tiennes) |
+| `games/multi/jeux/mots.js` | Les mots de Dessine et devine (ajoute les tiens) |
 
-Les jeux : Le Cercle (multijoueur), Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
+Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine.
+
+Les jeux en solo : Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
 
 ---
 
@@ -132,7 +137,8 @@ Ensuite, chaque modification envoyée sur GitHub met aussi le serveur à jour to
 
 - **Inviter des potes** : crée une partie, puis « Copier le lien ». Le lien ressemble à `dinosaurrr.com/#jeu/cercle/K7QF`.
 - **Gratuit** : l'offre gratuite de Cloudflare permet 100 000 requêtes par jour, largement assez pour des dizaines de parties par jour.
-- **Pas de chat** : exprès. Les parties sont privées (code à 4 caractères) et on ne voit que les pseudos.
+- **Pas de chat** : exprès. Les parties sont privées (code à 4 caractères) et on ne voit que les pseudos. Dans Dessine et devine, les mots proposés ne sont jamais montrés aux autres.
+- **Tous les jeux à plusieurs** passent par le même serveur : une fois l'étape 7 faite, ils marchent tous en ligne.
 
 ## Si quelque chose ne marche pas
 

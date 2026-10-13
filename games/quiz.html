@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quiz battle</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 56px 14px 16px; overflow-y: auto; }
+    #jeu[hidden] { display: none; }
+    .haut { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(640px, 100%); }
+    .temps { position: relative; width: min(640px, 100%); height: 6px; overflow: hidden; border-radius: 6px; background: #1a1a1a; }
+    .temps i { position: absolute; inset: 0 auto 0 0; width: 100%; background: var(--accent); border-radius: 6px; }
+    .temps.presse i { background: #f97316; }
+    .question { width: min(640px, 100%); margin: 6px 0 4px; font: 700 clamp(20px, 4.4vw, 28px)/1.25 var(--police); letter-spacing: -.02em; text-align: center; }
+    .choix { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: min(640px, 100%); }
+    .choix button {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 64px;
+      padding: 12px 14px;
+      border: 1px solid var(--bord2);
+      border-radius: 14px;
+      background: #0d0d0d;
+      color: #fff;
+      font: 600 15px/1.3 var(--police);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .choix button:hover:not(:disabled) { border-color: var(--bord3); background: #141414; }
+    .choix button:active:not(:disabled) { transform: scale(.98); }
+    .choix button:disabled { cursor: default; }
+    .choix .lettre { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: #1f1f1f; color: var(--doux); font: 700 13px var(--mono); }
+    .choix button.choisi { border-color: #fafafa; }
+    .choix button.bonne { border-color: var(--accent); background: rgba(34, 197, 94, .14); }
+    .choix button.bonne .lettre { background: var(--accent); color: #000; }
+    .choix button.fausse { border-color: #ef4444; background: rgba(239, 68, 68, .12); }
+    .choix .qui { position: absolute; right: 10px; bottom: 6px; display: flex; gap: 3px; }
+    .choix .qui i { width: 8px; height: 8px; border-radius: 50%; }
+    .scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: min(640px, 100%); }
+    .gain { color: var(--accent-clair); font: 600 11px var(--mono); }
+    .attente-texte { color: var(--doux); font-size: 14px; }
+    @media (max-width: 520px) { .choix { grid-template-columns: 1fr; } .choix button { min-height: 54px; } }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="haut"><span class="pilule" id="numero">Question</span><span class="pilule" id="chrono">15 s</span></div>
+    <div class="temps" id="temps"><i></i></div>
+    <div class="question" id="question"></div>
+    <div class="choix" id="choix"></div>
+    <div class="attente-texte" id="attente"></div>
+    <div class="scores" id="scores"></div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper } from './multi/salon.js';
+    import moteur from './multi/jeux/quiz.js';
+
+    let vue = null, ctxJeu = null, finLocale = 0, duree = 15000, maReponse = null, cleQ = '';
+    const L = ['A', 'B', 'C', 'D'];
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const cle = v.numero + ':' + v.phase;
+      if (cle !== cleQ) {
+        if (v.phase === 'question' && !cleQ.startsWith(v.numero + ':question')) maReponse = null;
+        cleQ = cle;
+      }
+      if (v.phase === 'question') { finLocale = performance.now() + v.reste; duree = v.duree; }
+      if (v.maReponse !== null && v.maReponse !== undefined) maReponse = v.maReponse;
+
+      document.getElementById('numero').innerHTML = v.phase === 'intro' ? 'Prêts ?' : `Question <b>${v.numero}</b> / ${v.total}`;
+      document.getElementById('question').textContent = v.phase === 'intro' ? 'La première question arrive…' : v.question;
+
+      const correction = v.phase === 'correction';
+      document.getElementById('choix').innerHTML = v.phase === 'intro' ? '' : v.choix.map((c, i) => {
+        const cls = [maReponse === i ? 'choisi' : '', correction && i === v.bonne ? 'bonne' : '', correction && maReponse === i && i !== v.bonne ? 'fausse' : ''].join(' ');
+        const qui = correction && v.reponses ? Object.entries(v.reponses).filter(([, r]) => r === i).map(([id]) => `<i style="background:${ctx.couleur(id)}" title="${echapper(ctx.nom(id))}"></i>`).join('') : '';
+        return `<button class="${cls}" data-i="${i}" ${maReponse !== null || correction || ctx.spectateur ? 'disabled' : ''}><span class="lettre">${L[i]}</span><span>${echapper(c)}</span><span class="qui">${qui}</span></button>`;
+      }).join('');
+
+      const att = document.getElementById('attente');
+      if (correction) {
+        const g = v.gains && v.gains[ctx.moi];
+        att.innerHTML = maReponse === null ? 'Pas de réponse.' : g ? `<span class="gain">+${g} points</span>` : 'Raté !';
+      } else if (v.phase === 'question' && maReponse !== null) att.textContent = `Réponse envoyée. ${v.ontRepondu.length} / ${v.j.length} ont répondu.`;
+      else att.textContent = '';
+
+      document.getElementById('scores').innerHTML = [...v.j].sort((a, b) => v.scores[b] - v.scores[a]).map(id => {
+        const g = correction && v.gains && v.gains[id] ? ` <span class="gain">+${v.gains[id]}</span>` : '';
+        const ok = v.phase === 'question' && v.ontRepondu.includes(id) ? ' ✓' : '';
+        return `<span class="pastille-joueur"><i style="background:${ctx.couleur(id)}"></i>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''} <b>${v.scores[id]}</b>${g}${ok}</span>`;
+      }).join('');
+    }
+
+    document.getElementById('choix').addEventListener('click', e => {
+      const b = e.target.closest('button[data-i]');
+      if (!b || b.disabled || !vue || vue.phase !== 'question' || maReponse !== null) return;
+      maReponse = Number(b.dataset.i);
+      ctxJeu.envoyer({ t: 'rep', i: maReponse });
+      afficher(vue, ctxJeu);
+    });
+
+    function boucle() {
+      requestAnimationFrame(boucle);
+      if (!vue) return;
+      const reste = vue.phase === 'question' ? Math.max(0, finLocale - performance.now()) : 0;
+      const barre = document.getElementById('temps');
+      barre.firstElementChild.style.width = (vue.phase === 'question' ? (reste / duree) * 100 : 0) + '%';
+      barre.classList.toggle('presse', reste < 5000);
+      document.getElementById('chrono').textContent = vue.phase === 'question' ? Math.ceil(reste / 1000) + ' s' : '—';
+    }
+    requestAnimationFrame(boucle);
+
+    demarrerJeu({
+      id: 'quiz',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Quiz battle',
+      intro: '10 questions sur les jeux vidéo, la tech, les sciences et le monde. Une bonne réponse rapporte jusqu’à 1000 points : plus tu es rapide, plus tu marques.',
+      regles: [['Répondre', '4 choix, une seule réponse.'], ['Vite', 'Moins de 15 s par question.'], ['Gagner', 'Le plus de points en 10 questions.']],
+      soloBots: 3,
+      debut() { maReponse = null; cleQ = ''; },
+      afficher
+    });
+  </script>
+</body>
+</html>

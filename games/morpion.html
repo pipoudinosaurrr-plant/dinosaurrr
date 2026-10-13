@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Morpion géant</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 54px 10px 16px; }
+    #jeu[hidden] { display: none; }
+    .tete { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .statut { min-height: 22px; color: var(--doux); font-size: 14px; text-align: center; }
+    .statut b { color: #fff; }
+
+    .grille {
+      --taille: min(94vw, calc(100vh - 170px), 640px);
+      display: grid;
+      grid-template-columns: repeat(15, 1fr);
+      width: var(--taille);
+      height: var(--taille);
+      border: 1px solid #2c2c2c;
+      border-radius: 10px;
+      background: #0b0b0b;
+      overflow: hidden;
+      box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .9);
+    }
+
+    .c { position: relative; display: grid; place-items: center; padding: 0; border: 0; border-right: 1px solid #1c1c1c; border-bottom: 1px solid #1c1c1c; background: none; cursor: default; }
+    .mon-tour .c:empty:hover { background: rgba(255, 255, 255, .06); cursor: pointer; }
+    .c svg { width: 72%; height: 72%; animation: pose .18s ease-out; }
+    @keyframes pose { from { transform: scale(.4); opacity: 0; } }
+    .c.dernier { background: rgba(255, 255, 255, .07); }
+    .c.gagne { background: rgba(255, 255, 255, .16); }
+    .c.gagne svg { filter: drop-shadow(0 0 6px currentColor); }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="tete" id="tete"></div>
+    <div class="statut" id="statut"></div>
+    <div class="grille" id="grille"></div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur, { N } from './multi/jeux/morpion.js';
+
+    const grille = document.getElementById('grille');
+    const cases = [];
+    for (let k = 0; k < N * N; k++) {
+      const b = document.createElement('button');
+      b.className = 'c';
+      b.dataset.k = k;
+      grille.append(b);
+      cases.push(b);
+    }
+
+    const SYMBOLES = [
+      c => `<svg viewBox="0 0 24 24" style="color:${c}"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/></svg>`,
+      c => `<svg viewBox="0 0 24 24" style="color:${c}"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="3.2"/></svg>`
+    ];
+    const COUL = ['#4ade80', '#fb923c'];
+
+    let vue = null, ctxJeu = null;
+    const monIndex = () => (vue && ctxJeu ? vue.j.indexOf(ctxJeu.moi) : -1);
+    const monTour = () => vue && !vue.fini && vue.tour === monIndex();
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const mi = monIndex();
+      v.g.forEach((p, k) => {
+        const c = cases[k];
+        const voulu = p < 0 ? '' : String(p);
+        if (c.dataset.p !== voulu) { c.dataset.p = voulu; c.innerHTML = p < 0 ? '' : SYMBOLES[p](COUL[p]); }
+        c.classList.remove('dernier', 'gagne');
+      });
+      if (v.dernier) cases[v.dernier[0] * N + v.dernier[1]].classList.add('dernier');
+      if (v.ligne) v.ligne.forEach(([r, c]) => cases[r * N + c].classList.add('gagne'));
+      grille.classList.toggle('mon-tour', monTour());
+
+      document.getElementById('tete').innerHTML = v.j.map((id, i) => `
+        <span class="pastille-joueur${!v.fini && v.tour === i ? ' actif' : ''}"><span style="width:14px;height:14px;display:inline-flex">${SYMBOLES[i](COUL[i])}</span>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''}</span>`).join('');
+
+      let s;
+      if (v.fini) s = v.gagnant === -1 ? 'Égalité !' : v.gagnant === mi ? '<b>Tu as aligné 5 symboles !</b>' : `<b>${echapper(ctx.nom(v.j[v.gagnant]))}</b> a gagné.`;
+      else if (v.tour === mi) s = `<b>À toi.</b> Aligne 5 symboles, bloque ceux de l’autre.`;
+      else s = `${echapper(ctx.nom(v.j[v.tour]))} réfléchit…`;
+      document.getElementById('statut').innerHTML = s;
+    }
+
+    grille.addEventListener('click', e => {
+      const b = e.target.closest('.c');
+      if (!b || !monTour() || b.dataset.p) return;
+      const k = Number(b.dataset.k);
+      ctxJeu.envoyer({ t: 'jouer', r: Math.floor(k / N), c: k % N });
+    });
+
+    demarrerJeu({
+      id: 'morpion',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Morpion géant',
+      intro: 'Une grille de 15 × 15 : le premier qui aligne 5 symboles gagne. Pense à bloquer ton adversaire.',
+      regles: [['Jouer', `${TACTILE ? 'Touche' : 'Clique'} une case libre.`], ['Gagner', '5 symboles alignés.'], ['Astuce', 'Attention aux lignes de 3 ouvertes.']],
+      afficher
+    });
+  </script>
+</body>
+</html>

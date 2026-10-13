@@ -230,6 +230,18 @@ img { -webkit-user-drag: none; }
   -webkit-box-orient: vertical;
 }
 
+.badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.badge-multi {
+  padding: 3px 8px;
+  border: 1px solid rgba(56, 189, 248, .35);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, .08);
+  color: #7dd3fc;
+  font: 500 10px var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
 .badge-nouveau {
   padding: 3px 8px;
   border: 1px solid rgba(34, 197, 94, .35);
@@ -707,6 +719,10 @@ body.glisse iframe, body.redim iframe { pointer-events: none; }
 
 /* vue « Mosaïques » (jeux) */
 .mosaique { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 10px; flex: 1; min-height: 0; padding: 12px; overflow: auto; align-content: start; }
+
+.groupe-xp { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; color: #7ee39a; font: bold 11px var(--xp); }
+.groupe-xp:not(:first-child) { margin-top: 16px; }
+.groupe-xp::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, #3f8f55, transparent); }
 
 .tuile-xp {
   display: flex;
@@ -1284,3 +1300,5 @@ body.mode-mobile { overflow-x: hidden; background: #000; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+.m-compte { color: var(--texte-3); font: 12px var(--mono); }
+.m-section-tete:has(.m-compte) { flex-wrap: wrap; gap: 4px 12px; }

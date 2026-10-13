@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tron</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 52px 10px 12px; }
+    #jeu[hidden] { display: none; }
+    .tete { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+    .pastille-joueur.mort { opacity: .35; text-decoration: line-through; }
+    #toile { display: block; border: 1px solid #262626; border-radius: 8px; background: #030303; touch-action: none; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .9); }
+    .commandes { display: none; gap: 12px; }
+    .commandes button { width: 92px; height: 64px; border: 1px solid var(--bord2); border-radius: 16px; background: rgba(255, 255, 255, .06); color: #fff; font: 700 26px var(--police); touch-action: none; }
+    .commandes button:active { background: rgba(255, 255, 255, .16); }
+    body.tactile .commandes { display: flex; }
+    .aide { color: var(--tres-doux); font: 500 11px var(--mono); }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="tete" id="tete"></div>
+    <canvas id="toile"></canvas>
+    <div class="aide" id="aide"></div>
+    <div class="commandes">
+      <button data-tourne="-1" aria-label="Tourner à gauche">↺</button>
+      <button data-tourne="1" aria-label="Tourner à droite">↻</button>
+    </div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur, { N, decoder } from './multi/jeux/tron.js';
+
+    if (TACTILE) document.body.classList.add('tactile');
+    const toile = document.getElementById('toile');
+    const g2 = toile.getContext('2d');
+    let grille = new Int8Array(N * N).fill(-1);
+    let vue = null, ctxJeu = null, recue = 0, dernierPas = -1, maDir = 1, crashs = [];
+
+    function taille() {
+      const reserve = TACTILE ? 190 : 120;
+      const t = Math.floor(Math.min(innerWidth - 20, innerHeight - reserve, 760) / N) * N;
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      toile.style.width = t + 'px';
+      toile.style.height = t + 'px';
+      toile.width = t * dpr;
+      toile.height = t * dpr;
+    }
+    addEventListener('resize', taille);
+
+    function afficher(v, ctx) {
+      ctxJeu = ctx;
+      if (v.plein) grille = decoder(v.plein);
+      if (v.cases) for (let k = 0; k < v.cases.length; k += 3) grille[v.cases[k + 1] * N + v.cases[k]] = v.cases[k + 2];
+      dernierPas = v.pas;
+      if (!vue || v.depart > 0) recue = performance.now();
+      vue = v;
+      const mi = v.j.indexOf(ctx.moi);
+      if (mi >= 0) maDir = v.tetes[mi][3];
+      document.getElementById('tete').innerHTML = v.j.map((id, i) => `<span class="pastille-joueur${v.tetes[i][2] ? '' : ' mort'}"><i style="background:${ctx.couleur(id)}"></i>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''}</span>`).join('');
+    }
+
+    function evenement(ev) {
+      if (ev[0] === 'crash') crashs.push({ i: ev[1], x: ev[2], y: ev[3], t: 0 });
+    }
+
+    function tourner(d) {
+      if (!ctxJeu || ctxJeu.spectateur) return;
+      ctxJeu.envoyer({ t: 'dir', d });
+      maDir = d;
+    }
+
+    addEventListener('keydown', e => {
+      const k = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3, z: 0, w: 0, d: 1, s: 2, q: 3, a: 3 }[e.key];
+      if (k === undefined || !vue) return;
+      e.preventDefault();
+      tourner(k);
+    });
+    document.querySelector('.commandes').addEventListener('pointerdown', e => {
+      const b = e.target.closest('[data-tourne]');
+      if (!b) return;
+      e.preventDefault();
+      tourner((maDir + Number(b.dataset.tourne) + 4) % 4);
+    });
+    // glisser le doigt sur la piste = choisir une direction
+    let depart = null;
+    toile.addEventListener('pointerdown', e => { depart = [e.clientX, e.clientY]; });
+    toile.addEventListener('pointermove', e => {
+      if (!depart) return;
+      const dx = e.clientX - depart[0], dy = e.clientY - depart[1];
+      if (Math.hypot(dx, dy) < 24) return;
+      tourner(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+      depart = [e.clientX, e.clientY];
+    });
+    addEventListener('pointerup', () => { depart = null; });
+
+    let avant = performance.now();
+    function boucle(maintenant) {
+      requestAnimationFrame(boucle);
+      const dt = Math.min(0.05, (maintenant - avant) / 1000);
+      avant = maintenant;
+      if (!vue || !ctxJeu) return;
+      const W = toile.width, c = W / N;
+      g2.fillStyle = '#030303';
+      g2.fillRect(0, 0, W, W);
+      g2.fillStyle = 'rgba(255,255,255,.035)';
+      for (let i = 0; i <= N; i += 4) { g2.fillRect(i * c, 0, 1, W); g2.fillRect(0, i * c, W, 1); }
+      const couleurs = vue.j.map(id => ctxJeu.couleur(id));
+      for (let k = 0; k < N * N; k++) {
+        const p = grille[k];
+        if (p < 0) continue;
+        g2.fillStyle = couleurs[p];
+        g2.globalAlpha = vue.tetes[p][2] ? 0.85 : 0.3;
+        g2.fillRect((k % N) * c + 0.5, Math.floor(k / N) * c + 0.5, c - 1, c - 1);
+      }
+      g2.globalAlpha = 1;
+      const mi = vue.j.indexOf(ctxJeu.moi);
+      vue.tetes.forEach(([x, y, vivant], i) => {
+        if (!vivant) return;
+        g2.shadowColor = couleurs[i];
+        g2.shadowBlur = 14;
+        g2.fillStyle = '#fff';
+        g2.fillRect(x * c - 1, y * c - 1, c + 2, c + 2);
+        g2.shadowBlur = 0;
+        if (i === mi) { g2.strokeStyle = '#fff'; g2.lineWidth = 2; g2.strokeRect(x * c - 5, y * c - 5, c + 10, c + 10); }
+      });
+      crashs = crashs.filter(f => (f.t += dt) < 0.7);
+      for (const f of crashs) {
+        g2.strokeStyle = couleurs[f.i];
+        g2.globalAlpha = 1 - f.t / 0.7;
+        g2.lineWidth = 3;
+        g2.beginPath();
+        g2.arc((f.x + 0.5) * c, (f.y + 0.5) * c, c + f.t * c * 10, 0, Math.PI * 2);
+        g2.stroke();
+        g2.globalAlpha = 1;
+      }
+      const reste = vue.depart - (maintenant - recue);
+      if (reste > 0) {
+        g2.fillStyle = 'rgba(0,0,0,.45)';
+        g2.fillRect(0, 0, W, W);
+        g2.fillStyle = '#fff';
+        g2.font = `800 ${Math.round(W / 7)}px "JetBrains Mono", monospace`;
+        g2.textAlign = 'center';
+        g2.textBaseline = 'middle';
+        g2.fillText(String(Math.ceil(reste / 1000)), W / 2, W / 2);
+        if (mi >= 0) {
+          g2.font = `600 ${Math.round(W / 34)}px Inter, sans-serif`;
+          g2.fillText('Tu es la moto encadrée', W / 2, W / 2 + W / 9);
+        }
+        g2.textAlign = 'start';
+        g2.textBaseline = 'alphabetic';
+      }
+    }
+    requestAnimationFrame(boucle);
+
+    demarrerJeu({
+      id: 'tron',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Tron',
+      intro: 'Ta moto laisse un mur de lumière derrière elle. Ne touche aucun mur, enferme les autres. Le dernier en piste gagne.',
+      regles: [['Tourner', 'Flèches ou ZQSD.'], ['Éviter', 'Les murs et toutes les traces.'], ['Gagner', 'Être le dernier en piste.']],
+      reglesTactile: [['Tourner', 'Glisse le doigt ou les boutons ↺ ↻.'], ['Éviter', 'Les murs et toutes les traces.'], ['Gagner', 'Être le dernier en piste.']],
+      soloBots: 3,
+      debut() {
+        grille = new Int8Array(N * N).fill(-1);
+        vue = null; dernierPas = -1; crashs = [];
+        taille();
+        document.getElementById('aide').textContent = TACTILE ? 'Glisse le doigt sur la piste, ou utilise ↺ ↻' : 'Flèches ou ZQSD pour tourner';
+      },
+      afficher,
+      evenement
+    });
+  </script>
+</body>
+</html>

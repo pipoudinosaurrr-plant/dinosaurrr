@@ -7,8 +7,14 @@
   "main": "serveur/index.js",
   "compatibility_date": "2025-10-01",
   "durable_objects": {
-    "bindings": [{ "name": "SALLES", "class_name": "Salle" }]
+    "bindings": [
+      { "name": "SALLES", "class_name": "Salle" },
+      { "name": "TABLES", "class_name": "Table" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Salle"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Salle"] },
+    { "tag": "v2", "new_sqlite_classes": ["Table"] }
+  ],
   "observability": { "enabled": true }
 }

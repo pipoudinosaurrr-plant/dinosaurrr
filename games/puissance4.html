@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Puissance 4</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 54px 12px 18px; }
+    #jeu[hidden] { display: none; }
+
+    .tete { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
+    .statut { min-height: 22px; color: var(--doux); font-size: 14px; text-align: center; }
+    .statut b { color: #fff; }
+
+    .zone-plateau { --taille: min(92vw, calc((100vh - 200px) * 7 / 6), 560px); width: var(--taille); }
+    .apercus { display: grid; grid-template-columns: repeat(7, 1fr); height: calc(var(--taille) / 7 * .8); }
+    .apercus i { align-self: center; justify-self: center; width: 70%; aspect-ratio: 1; border-radius: 50%; opacity: 0; transition: opacity .12s; }
+    .apercus i.vu { opacity: .9; }
+
+    .plateau {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: calc(var(--taille) * .014);
+      padding: calc(var(--taille) * .022);
+      border: 1px solid #2a2a2a;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #1b1b1b, #0f0f0f);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 30px 60px -30px rgba(0, 0, 0, .9);
+    }
+
+    .case { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 50%; background: #030303; box-shadow: inset 0 3px 6px rgba(0, 0, 0, .9), 0 1px 0 rgba(255, 255, 255, .05); cursor: default; overflow: hidden; }
+    .mon-tour .case { cursor: pointer; }
+    .case i { position: absolute; inset: 6%; border-radius: 50%; transform: scale(0); }
+    .case[data-p="0"] i { transform: none; background: radial-gradient(circle at 35% 30%, #ff8a8a, #ef4444 45%, #9f1d1d); }
+    .case[data-p="1"] i { transform: none; background: radial-gradient(circle at 35% 30%, #fff3a3, #facc15 45%, #a16207); }
+    .case.tombe i { animation: chute .38s cubic-bezier(.5, 0, .75, 1.35); }
+    @keyframes chute { from { transform: translateY(calc(var(--h) * -118%)); } }
+    .case.dernier::after { content: ""; position: absolute; inset: 38%; border-radius: 50%; background: rgba(255, 255, 255, .55); }
+    .case.gagne i { box-shadow: 0 0 0 3px #fff, 0 0 18px rgba(255, 255, 255, .7); animation: brille 1s ease-in-out infinite alternate; }
+    @keyframes brille { to { filter: brightness(1.35); } }
+
+    .legende { display: flex; gap: 8px; justify-content: center; }
+    .disque { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+    .d0 { background: #ef4444; }
+    .d1 { background: #facc15; }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="tete" id="tete"></div>
+    <div class="statut" id="statut"></div>
+    <div class="zone-plateau">
+      <div class="apercus" id="apercus"></div>
+      <div class="plateau" id="plateau"></div>
+    </div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur from './multi/jeux/puissance4.js';
+
+    const plateau = document.getElementById('plateau');
+    const apercus = document.getElementById('apercus');
+    const cases = [];
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) {
+      const b = document.createElement('button');
+      b.className = 'case';
+      b.dataset.c = c;
+      b.style.setProperty('--h', r + 1);
+      b.innerHTML = '<i></i>';
+      b.setAttribute('aria-label', `Colonne ${c + 1}`);
+      plateau.append(b);
+      cases.push(b);
+    }
+    apercus.innerHTML = '<i></i>'.repeat(7);
+    const pions = [...apercus.children];
+
+    let vue = null, ctxJeu = null, dernierCoup = '';
+    const COUL = ['#ef4444', '#facc15'];
+    const monIndex = () => (vue && ctxJeu ? vue.j.indexOf(ctxJeu.moi) : -1);
+    const monTour = () => vue && !vue.fini && vue.tour === monIndex();
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const mi = monIndex();
+      v.g.forEach((p, k) => { cases[k].dataset.p = p; cases[k].classList.remove('dernier', 'gagne'); });
+      if (v.dernier) {
+        const k = v.dernier[0] * 7 + v.dernier[1];
+        cases[k].classList.add('dernier');
+        const cle = v.dernier.join(',') + ':' + v.g.filter(x => x >= 0).length;
+        if (cle !== dernierCoup) {
+          dernierCoup = cle;
+          cases[k].classList.remove('tombe');
+          void cases[k].offsetWidth;
+          cases[k].classList.add('tombe');
+        }
+      }
+      if (v.ligne) v.ligne.forEach(([r, c]) => cases[r * 7 + c].classList.add('gagne'));
+      plateau.classList.toggle('mon-tour', monTour());
+
+      document.getElementById('tete').innerHTML = v.j.map((id, i) => `
+        <span class="pastille-joueur${!v.fini && v.tour === i ? ' actif' : ''}"><span class="disque d${i}"></span>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''}</span>`).join('');
+
+      const qui = v.j[v.tour];
+      let s;
+      if (v.fini) s = v.gagnant === -1 ? 'Égalité, la grille est pleine.' : v.gagnant === mi ? '<b>Tu as gagné !</b>' : `<b>${echapper(ctx.nom(v.j[v.gagnant]))}</b> a gagné.`;
+      else if (v.tour === mi) s = `<b>À toi de jouer.</b> ${TACTILE ? 'Touche' : 'Clique'} une colonne.`;
+      else s = `${echapper(ctx.nom(qui))} réfléchit…`;
+      document.getElementById('statut').innerHTML = s;
+      if (!monTour()) pions.forEach(p => p.classList.remove('vu'));
+    }
+
+    plateau.addEventListener('click', e => {
+      const b = e.target.closest('.case');
+      if (!b || !monTour()) return;
+      ctxJeu.envoyer({ t: 'jouer', col: Number(b.dataset.c) });
+    });
+    plateau.addEventListener('pointerover', e => {
+      const b = e.target.closest('.case');
+      pions.forEach((p, i) => {
+        p.classList.toggle('vu', !!b && monTour() && i === Number(b.dataset.c) && !TACTILE);
+        p.style.background = COUL[monIndex()] || '#fff';
+      });
+    });
+    plateau.addEventListener('pointerleave', () => pions.forEach(p => p.classList.remove('vu')));
+
+    demarrerJeu({
+      id: 'puissance4',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Puissance 4',
+      intro: 'Aligne 4 jetons de ta couleur, à l’horizontale, à la verticale ou en diagonale, avant ton adversaire.',
+      regles: [['Jouer', 'Clique une colonne pour y lâcher un jeton.'], ['Gagner', '4 jetons alignés.'], ['Défier', 'Un pote en ligne ou l’ordinateur.']],
+      reglesTactile: [['Jouer', 'Touche une colonne pour y lâcher un jeton.'], ['Gagner', '4 jetons alignés.'], ['Défier', 'Un pote en ligne ou l’ordinateur.']],
+      debut() { dernierCoup = ''; },
+      afficher
+    });
+  </script>
+</body>
+</html>

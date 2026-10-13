@@ -12,6 +12,7 @@
    taille      : [largeur, hauteur] de la fenêtre au départ
    bureau      : true = une icône apparaît aussi sur le bureau
    nouveau     : true = petit badge « nouveau »
+   multi       : true = jeu à plusieurs (en ligne)
    ========================================================== */
 window.JEUX = [
   {
@@ -22,7 +23,86 @@ window.JEUX = [
     description: "Multijoueur jusqu'à 8. Le cercle rétrécit : pousse les autres dehors, évite les bombes et le vent. Le dernier dedans gagne.",
     taille: [960, 680],
     bureau: true,
-    nouveau: true
+    nouveau: true,
+    multi: true
+  },
+  {
+    id: "puissance4",
+    titre: "Puissance 4",
+    fichier: "games/puissance4.html",
+    icone: "puissance4",
+    description: "Le classique à 2 : aligne 4 jetons avant l'autre. En ligne avec un pote ou contre l'ordinateur.",
+    taille: [720, 680],
+    nouveau: true,
+    multi: true
+  },
+  {
+    id: "morpion",
+    titre: "Morpion géant",
+    fichier: "games/morpion.html",
+    icone: "morpion",
+    description: "Une grille de 15 × 15 : le premier qui aligne 5 symboles gagne. À 2, en ligne ou contre l'ordinateur.",
+    taille: [760, 760],
+    multi: true
+  },
+  {
+    id: "navale",
+    titre: "Bataille navale",
+    fichier: "games/navale.html",
+    icone: "navale",
+    description: "Place ta flotte et coule les 5 bateaux de l'autre, un tir à la fois.",
+    taille: [860, 700],
+    multi: true
+  },
+  {
+    id: "pong",
+    titre: "Pong",
+    fichier: "games/pong.html",
+    icone: "pong",
+    description: "1 contre 1 en temps réel. La balle accélère à chaque coup, premier à 7 points.",
+    taille: [900, 620],
+    bureau: true,
+    nouveau: true,
+    multi: true
+  },
+  {
+    id: "tron",
+    titre: "Tron",
+    fichier: "games/tron.html",
+    icone: "tron",
+    description: "Jusqu'à 8 motos de lumière. Ne touche aucun mur, enferme les autres, sois le dernier en piste.",
+    taille: [760, 760],
+    nouveau: true,
+    multi: true
+  },
+  {
+    id: "course",
+    titre: "Course de réflexes",
+    fichier: "games/course.html",
+    icone: "chrono",
+    description: "Jusqu'à 8 joueurs, 5 manches : le premier à cliquer quand ça passe au vert marque le plus.",
+    taille: [760, 600],
+    multi: true
+  },
+  {
+    id: "quiz",
+    titre: "Quiz battle",
+    fichier: "games/quiz.html",
+    icone: "quiz",
+    description: "10 questions, jusqu'à 8 joueurs. Jeux vidéo, tech, sciences : plus tu réponds vite, plus tu marques.",
+    taille: [820, 680],
+    nouveau: true,
+    multi: true
+  },
+  {
+    id: "dessin",
+    titre: "Dessine et devine",
+    fichier: "games/dessin.html",
+    icone: "crayon",
+    description: "Un joueur dessine, les autres devinent le mot. De 2 à 8 joueurs, en ligne.",
+    taille: [1000, 720],
+    nouveau: true,
+    multi: true
   },
   {
     id: "meteorites",

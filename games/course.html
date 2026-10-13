@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Course de réflexes</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; }
+    #jeu[hidden] { display: none; }
+    .piste {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 60px 16px 16px;
+      text-align: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background-color .05s;
+    }
+    .piste[data-p="intro"], .piste[data-p="bilan"] { background: radial-gradient(520px 320px at 50% 30%, rgba(255, 255, 255, .05), transparent 70%), #000; }
+    .piste[data-p="attente"] { background: #1a0606; }
+    .piste[data-p="go"] { background: #22c55e; color: #000; }
+    .piste[data-p="go"].clique { background: #14532d; color: #fff; }
+    .etiquette-piste { color: var(--tres-doux); font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .piste[data-p="attente"] .etiquette-piste { color: #f87171; }
+    .piste[data-p="go"] .etiquette-piste { color: rgba(0, 0, 0, .6); }
+    .gros { font: 800 clamp(36px, 9vw, 64px)/1.02 var(--police); letter-spacing: -.045em; }
+    .sous { max-width: 440px; margin: 0; color: var(--doux); font-size: 15px; }
+    .piste[data-p="go"] .sous { color: rgba(0, 0, 0, .65); }
+
+    .tableau { display: grid; gap: 6px; width: min(420px, 100%); margin-top: 6px; }
+    .tableau div { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 14px; text-align: left; }
+    .tableau i { width: 10px; height: 10px; border-radius: 3px; }
+    .tableau .ms { color: var(--doux); font: 500 12px var(--mono); }
+    .tableau .gain { color: var(--accent-clair); font: 600 12px var(--mono); }
+
+    .scores { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 10px; border-top: 1px solid var(--bord); background: #050505; }
+    .pastille-joueur .ok { color: var(--accent-clair); }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="piste" id="piste" data-p="intro" role="button" tabindex="0"></div>
+    <div class="scores" id="scores"></div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur from './multi/jeux/course.js';
+
+    const piste = document.getElementById('piste');
+    let vue = null, ctxJeu = null, phaseVue = '', cleManche = '', debutGo = 0, monTemps = null, jaiClique = false;
+    const verbe = TACTILE ? 'Touche' : 'Clique';
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const cle = v.manche + ':' + v.phase;
+      if (cle !== cleManche) {
+        cleManche = cle;
+        if (v.phase === 'attente') { jaiClique = false; monTemps = null; }
+        if (v.phase === 'go') debutGo = performance.now();
+      }
+      phaseVue = v.phase;
+      piste.dataset.p = v.phase;
+      piste.classList.toggle('clique', jaiClique);
+      const tete = `<div class="etiquette-piste">Manche ${Math.max(1, v.manche)} / ${v.total}</div>`;
+      if (v.phase === 'intro') piste.innerHTML = `<div class="etiquette-piste">Course de réflexes</div><div class="gros">Prêts ?</div><p class="sous">Quand l’écran devient vert, ${verbe.toLowerCase()} le plus vite possible. Trop tôt = 0 point pour la manche.</p>`;
+      if (v.phase === 'attente') piste.innerHTML = `${tete}<div class="gros">${jaiClique ? 'Trop tôt !' : 'Attends…'}</div><p class="sous">${jaiClique ? 'Pas de point pour cette manche.' : 'Pas encore…'}</p>`;
+      if (v.phase === 'go') piste.innerHTML = `${tete}<div class="gros">${jaiClique ? (monTemps ? monTemps + ' ms' : 'Trop tôt !') : verbe.toUpperCase() + ' !'}</div><p class="sous">${jaiClique ? 'On attend les autres…' : ''}</p>`;
+      if (v.phase === 'bilan' && v.bilan) {
+        piste.innerHTML = `${tete}<div class="gros" style="font-size:clamp(28px,6vw,42px)">Résultats</div><div class="tableau">${v.bilan.map(b => `
+          <div><i style="background:${ctx.couleur(b.id)}"></i><span>${echapper(ctx.nom(b.id))}${b.id === ctx.moi ? ' (toi)' : ''}</span><span class="ms">${b.ms ? b.ms + ' ms' : b.tot ? 'trop tôt' : '—'}</span><span class="gain">+${b.gain}</span></div>`).join('')}</div>`;
+      }
+      document.getElementById('scores').innerHTML = [...v.j].sort((a, b) => v.points[b] - v.points[a]).map(id => `
+        <span class="pastille-joueur"><i style="background:${ctx.couleur(id)}"></i>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''} <b>${v.points[id]}</b>${v.phase === 'go' && v.repondu.includes(id) ? ' <span class="ok">✓</span>' : ''}</span>`).join('');
+    }
+
+    function cliquer(e) {
+      if (e) e.preventDefault();
+      if (!ctxJeu || ctxJeu.spectateur || jaiClique) return;
+      if (phaseVue === 'attente') {
+        jaiClique = true;
+        ctxJeu.envoyer({ t: 'clic', tot: true });
+      } else if (phaseVue === 'go') {
+        jaiClique = true;
+        monTemps = Math.round(performance.now() - debutGo);
+        ctxJeu.envoyer({ t: 'clic', ms: monTemps });
+      } else return;
+      if (vue) afficher(vue, ctxJeu);
+    }
+    piste.addEventListener('pointerdown', cliquer);
+    addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) cliquer(e); });
+
+    demarrerJeu({
+      id: 'course',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Course de réflexes',
+      intro: '5 manches. L’écran passe au vert : le plus rapide marque 5 points, le 2e 3 points, le 3e 2 points. Cliquer trop tôt, c’est 0.',
+      regles: [['Attendre', 'Écran rouge : on ne bouge pas.'], ['Cliquer', 'Dès que c’est vert (ou Espace).'], ['Gagner', 'Le plus de points en 5 manches.']],
+      reglesTactile: [['Attendre', 'Écran rouge : on ne bouge pas.'], ['Toucher', 'Dès que c’est vert.'], ['Gagner', 'Le plus de points en 5 manches.']],
+      soloBots: 3,
+      debut() { cleManche = ''; jaiClique = false; monTemps = null; },
+      afficher
+    });
+  </script>
+</body>
+</html>

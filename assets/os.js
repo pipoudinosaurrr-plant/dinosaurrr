@@ -145,7 +145,7 @@
   function htmlCarteJeu(j) {
     return `
       <button class="carte-jeu" data-jeu="${echapper(j.id)}">
-        <div class="haut"><span class="tuile">${svg(j.icone, 21)}</span>${j.nouveau ? '<span class="badge-nouveau">Nouveau</span>' : ''}</div>
+        <div class="haut"><span class="tuile">${svg(j.icone, 21)}</span><span class="badges">${j.nouveau ? '<span class="badge-nouveau">Nouveau</span>' : j.multi ? '<span class="badge-multi">En ligne</span>' : ''}</span></div>
         <div><h3>${echapper(j.titre)}</h3><p>${echapper(j.description)}</p></div>
       </button>`;
   }
@@ -640,15 +640,17 @@
           <aside class="volet">
             ${boiteVolet('Tâches des jeux', taches, true)}
             ${boiteVolet('Autres emplacements', lienVolet('data-app="blog"', 'fichier', 'Blog') + lienVolet('data-app="apropos"', 'info', 'À propos') + lienVolet('data-app="corbeille"', 'corbeille', 'Corbeille'))}
-            ${boiteVolet('Détails', `<strong>Jeux</strong><span>Dossier de jeux</span><span>${JEUX.length} jeux, tous jouables dans le navigateur.</span>`)}
+            ${boiteVolet('Détails', `<strong>Jeux</strong><span>Dossier de jeux</span><span>${JEUX.length} jeux, dont ${JEUX.filter(j => j.multi).length} à plusieurs en ligne.</span>`)}
           </aside>
           <div class="principal">
             <div class="mosaique">
-              ${JEUX.map(j => `
-                <button class="tuile-xp" data-jeu="${echapper(j.id)}" title="${echapper(j.description)}">
-                  ${xp(j.icone, 48)}
-                  <span><b>${echapper(j.titre)}</b><small>${echapper(j.description)}</small>${j.nouveau ? '<em>Nouveau</em>' : ''}</span>
-                </button>`).join('')}
+              ${[['Jeux à plusieurs (en ligne)', JEUX.filter(j => j.multi)], ['Jeux en solo', JEUX.filter(j => !j.multi)]].map(([titre, liste]) => `
+                <h4 class="groupe-xp">${titre}</h4>
+                ${liste.map(j => `
+                  <button class="tuile-xp" data-jeu="${echapper(j.id)}" title="${echapper(j.description)}">
+                    ${xp(j.icone, 48)}
+                    <span><b>${echapper(j.titre)}</b><small>${echapper(j.description)}</small>${j.nouveau ? '<em>Nouveau</em>' : ''}</span>
+                  </button>`).join('')}`).join('')}
             </div>
           </div>
         </div>
@@ -824,7 +826,9 @@
           <button data-action="arreter">${xp('eteindre', 22)}Arrêter</button>
         </div>
         <div class="sous-menu" hidden role="menu">
-          ${JEUX.map(j => petit(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
+          ${JEUX.filter(j => j.multi).map(j => petit(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
+          <hr>
+          ${JEUX.filter(j => !j.multi).map(j => petit(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
           <hr>
           ${petit('data-app="blog"', 'fichier', 'Blog')}
           ${petit('data-app="jeux"', 'manette', 'Dossier Jeux')}
@@ -1138,7 +1142,10 @@
       vues.jeux.innerHTML = `
         <h1 class="m-titre-vue">Jeux</h1>
         <p class="m-sous-titre">${JEUX.length} mini-jeux codés à la main.</p>
-        <div class="m-grille-jeux">${JEUX.map(htmlCarteJeu).join('')}</div>`;
+        <div class="m-section-tete"><h2>À plusieurs</h2><span class="m-compte">${JEUX.filter(j => j.multi).length} jeux · en ligne</span></div>
+        <div class="m-grille-jeux">${JEUX.filter(j => j.multi).map(htmlCarteJeu).join('')}</div>
+        <div class="m-section-tete" style="margin-top:28px"><h2>En solo</h2><span class="m-compte">${JEUX.filter(j => !j.multi).length} jeux</span></div>
+        <div class="m-grille-jeux">${JEUX.filter(j => !j.multi).map(htmlCarteJeu).join('')}</div>`;
     }
 
     function vueMoi() {
