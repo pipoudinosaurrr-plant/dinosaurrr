@@ -1,7 +1,7 @@
 /* ==========================================================
    Le moteur du site
-   - Sur ordinateur : un bureau inspiré de Windows XP (fenêtres,
-     barre des tâches, menu Démarrer)
+   - Sur ordinateur : un bureau façon Windows XP, en noir (fenêtres,
+     barre des tâches, menu démarrer, explorateur)
    - Sur téléphone : une interface façon appli (onglets en bas,
      écrans plein écran pour les articles et les jeux)
    Les deux affichent les mêmes contenus : blog, jeux, à propos.
@@ -175,24 +175,37 @@
   window.matchMedia(REQUETE_MOBILE).addEventListener('change', () => location.reload());
 
   /* ==========================================================
-     ORDINATEUR : LE BUREAU
+     ORDINATEUR : LE BUREAU (façon Windows XP, en noir)
      ========================================================== */
 
   function bureau() {
     document.body.classList.add('mode-bureau');
 
+    // icône en couleur façon XP (sinon l'icône au trait)
+    const xp = (nom, taille = 32) => (window.iconeXP && window.iconeXP(nom, taille)) || svg(nom, taille);
+
+    // dessins des boutons de la barre de titre
+    const GLYPHE = {
+      min: '<svg viewBox="0 0 21 21" aria-hidden="true"><rect x="5" y="13" width="7" height="3" fill="#fff"/></svg>',
+      max: '<svg viewBox="0 0 21 21" aria-hidden="true"><rect x="5.5" y="5.5" width="10" height="10" fill="none" stroke="#fff"/><rect x="5" y="5" width="11" height="3" fill="#fff"/></svg>',
+      restaurer: '<svg viewBox="0 0 21 21" aria-hidden="true"><rect x="8.5" y="4.5" width="8" height="7" fill="none" stroke="#fff"/><rect x="8" y="4" width="9" height="2.5" fill="#fff"/><rect x="4.5" y="9.5" width="8" height="7" fill="#333" stroke="#fff"/><rect x="4" y="9" width="9" height="2.5" fill="#fff"/></svg>',
+      fermer: '<svg viewBox="0 0 21 21" aria-hidden="true"><path d="M6.5 6.5l8 8M14.5 6.5l-8 8" stroke="#fff" stroke-width="2.3"/></svg>',
+      petit: '<svg viewBox="0 0 15 15" width="11" height="11" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7" stroke="#fff" stroke-width="1.8"/></svg>'
+    };
+
     const FONDS = [
-      { id: 'halo', nom: 'Halo' },
+      { id: 'colline', nom: 'Colline la nuit' },
+      { id: 'halo', nom: 'Halo vert' },
       { id: 'grille', nom: 'Grille' },
       { id: 'noir', nom: 'Noir' }
     ];
 
     const APPS = {
-      blog: { titre: 'Blog', icone: 'fichier', taille: [1040, 680], adresse: 'blog', ouvrir: contenuBlog },
-      jeux: { titre: 'Jeux', icone: 'manette', taille: [820, 560], adresse: 'jeux', ouvrir: contenuJeux },
-      apropos: { titre: 'À propos', icone: 'info', taille: [460, 470], adresse: 'apropos', ouvrir: contenuAPropos },
-      contact: { titre: 'Contact', icone: 'mail', taille: [440, 330], adresse: 'contact', ouvrir: contenuContact },
-      corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [440, 360], adresse: '', ouvrir: contenuCorbeille }
+      blog: { titre: 'Blog', icone: 'fichier', taille: [1060, 690], adresse: 'blog', ouvrir: contenuBlog },
+      jeux: { titre: 'Jeux', icone: 'manette', taille: [840, 560], adresse: 'jeux', ouvrir: contenuJeux },
+      apropos: { titre: 'À propos de ' + NOM, icone: 'info', taille: [410, 430], adresse: 'apropos', ouvrir: contenuAPropos, dialogue: true },
+      contact: { titre: 'Contact', icone: 'mail', taille: [410, 196], adresse: 'contact', ouvrir: contenuContact, dialogue: true },
+      corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [620, 380], adresse: '', ouvrir: contenuCorbeille }
     };
 
     JEUX.forEach(jeu => {
@@ -214,21 +227,31 @@
       { app: 'corbeille', nom: 'Corbeille', icone: 'corbeille', coin: true }
     ];
 
+    const LANCEMENT = [
+      { app: 'blog', nom: 'Blog', icone: 'fichier' },
+      { app: 'jeux', nom: 'Jeux', icone: 'manette' },
+      ...(APPS['jeu-cercle'] ? [{ app: 'jeu-cercle', nom: 'Le Cercle', icone: 'cercle' }] : [])
+    ];
+
     app.innerHTML = `
       <main class="bureau" aria-label="Bureau">
         <div class="fond"></div>
-        <div class="filigrane" aria-hidden="true">${echapper(NOM)}</div>
+        <div class="version-bureau" aria-hidden="true">${echapper(NOM)} · édition noire<br>Version 2.0</div>
         <div class="icones-bureau" role="list"></div>
         <div class="fenetres"></div>
       </main>
-      <div class="menu-demarrer" hidden role="menu" aria-label="Menu Démarrer"></div>
+      <div class="menu-demarrer" hidden role="menu" aria-label="Menu démarrer"></div>
       <div class="menu-contextuel" hidden role="menu"></div>
       <footer class="barre-taches">
-        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${logo(24)}démarrer</button>
+        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${logo(20)}<span>démarrer</span></button>
+        <div class="lancement" aria-label="Lancement rapide">
+          ${LANCEMENT.map(l => `<button data-app="${l.app}" title="${echapper(l.nom)}" aria-label="${echapper(l.nom)}">${xp(l.icone, 16)}</button>`).join('')}
+        </div>
         <div class="taches" role="toolbar" aria-label="Fenêtres ouvertes"></div>
         <div class="zone-notif">
-          <button class="notif-contact" title="Contact" aria-label="Contact">${svg('mail', 15)}</button>
-          ${svg('wifi', 15)}${svg('volume', 15)}
+          <button class="notif-contact" title="Contact : ${echapper(adresseMail())}" aria-label="Contact">${xp('mail', 16)}</button>
+          <span class="icone-notif" title="Connecté à Internet">${xp('reseau', 16)}</span>
+          <span class="icone-notif" title="Volume">${xp('volume', 16)}</span>
           <span class="horloge">--:--</span>
         </div>
       </footer>
@@ -243,7 +266,15 @@
     const actions = {
       hasard() { if (JEUX.length) ouvrirApp('jeu-' + JEUX[Math.floor(Math.random() * JEUX.length)].id); },
       fond() { changerFond(); },
-      eteindre() { eteindre(); }
+      eteindre() { arreter(); },
+      arreter() { arreter(); },
+      session() { fermerSession(); },
+      pageBlog() { window.open('blog/', '_blank', 'noopener'); },
+      actualiser() {
+        const zone = $('.icones-bureau');
+        zone.style.visibility = 'hidden';
+        setTimeout(() => { zone.style.visibility = ''; }, 160);
+      }
     };
 
     function ouvrirApp(id, options = {}) {
@@ -267,40 +298,45 @@
 
       const dispo = zoneFenetres.getBoundingClientRect();
       // les fenêtres s'ouvrent à droite de la colonne d'icônes
-      const gauche = Math.max(0, ...$$('.icones-bureau .icone-bureau').map(b => b.getBoundingClientRect().right)) + 16;
-      const largeurUtile = dispo.width - gauche - 16;
-      const w = Math.round(Math.min(a.taille[0], Math.max(320, largeurUtile)));
-      const h = Math.round(Math.min(a.taille[1], dispo.height - 32));
-      const pas = (decalage++ % 6) * 28;
-      const x = Math.round(Math.min(Math.max(gauche, gauche + (largeurUtile - w) / 2 + pas - 40), dispo.width - w - 10));
-      const y = Math.round(Math.min(Math.max(16, (dispo.height - h) / 2 + pas - 40), dispo.height - h - 10));
+      const gauche = Math.max(0, ...$$('.icones-bureau .icone-bureau').map(b => b.getBoundingClientRect().right)) + 12;
+      const largeurUtile = dispo.width - gauche - 12;
+      const w = Math.round(Math.min(a.taille[0], Math.max(300, largeurUtile)));
+      const h = Math.round(Math.min(a.taille[1], dispo.height - 24));
+      let x, y;
+      if (a.dialogue) {
+        x = Math.round((dispo.width - w) / 2 + (decalage % 3) * 24);
+        y = Math.round(Math.max(20, (dispo.height - h) / 2 - 40 + (decalage++ % 3) * 24));
+      } else {
+        const pas = (decalage++ % 6) * 26;
+        x = Math.round(Math.min(Math.max(gauche, gauche + (largeurUtile - w) / 2 + pas - 40), dispo.width - w - 8));
+        y = Math.round(Math.min(Math.max(12, (dispo.height - h) / 2 + pas - 40), dispo.height - h - 8));
+      }
 
       const el = creer(`
-        <section class="fenetre" role="dialog" aria-label="${echapper(a.titre)}">
+        <section class="fenetre${a.dialogue ? ' est-dialogue' : ''}" role="dialog" aria-label="${echapper(a.titre)}">
           <header class="titre">
-            <span class="ico">${svg(a.icone, 15)}</span>
+            <span class="ico">${xp(a.icone, 16)}</span>
             <span class="nom">${echapper(a.titre)}</span>
             <span class="ctrl">
-              <button class="min" title="Réduire" aria-label="Réduire">${svg('moins', 13)}</button>
-              <button class="max" title="Agrandir" aria-label="Agrandir">${svg('carre', 13)}</button>
-              <button class="fermer" title="Fermer" aria-label="Fermer">${svg('fermer', 13)}</button>
+              ${a.dialogue ? '' : `<button class="min" title="Réduire" aria-label="Réduire">${GLYPHE.min}</button><button class="max" title="Agrandir" aria-label="Agrandir">${GLYPHE.max}</button>`}
+              <button class="fermer" title="Fermer" aria-label="Fermer">${GLYPHE.fermer}</button>
             </span>
           </header>
-          <div class="corps"></div>
-          <div class="poignee" aria-hidden="true"></div>
+          <div class="corps${a.dialogue ? ' dialogue' : ''}"></div>
+          ${a.dialogue ? '' : '<div class="poignee" aria-hidden="true"></div>'}
         </section>`);
       Object.assign(el.style, { left: Math.max(0, x) + 'px', top: Math.max(0, y) + 'px', width: w + 'px', height: h + 'px' });
 
-      const tache = creer(`<button class="tache" title="${echapper(a.titre)}">${svg(a.icone, 15)}<span>${echapper(a.titre)}</span></button>`);
+      const tache = creer(`<button class="tache" title="${echapper(a.titre)}">${xp(a.icone, 16)}<span>${echapper(a.titre)}</span></button>`);
       const etat = { id, el, tache, app: a, adresse: a.adresse || '' };
       fenetres.set(id, etat);
       zoneFenetres.append(el);
       zoneTaches.append(tache);
 
-      $('.min', el).addEventListener('click', e => { e.stopPropagation(); minimiser(id); });
-      $('.max', el).addEventListener('click', e => { e.stopPropagation(); basculerMax(id); });
+      $('.min', el)?.addEventListener('click', e => { e.stopPropagation(); minimiser(id); });
+      $('.max', el)?.addEventListener('click', e => { e.stopPropagation(); basculerMax(id); });
       $('.fermer', el).addEventListener('click', e => { e.stopPropagation(); fermer(id); });
-      $('.titre', el).addEventListener('dblclick', e => { if (!e.target.closest('button')) basculerMax(id); });
+      if (!a.dialogue) $('.titre', el).addEventListener('dblclick', e => { if (!e.target.closest('button')) basculerMax(id); });
       el.addEventListener('pointerdown', () => focusFenetre(id), true);
       tache.addEventListener('click', () => {
         if (el.classList.contains('minimisee')) focusFenetre(id);
@@ -309,7 +345,7 @@
       });
 
       deplacement(etat);
-      redimension(etat);
+      if (!a.dialogue) redimension(etat);
       a.ouvrir($('.corps', el), etat, options);
       focusFenetre(id);
       return etat;
@@ -363,11 +399,11 @@
 
     function basculerMax(id, forcer) {
       const etat = fenetres.get(id);
-      if (!etat) return;
+      if (!etat || etat.app.dialogue) return;
       const max = typeof forcer === 'boolean' ? forcer : !etat.el.classList.contains('maximisee');
       etat.el.classList.toggle('maximisee', max);
       const b = $('.max', etat.el);
-      b.innerHTML = svg(max ? 'restaurer' : 'carre', 13);
+      b.innerHTML = max ? GLYPHE.restaurer : GLYPHE.max;
       b.title = max ? 'Restaurer' : 'Agrandir';
       b.setAttribute('aria-label', b.title);
     }
@@ -385,7 +421,7 @@
         const bouger = ev => {
           const zone = zoneFenetres.getBoundingClientRect();
           el.style.left = Math.min(Math.max(ev.clientX - dx, 100 - el.offsetWidth), zone.width - 100) + 'px';
-          el.style.top = Math.min(Math.max(ev.clientY - dy, 0), zone.height - 38) + 'px';
+          el.style.top = Math.min(Math.max(ev.clientY - dy, 0), zone.height - 30) + 'px';
         };
         const fin = () => {
           barre.removeEventListener('pointermove', bouger);
@@ -442,106 +478,187 @@
       const zone = zoneFenetres.getBoundingClientRect();
       for (const { el } of fenetres.values()) {
         if (el.offsetLeft > zone.width - 100) el.style.left = Math.max(0, zone.width - el.offsetWidth - 8) + 'px';
-        if (el.offsetTop > zone.height - 38) el.style.top = Math.max(0, zone.height - el.offsetHeight - 8) + 'px';
+        if (el.offsetTop > zone.height - 30) el.style.top = Math.max(0, zone.height - el.offsetHeight - 8) + 'px';
       }
     });
 
+    /* ----- Morceaux de fenêtres façon Explorateur ----- */
+
+    const boiteVolet = (titre, contenu, principale) => `
+      <section class="volet-boite${principale ? ' principale' : ''}">
+        <h3>${titre}<span class="chevron" aria-hidden="true"></span></h3>
+        <div class="volet-corps">${contenu}</div>
+      </section>`;
+    const lienVolet = (attr, icone, texte) => `<button class="lien-volet" ${attr}>${xp(icone, 16)}${texte}</button>`;
+    const hote = () => echapper(location.host || NOM);
+
     /* ----- Contenus ----- */
 
+    // Le blog, présenté comme Outlook Express : la liste en haut, l'article en dessous
     function contenuBlog(corps, etat, options) {
+      corps.classList.add('explorateur-corps');
       corps.innerHTML = `
-        <div class="blog">
-          <aside class="blog-cote">
-            <div class="blog-cote-tete">
-              <h2>Blog</h2>
-              <div class="meta"><span class="nb">Chargement…</span></div>
-              <div class="filtres"></div>
-            </div>
-            <div class="blog-liste">
-              <div class="squelette" style="height:96px"></div>
-              <div class="squelette" style="height:96px"></div>
-              <div class="squelette" style="height:96px"></div>
-            </div>
+        <div class="barre-outils">
+          <button data-a="prec" disabled>${xp('precedent', 22)}Précédent</button>
+          <button data-a="suiv" disabled>${xp('suivant', 22)}Suivant</button>
+          <span class="sep"></span>
+          <button data-a="lien" disabled>${xp('lien', 16)}Copier le lien</button>
+          <button data-a="page" disabled>${xp('externe', 16)}Ouvrir la page</button>
+        </div>
+        <div class="barre-adresse">Adresse<div class="champ">${xp('internet', 16)}<span class="url">${hote()}/blog/</span></div><button class="ok" data-a="page">${xp('suivant', 16)}OK</button></div>
+        <div class="explorateur">
+          <aside class="volet">
+            ${boiteVolet('Catégories', '<span>Chargement…</span>', true)}
+            ${boiteVolet('Autres emplacements', lienVolet('data-app="jeux"', 'manette', 'Jeux') + lienVolet('data-app="apropos"', 'info', 'À propos') + lienVolet('data-app="contact"', 'mail', 'Contact'))}
+            ${boiteVolet('Détails', '<strong>Blog</strong><span class="nb">…</span>')}
           </aside>
-          <div class="blog-lecture"><div class="vide"><div>${svg('fichier', 28)}<br>Chargement…</div></div></div>
-        </div>`;
-      const liste = $('.blog-liste', corps);
-      const lecture = $('.blog-lecture', corps);
-      const filtres = $('.filtres', corps);
+          <div class="principal partage">
+            <div class="liste-details">
+              <div class="entetes"><span>Titre</span><span>Catégorie</span><span>Date</span></div>
+              <div class="lignes" tabindex="0"></div>
+            </div>
+            <div class="separateur-h"></div>
+            <div class="apercu">
+              <div class="apercu-tete">Chargement…</div>
+              <div class="apercu-corps"></div>
+            </div>
+          </div>
+        </div>
+        <div class="barre-etat"><span class="etat-texte">Chargement…</span><span>${xp('internet', 16)}Internet</span></div>`;
+
+      const lignes = $('.lignes', corps);
+      const tete = $('.apercu-tete', corps);
+      const lecture = $('.apercu-corps', corps);
+      const filtres = $('.volet-boite.principale .volet-corps', corps);
+      const bouton = a => $(`.barre-outils [data-a="${a}"]`, corps);
       let articles = [];
       let filtre = '';
-      let actuel = '';
+      let actuel = null;
+
+      const visibles = () => (filtre ? articles.filter(a => a.categorie === filtre) : articles);
 
       const dessinerListe = () => {
-        const visibles = filtre ? articles.filter(a => a.categorie === filtre) : articles;
-        liste.innerHTML = visibles.map(a => htmlCarteArticle(a, a.url === actuel)).join('') || '<div class="vide">Aucun article ici.</div>';
+        const liste = visibles();
+        lignes.innerHTML = liste.map(a => `
+          <button class="ligne${actuel && a.url === actuel.url ? ' active' : ''}" data-url="${echapper(a.url)}">
+            <span>${xp('page', 16)}<span class="titre-ligne">${echapper(a.title)}</span></span>
+            <span>${echapper(a.categorie || '')}</span>
+            <span>${echapper(dateFr(a.date, true))}</span>
+          </button>`).join('');
+        $('.etat-texte', corps).textContent = liste.length + (liste.length > 1 ? ' articles' : ' article');
       };
 
       const afficher = url => {
-        const a = articles.find(x => x.url === url) || articles[0];
+        const a = articles.find(x => x.url === url) || visibles()[0] || articles[0];
         if (!a) return;
-        actuel = a.url;
-        $$('.carte-article', liste).forEach(b => b.classList.toggle('active', b.dataset.url === a.url));
-        lecture.innerHTML = `
-          <div class="contenu">
-            ${htmlArticle(a)}
-            <div class="article-actions">
-              <button class="btn" data-a="lien">${svg('lien', 16)}Copier le lien</button>
-              <a class="btn" href="${echapper(a.url)}" target="_blank" rel="noopener">${svg('externe', 16)}Ouvrir la page</a>
-            </div>
-          </div>`;
+        actuel = a;
+        $$('.ligne', lignes).forEach(b => b.classList.toggle('active', b.dataset.url === a.url));
+        tete.innerHTML = `
+          <div><b>Titre :</b> ${echapper(a.title)}</div>
+          <div><b>Date :</b> ${echapper(dateFr(a.date))}${a.categorie ? ` &nbsp; <b>Catégorie :</b> ${echapper(a.categorie)}` : ''}${a.minutes ? ` &nbsp; <b>Lecture :</b> ${a.minutes} min` : ''}</div>`;
+        lecture.innerHTML = `<div class="contenu">${htmlArticle(a)}</div>`;
         lecture.scrollTop = 0;
+        $('.url', corps).textContent = (location.host || NOM) + a.url;
+        const liste = visibles();
+        const i = liste.indexOf(a);
+        bouton('prec').disabled = i <= 0;
+        bouton('suiv').disabled = i < 0 || i >= liste.length - 1;
+        bouton('lien').disabled = false;
+        bouton('page').disabled = false;
         etat.adresse = 'article/' + encodeURIComponent(a.url);
         if (!etat.el.classList.contains('inactive')) definirAdresse(etat.adresse);
-        $('[data-a="lien"]', lecture).addEventListener('click', e => copier(lienArticle(a), e.currentTarget, 'Lien copié'));
+      };
+
+      const voisin = sens => {
+        const liste = visibles();
+        const i = liste.indexOf(actuel);
+        const b = liste[i + sens];
+        if (b) afficher(b.url);
       };
 
       etat.reouvrir = o => { if (o && o.article && articles.length) afficher(o.article); };
-      liste.addEventListener('click', e => { const b = e.target.closest('.carte-article'); if (b) afficher(b.dataset.url); });
-      filtres.addEventListener('click', e => {
-        const b = e.target.closest('.filtre');
-        if (!b) return;
-        filtre = b.dataset.cat;
-        $$('.filtre', filtres).forEach(x => x.classList.toggle('actif', x === b));
-        dessinerListe();
+
+      corps.addEventListener('click', e => {
+        const ligne = e.target.closest('.ligne');
+        if (ligne) return afficher(ligne.dataset.url);
+        const cat = e.target.closest('[data-cat]');
+        if (cat) {
+          filtre = cat.dataset.cat;
+          $$('[data-cat]', filtres).forEach(x => x.classList.toggle('actif', x === cat));
+          dessinerListe();
+          if (!visibles().includes(actuel)) afficher(visibles()[0] && visibles()[0].url);
+          return;
+        }
+        const appli = e.target.closest('[data-app]');
+        if (appli) return ouvrirApp(appli.dataset.app);
+        const a = e.target.closest('[data-a]');
+        if (!a || a.disabled || !actuel) return;
+        if (a.dataset.a === 'prec') voisin(-1);
+        if (a.dataset.a === 'suiv') voisin(1);
+        if (a.dataset.a === 'lien') copier(lienArticle(actuel), a, 'Lien copié');
+        if (a.dataset.a === 'page') window.open(actuel.url, '_blank', 'noopener');
+      });
+
+      lignes.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); voisin(1); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); voisin(-1); }
       });
 
       chargerArticles().then(tous => {
         articles = tous;
-        $('.nb', corps).textContent = articles.length + (articles.length > 1 ? ' articles' : ' article');
+        $('.nb', corps).textContent = articles.length + (articles.length > 1 ? ' articles publiés' : ' article publié');
         const cats = categories(articles);
-        filtres.innerHTML = cats.length > 1
-          ? `<button class="filtre actif" data-cat="">Tous</button>${cats.map(c => `<button class="filtre" data-cat="${echapper(c)}">${echapper(c)}</button>`).join('')}`
-          : '';
+        filtres.innerHTML = `<button class="lien-volet actif" data-cat="">${xp('dossier', 16)}Tous les articles</button>`
+          + cats.map(c => `<button class="lien-volet" data-cat="${echapper(c)}">${xp('dossier', 16)}${echapper(c)}</button>`).join('');
         if (!articles.length) {
-          liste.innerHTML = '';
-          lecture.innerHTML = `<div class="vide"><div>${svg('fichier', 28)}<br>Pas encore d'article. Le premier arrive bientôt.</div></div>`;
+          dessinerListe();
+          tete.textContent = 'Aucun article';
+          lecture.innerHTML = `<div class="vide"><div>${xp('page', 32)}Pas encore d'article. Le premier arrive bientôt.</div></div>`;
           return;
         }
-        actuel = options && options.article ? options.article : articles[0].url;
+        const demande = options && options.article ? options.article : articles[0].url;
+        actuel = articles.find(a => a.url === demande) || articles[0];
         dessinerListe();
-        afficher(actuel);
+        afficher(actuel.url);
       }).catch(() => {
         $('.nb', corps).textContent = 'Hors ligne';
-        liste.innerHTML = '';
-        lecture.innerHTML = `<div class="vide"><div>${svg('wifi', 28)}<br>Impossible de charger le blog.<br>Il s'affiche une fois le site en ligne.</div></div>`;
+        $('.etat-texte', corps).textContent = 'Impossible de charger le blog';
+        filtres.innerHTML = '<span>Indisponible</span>';
+        tete.textContent = 'Hors ligne';
+        lecture.innerHTML = `<div class="vide"><div>${xp('reseau', 32)}Impossible de charger le blog.<br>Il s'affiche une fois le site en ligne.</div></div>`;
       });
     }
 
+    // Les jeux, présentés comme un dossier en vue « Mosaïques »
     function contenuJeux(corps) {
+      corps.classList.add('explorateur-corps');
+      const taches = lienVolet('data-action="hasard"', 'hasard', 'Jouer à un jeu au hasard')
+        + (APPS['jeu-cercle'] ? lienVolet('data-app="jeu-cercle"', 'cercle', 'Partie multijoueur') : '');
       corps.innerHTML = `
-        <div class="page-fenetre">
-          <div class="page-fenetre-tete">
-            <div><h2>Jeux</h2><p>${JEUX.length} mini-jeux codés à la main. Tout se joue dans le navigateur.</p></div>
-            <button class="btn" data-action="hasard">${svg('hasard', 16)}Au hasard</button>
+        <div class="barre-adresse">Adresse<div class="champ">${xp('manette', 16)}<span>${hote()}/jeux/</span></div></div>
+        <div class="explorateur">
+          <aside class="volet">
+            ${boiteVolet('Tâches des jeux', taches, true)}
+            ${boiteVolet('Autres emplacements', lienVolet('data-app="blog"', 'fichier', 'Blog') + lienVolet('data-app="apropos"', 'info', 'À propos') + lienVolet('data-app="corbeille"', 'corbeille', 'Corbeille'))}
+            ${boiteVolet('Détails', `<strong>Jeux</strong><span>Dossier de jeux</span><span>${JEUX.length} jeux, tous jouables dans le navigateur.</span>`)}
+          </aside>
+          <div class="principal">
+            <div class="mosaique">
+              ${JEUX.map(j => `
+                <button class="tuile-xp" data-jeu="${echapper(j.id)}" title="${echapper(j.description)}">
+                  ${xp(j.icone, 48)}
+                  <span><b>${echapper(j.titre)}</b><small>${echapper(j.description)}</small>${j.nouveau ? '<em>Nouveau</em>' : ''}</span>
+                </button>`).join('')}
+            </div>
           </div>
-          <div class="grille-jeux">${JEUX.map(htmlCarteJeu).join('')}</div>
-        </div>`;
+        </div>
+        <div class="barre-etat"><span>${JEUX.length} objets</span><span>${xp('ordinateur', 16)}Poste de travail</span></div>`;
       corps.addEventListener('click', e => {
-        const b = e.target.closest('[data-jeu], [data-action]');
+        const b = e.target.closest('[data-jeu], [data-action], [data-app]');
         if (!b) return;
         if (b.dataset.jeu) ouvrirApp('jeu-' + b.dataset.jeu);
-        else actions[b.dataset.action]();
+        else if (b.dataset.app) ouvrirApp(b.dataset.app);
+        else if (actions[b.dataset.action]) actions[b.dataset.action]();
       });
     }
 
@@ -549,10 +666,11 @@
       const source = () => jeu.fichier + (options && options.param ? '#' + encodeURIComponent(options.param) : '');
       corps.classList.add('sans-defilement');
       corps.innerHTML = `
-        <div class="barre-menus">
-          <button data-a="recommencer">${svg('recharger', 14)}Recommencer</button>
-          <button data-a="plein">${svg('agrandir', 14)}Plein écran</button>
-          <button data-a="onglet">${svg('externe', 14)}Nouvel onglet</button>
+        <div class="barre-outils">
+          <button data-a="recommencer">${xp('recharger', 16)}Recommencer</button>
+          <button data-a="plein">${xp('agrandir', 16)}Plein écran</button>
+          <span class="sep"></span>
+          <button data-a="onglet">${xp('externe', 16)}Nouvel onglet</button>
         </div>
         <iframe src="${echapper(source())}" title="${echapper(jeu.titre)}" allow="fullscreen; clipboard-write"></iframe>`;
       const iframe = $('iframe', corps);
@@ -560,29 +678,38 @@
       const focusJeu = () => { try { iframe.contentWindow.focus(); } catch (e) { /* rien */ } };
       etat.surFocus = focusJeu;
       iframe.addEventListener('load', () => { if (!etat.el.classList.contains('inactive')) focusJeu(); });
-      $('.barre-menus', corps).addEventListener('click', e => {
+      $('.barre-outils', corps).addEventListener('click', e => {
         const a = e.target.closest('button')?.dataset.a;
-        if (a === 'recommencer') { try { iframe.contentWindow.location.reload(); } catch (err) { iframe.src = jeu.fichier; } }
+        if (a === 'recommencer') { try { iframe.contentWindow.location.reload(); } catch (err) { iframe.src = source(); } }
         if (a === 'plein') { const f = iframe.requestFullscreen || iframe.webkitRequestFullscreen; if (f) f.call(iframe); }
-        if (a === 'onglet') window.open(jeu.fichier, '_blank', 'noopener');
+        if (a === 'onglet') window.open(source(), '_blank', 'noopener');
       });
     }
 
+    // « À propos » : une vraie boîte de dialogue XP
     function contenuAPropos(corps, etat) {
       const fond = FONDS.find(f => f.id === document.documentElement.dataset.fond) || FONDS[0];
       corps.innerHTML = `
-        <div class="page-fenetre">
-          <div class="profil">${logo(56)}<div><h2>${echapper(NOM)}</h2><div class="meta"><span>@${echapper(C.pseudo || '')}</span></div></div></div>
+        <div class="dialogue-xp">
+          <div class="dialogue-tete">
+            <span class="photo">${logo(46)}</span>
+            <div><b>${echapper(NOM)}</b><br>Édition noire · Version 2.0<br>© ${new Date().getFullYear()} ${echapper(C.pseudo || NOM)}</div>
+          </div>
+          <hr class="grave">
           <p class="bio selectionnable">${echapper(C.bio || '')}</p>
-          <dl class="specs">
-            <div><dt>Articles</dt><dd data-nb>…</dd></div>
-            <div><dt>Jeux</dt><dd>${JEUX.length}</dd></div>
-            <div><dt>Fond d'écran</dt><dd data-fond>${echapper(fond.nom)}</dd></div>
-            <div><dt>Version</dt><dd>2.0</dd></div>
-          </dl>
-          <div class="actions">
-            <button class="btn btn-primaire" data-a="contact">${svg('mail', 16)}Me contacter</button>
-            <button class="btn" data-a="fond">${svg('image', 16)}Changer le fond</button>
+          <fieldset class="groupe">
+            <legend>Ce site</legend>
+            <dl class="specs-xp">
+              <dt>Articles :</dt><dd data-nb>…</dd>
+              <dt>Jeux :</dt><dd>${JEUX.length}</dd>
+              <dt>Fond d'écran :</dt><dd data-fond>${echapper(fond.nom)}</dd>
+              <dt>Adresse :</dt><dd>${hote()}</dd>
+            </dl>
+          </fieldset>
+          <div class="boutons-dialogue">
+            <button class="btn" data-a="fond">Fond d'écran…</button>
+            <button class="btn" data-a="contact">Contact…</button>
+            <button class="btn btn-primaire" data-a="ok">OK</button>
           </div>
         </div>`;
       chargerArticles().then(l => { $('[data-nb]', corps).textContent = l.length; }).catch(() => { $('[data-nb]', corps).textContent = '—'; });
@@ -590,38 +717,55 @@
         const a = e.target.closest('button')?.dataset.a;
         if (a === 'contact') ouvrirApp('contact');
         if (a === 'fond') $('[data-fond]', corps).textContent = changerFond().nom;
+        if (a === 'ok') fermer(etat.id);
       });
     }
 
     function contenuContact(corps) {
       const mail = adresseMail();
       corps.innerHTML = `
-        <div class="page-fenetre">
-          <div class="page-fenetre-tete"><div><h2>Contact</h2><p>Une question, une idée de jeu ? Écris-moi.</p></div></div>
-          <span class="adresse-mail selectionnable">${echapper(mail)}</span>
-          <div class="actions">
-            <a class="btn btn-primaire" href="mailto:${encodeURI(mail)}">${svg('mail', 16)}Écrire un mail</a>
-            <button class="btn" data-a="copier">${svg('copier', 16)}Copier l'adresse</button>
+        <div class="dialogue-xp">
+          <div class="dialogue-tete">${xp('mail', 32)}<div><b>Écrire à ${echapper(C.pseudo || NOM)}</b><br>Une question, une idée de jeu ? Voici mon adresse :</div></div>
+          <input class="champ-xp selectionnable" type="text" readonly value="${echapper(mail)}" aria-label="Adresse mail">
+          <div class="boutons-dialogue">
+            <button class="btn" data-a="copier">${xp('copier', 16)}Copier l'adresse</button>
+            <a class="btn btn-primaire" href="mailto:${encodeURI(mail)}">${xp('mail', 16)}Écrire un mail</a>
           </div>
         </div>`;
       $('[data-a="copier"]', corps).addEventListener('click', e => copier(mail, e.currentTarget));
+      $('.champ-xp', corps).addEventListener('focus', e => e.target.select());
     }
 
     function contenuCorbeille(corps) {
+      corps.classList.add('explorateur-corps');
+      const FICHIERS = [
+        { nom: 'brouillon_article.md', icone: 'page', taille: '3 Ko', date: '02/10/2026 21:14' },
+        { nom: 'ancien_logo.png', icone: 'image', taille: '24 Ko', date: '28/09/2026 18:02' },
+        { nom: 'test_jeu_v0.html', icone: 'manette', taille: '6 Ko', date: '25/09/2026 16:47' }
+      ];
       const dessiner = () => {
         const vide = session.lire('site-corbeille') === 'vide';
-        corps.innerHTML = vide
-          ? `<div class="vide"><div>${svg('corbeille', 28)}<br>La corbeille est vide.</div></div>`
-          : `<div class="page-fenetre">
-              <ul class="fichiers">
-                <li>${svg('fichier', 16)}brouillon_article.md<span class="taille">3 Ko</span></li>
-                <li>${svg('image', 16)}ancien_logo.png<span class="taille">24 Ko</span></li>
-                <li>${svg('manette', 16)}test_jeu_v0.html<span class="taille">6 Ko</span></li>
-              </ul>
-              <div class="actions"><button class="btn" data-a="vider">${svg('corbeille', 16)}Vider la corbeille</button></div>
-            </div>`;
-        $('[data-a="vider"]', corps)?.addEventListener('click', () => { session.ecrire('site-corbeille', 'vide'); dessiner(); });
+        corps.innerHTML = `
+          <div class="explorateur">
+            <aside class="volet">
+              ${boiteVolet('Tâches de la Corbeille', vide ? '<span>La Corbeille est vide.</span>' : lienVolet('data-a="vider"', 'corbeille', 'Vider la Corbeille'), true)}
+              ${boiteVolet('Autres emplacements', lienVolet('data-app="blog"', 'fichier', 'Blog') + lienVolet('data-app="jeux"', 'manette', 'Jeux'))}
+            </aside>
+            <div class="principal">
+              <div class="liste-details fichiers-liste">
+                <div class="entetes"><span>Nom</span><span>Taille</span><span>Date de suppression</span></div>
+                <div class="lignes">${vide ? '' : FICHIERS.map(f => `
+                  <div class="ligne"><span>${xp(f.icone, 16)}<span class="titre-ligne">${f.nom}</span></span><span>${f.taille}</span><span>${f.date}</span></div>`).join('')}</div>
+              </div>
+            </div>
+          </div>
+          <div class="barre-etat"><span>${vide ? '0 objet' : FICHIERS.length + ' objets'}</span></div>`;
       };
+      corps.addEventListener('click', e => {
+        if (e.target.closest('[data-a="vider"]')) { session.ecrire('site-corbeille', 'vide'); dessiner(); return; }
+        const appli = e.target.closest('[data-app]');
+        if (appli) ouvrirApp(appli.dataset.app);
+      });
       dessiner();
     }
 
@@ -632,7 +776,7 @@
       const tactile = window.matchMedia('(hover: none)').matches;
       zone.innerHTML = '';
       ICONES_BUREAU.forEach(item => {
-        const b = creer(`<button class="icone-bureau${item.coin ? ' coin' : ''}" role="listitem"><span class="tuile">${svg(item.icone, 21)}</span><span>${echapper(item.nom)}</span></button>`);
+        const b = creer(`<button class="icone-bureau${item.coin ? ' coin' : ''}" role="listitem">${xp(item.icone, 32)}<span>${echapper(item.nom)}</span></button>`);
         b.addEventListener('click', e => { e.stopPropagation(); selectionner(b); if (tactile) ouvrirApp(item.app); });
         b.addEventListener('dblclick', () => ouvrirApp(item.app));
         b.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ouvrirApp(item.app); } });
@@ -645,35 +789,72 @@
       if (b) b.classList.add('selection');
     }
 
+    let sousMenu = null;
+    let tousProgrammes = null;
+    let minuterieSousMenu = null;
+
     function construireMenu() {
-      const item = (attr, icone, titre, sous) => `<button class="menu-item" role="menuitem" ${attr}><span class="ico">${svg(icone, 15)}</span><span>${echapper(titre)}${sous ? `<small>${echapper(sous)}</small>` : ''}</span></button>`;
+      const grand = (attr, icone, titre, sous) => `<button class="menu-item grand" role="menuitem" ${attr}>${xp(icone, 32)}<span><b>${echapper(titre)}</b>${sous ? `<small>${echapper(sous)}</small>` : ''}</span></button>`;
+      const item = (attr, icone, titre, taille = 32) => `<button class="menu-item" role="menuitem" ${attr}>${xp(icone, taille)}<span>${echapper(titre)}</span></button>`;
+      const petit = (attr, icone, titre) => `<button role="menuitem" ${attr}>${xp(icone, 16)}${echapper(titre)}</button>`;
       menu.innerHTML = `
-        <div class="menu-entete">${logo(40)}<div><strong>${echapper(NOM)}</strong><small>@${echapper(C.pseudo || '')}</small></div></div>
+        <div class="menu-entete"><span class="photo">${logo(46)}</span><span>${echapper(C.pseudo || NOM)}</span></div>
         <div class="menu-colonnes">
           <div class="menu-gauche">
-            ${item('data-app="blog"', 'fichier', 'Blog', 'Les derniers articles')}
-            ${item('data-app="jeux"', 'manette', 'Tous les jeux', JEUX.length + ' jeux')}
-            <div class="menu-titre">Jeux</div>
-            ${JEUX.map(j => item(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
+            ${grand('data-app="blog"', 'fichier', 'Blog', 'Lire les articles')}
+            ${grand('data-app="jeux"', 'manette', 'Jeux', JEUX.length + ' mini-jeux')}
+            <hr>
+            ${JEUX.slice(0, 5).map(j => item(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
+            <hr>
+            <button class="tous-programmes" aria-haspopup="menu">Tous les programmes ${xp('programmes', 18)}</button>
           </div>
           <div class="menu-droite">
-            <div class="menu-titre">Raccourcis</div>
-            ${item('data-app="apropos"', 'info', 'À propos')}
-            ${item('data-app="contact"', 'mail', 'Contact')}
-            ${item('data-app="corbeille"', 'corbeille', 'Corbeille')}
-            <div class="menu-titre">Système</div>
-            ${item('data-action="hasard"', 'hasard', 'Jeu au hasard')}
-            ${item('data-action="fond"', 'image', "Fond d'écran")}
+            ${item('data-app="apropos"', 'info', 'À propos', 24)}
+            ${item('data-app="contact"', 'mail', 'Contact', 24)}
+            ${item('data-app="corbeille"', 'corbeille', 'Corbeille', 24)}
+            <hr>
+            ${item('data-action="fond"', 'image', "Fond d'écran", 24)}
+            ${item('data-action="hasard"', 'hasard', 'Jeu au hasard', 24)}
+            <hr>
+            ${item('data-action="pageBlog"', 'internet', 'Blog en pleine page', 24)}
           </div>
         </div>
-        <div class="menu-pied"><span>v2.0</span>${item('data-action="eteindre"', 'eteindre', 'Éteindre')}</div>`;
+        <div class="menu-pied">
+          <button data-action="session">${xp('session', 22)}Fermer la session</button>
+          <button data-action="arreter">${xp('eteindre', 22)}Arrêter</button>
+        </div>
+        <div class="sous-menu" hidden role="menu">
+          ${JEUX.map(j => petit(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
+          <hr>
+          ${petit('data-app="blog"', 'fichier', 'Blog')}
+          ${petit('data-app="jeux"', 'manette', 'Dossier Jeux')}
+        </div>`;
+      sousMenu = $('.sous-menu', menu);
+      tousProgrammes = $('.tous-programmes', menu);
+
       menu.addEventListener('click', e => {
+        if (e.target.closest('.tous-programmes')) { basculerSousMenu(sousMenu.hidden); return; }
         const b = e.target.closest('button');
         if (!b) return;
         fermerMenus();
         if (b.dataset.app) ouvrirApp(b.dataset.app);
         else if (actions[b.dataset.action]) actions[b.dataset.action]();
       });
+      tousProgrammes.addEventListener('mouseenter', () => {
+        clearTimeout(minuterieSousMenu);
+        minuterieSousMenu = setTimeout(() => basculerSousMenu(true), 280);
+      });
+      tousProgrammes.addEventListener('mouseleave', () => clearTimeout(minuterieSousMenu));
+      $$('.menu-item', menu).forEach(b => b.addEventListener('mouseenter', () => {
+        clearTimeout(minuterieSousMenu);
+        minuterieSousMenu = setTimeout(() => basculerSousMenu(false), 200);
+      }));
+    }
+
+    function basculerSousMenu(ouvrir) {
+      if (!sousMenu) return;
+      sousMenu.hidden = !ouvrir;
+      tousProgrammes.classList.toggle('ouvert', ouvrir);
     }
 
     function basculerMenu(ouvrir) {
@@ -682,19 +863,21 @@
       btnDemarrer.classList.toggle('ouvert', doit);
       btnDemarrer.setAttribute('aria-expanded', String(doit));
       if (doit) menuCtx.hidden = true;
+      else basculerSousMenu(false);
     }
 
     function fermerMenus() { basculerMenu(false); menuCtx.hidden = true; }
 
     function ouvrirMenuContextuel(x, y) {
       menuCtx.innerHTML = `
-        <button data-action="fond">${svg('image', 15)}Fond d'écran suivant</button>
+        <button data-action="fond">${xp('image', 16)}Fond d'écran suivant</button>
+        <button data-action="actualiser"><span class="vide-ico"></span>Actualiser</button>
         <hr>
-        <button data-app="blog">${svg('fichier', 15)}Ouvrir le blog</button>
-        <button data-app="jeux">${svg('manette', 15)}Ouvrir les jeux</button>
-        <button data-action="hasard">${svg('hasard', 15)}Jeu au hasard</button>
+        <button data-app="blog">${xp('fichier', 16)}Ouvrir le blog</button>
+        <button data-app="jeux">${xp('manette', 16)}Ouvrir les jeux</button>
+        <button data-action="hasard">${xp('hasard', 16)}Jeu au hasard</button>
         <hr>
-        <button data-app="apropos">${svg('info', 15)}À propos</button>`;
+        <button data-app="apropos" class="gras">${xp('info', 16)}Propriétés</button>`;
       basculerMenu(false);
       menuCtx.hidden = false;
       const r = menuCtx.getBoundingClientRect();
@@ -707,15 +890,15 @@
       const i = FONDS.findIndex(f => f.id === actuel);
       const suivant = FONDS[(i + 1) % FONDS.length];
       document.documentElement.dataset.fond = suivant.id;
-      stockage.ecrire('site-fond', suivant.id);
+      stockage.ecrire('site-fond-xp', suivant.id);
       bulle("Fond d'écran", suivant.nom, 2500);
       return suivant;
     }
 
     let minuterieBulle = null;
-    function bulle(titre, texte, duree = 7000) {
+    function bulle(titre, texte, duree = 8000) {
       const b = $('.bulle');
-      b.innerHTML = `<button class="fermer-bulle" aria-label="Fermer">${svg('fermer', 14)}</button><strong><span class="pastille" style="height:18px;padding:0 6px"><span class="point"></span></span>${echapper(titre)}</strong><p>${echapper(texte)}</p>`;
+      b.innerHTML = `<button class="fermer-bulle" aria-label="Fermer">${GLYPHE.petit}</button><strong>${xp('info', 16)}${echapper(titre)}</strong><p>${echapper(texte)}</p>`;
       b.hidden = false;
       $('.fermer-bulle', b).addEventListener('click', () => { b.hidden = true; });
       clearTimeout(minuterieBulle);
@@ -729,11 +912,77 @@
       h.title = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    /* ----- Arrêter, veille, fermer la session ----- */
+
+    function arreter() {
+      fermerMenus();
+      if ($('.arret')) return;
+      document.body.classList.add('gris');
+      const boite = creer(`
+        <div class="arret" role="dialog" aria-label="Arrêter l'ordinateur">
+          <div class="arret-boite">
+            <div class="arret-tete"><span>Arrêter l'ordinateur</span>${logo(26)}</div>
+            <div class="arret-choix">
+              <button data-c="veille">${xp('veille', 36)}<span>Mettre en veille</span></button>
+              <button data-c="arreter">${xp('eteindre', 36)}<span>Arrêter</span></button>
+              <button data-c="redemarrer">${xp('redemarrer', 36)}<span>Redémarrer</span></button>
+            </div>
+            <div class="arret-pied"><button class="btn" data-c="annuler">Annuler</button></div>
+          </div>
+        </div>`);
+      document.body.append(boite);
+      boite.addEventListener('click', e => {
+        const c = e.target.closest('[data-c]')?.dataset.c;
+        if (!c) return;
+        fermerArret();
+        if (c === 'veille') veille();
+        if (c === 'arreter') eteindre();
+        if (c === 'redemarrer') { session.ecrire('site-demarre', '0'); location.href = location.pathname; }
+      });
+    }
+
+    function fermerArret() {
+      const boite = $('.arret');
+      if (boite) boite.remove();
+      document.body.classList.remove('gris');
+    }
+
+    function veille() {
+      const ecran = creer('<div class="veille"><small>Bouge la souris ou appuie sur une touche pour sortir de veille.</small></div>');
+      document.body.append(ecran);
+      setTimeout(() => {
+        const sortir = () => { ecran.remove(); window.removeEventListener('keydown', sortir); };
+        ecran.addEventListener('pointerdown', sortir);
+        ecran.addEventListener('pointermove', sortir, { once: true });
+        window.addEventListener('keydown', sortir);
+      }, 800);
+    }
+
     function eteindre() {
       fermerMenus();
-      const ecran = creer(`<div class="extinction"><div>${logo(56)}<h2>Session fermée</h2><p>Tu peux fermer l'onglet en toute sécurité.</p><button class="btn btn-primaire">${svg('eteindre', 16)}Redémarrer</button></div></div>`);
+      const ecran = creer(`<div class="extinction"><div><p>Tu peux maintenant fermer cet onglet en toute sécurité.</p><button class="btn">Redémarrer</button></div></div>`);
       document.body.append(ecran);
       $('button', ecran).addEventListener('click', () => { session.ecrire('site-demarre', '0'); location.href = location.pathname; });
+    }
+
+    function fermerSession() {
+      fermerMenus();
+      const ecran = creer(`
+        <div class="accueil-xp">
+          <div class="bande haut"></div>
+          <div class="milieu">
+            <div class="gauche">${logo(76)}<h2>${echapper(NOM)}</h2><p>Pour commencer, cliquez sur votre nom d'utilisateur</p></div>
+            <div class="trait"></div>
+            <div><button class="utilisateur"><span class="photo">${logo(58)}</span><span>${echapper(C.pseudo || NOM)}</span></button></div>
+          </div>
+          <div class="bande bas">
+            <button data-c="arreter">${xp('eteindre', 30)}<span>Arrêter l'ordinateur</span></button>
+            <small>Une seule session sur ce site : la tienne.</small>
+          </div>
+        </div>`);
+      document.body.append(ecran);
+      $('.utilisateur', ecran).addEventListener('click', () => { ecran.remove(); bulle('Bon retour', 'Session ouverte : ' + (C.pseudo || NOM), 3500); });
+      $('[data-c="arreter"]', ecran).addEventListener('click', () => { ecran.remove(); eteindre(); });
     }
 
     function suivreAdresse() {
@@ -751,7 +1000,7 @@
 
     /* ----- C'est parti ----- */
 
-    const fondEnregistre = stockage.lire('site-fond', FONDS[0].id);
+    const fondEnregistre = stockage.lire('site-fond-xp', FONDS[0].id);
     document.documentElement.dataset.fond = FONDS.some(f => f.id === fondEnregistre) ? fondEnregistre : FONDS[0].id;
 
     dessinerIcones();
@@ -761,6 +1010,7 @@
 
     btnDemarrer.addEventListener('click', e => { e.stopPropagation(); basculerMenu(); });
     $('.notif-contact').addEventListener('click', () => ouvrirApp('contact'));
+    $('.lancement').addEventListener('click', e => { const b = e.target.closest('[data-app]'); if (b) ouvrirApp(b.dataset.app); });
     document.addEventListener('pointerdown', e => {
       if (!e.target.closest('.menu-demarrer, .btn-demarrer')) basculerMenu(false);
       if (!e.target.closest('.menu-contextuel')) menuCtx.hidden = true;
@@ -778,7 +1028,7 @@
       if (b.dataset.app) ouvrirApp(b.dataset.app);
       else if (actions[b.dataset.action]) actions[b.dataset.action]();
     });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerMenus(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { fermerMenus(); fermerArret(); } });
     window.addEventListener('hashchange', suivreAdresse);
 
     demarrer(premiereFois => {
