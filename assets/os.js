@@ -194,9 +194,10 @@
     };
 
     const FONDS = [
+      { id: 'pixel', nom: 'Colline en pixels' },
+      { id: 'bleu', nom: 'Bleu' },
       { id: 'colline', nom: 'Colline la nuit' },
-      { id: 'halo', nom: 'Halo vert' },
-      { id: 'grille', nom: 'Grille' },
+      { id: 'vert', nom: 'Vert' },
       { id: 'noir', nom: 'Noir' }
     ];
 
@@ -236,14 +237,14 @@
     app.innerHTML = `
       <main class="bureau" aria-label="Bureau">
         <div class="fond"></div>
-        <div class="version-bureau" aria-hidden="true">${echapper(NOM)} · édition noire<br>Version 2.0</div>
+        <div class="version-bureau" aria-hidden="true">${echapper(NOM)} xp · Édition familiale<br>Version 2.0 (build 2600)</div>
         <div class="icones-bureau" role="list"></div>
         <div class="fenetres"></div>
       </main>
       <div class="menu-demarrer" hidden role="menu" aria-label="Menu démarrer"></div>
       <div class="menu-contextuel" hidden role="menu"></div>
       <footer class="barre-taches">
-        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${logo(20)}<span>démarrer</span></button>
+        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${xp('dino', 22)}<span>démarrer</span></button>
         <div class="lancement" aria-label="Lancement rapide">
           ${LANCEMENT.map(l => `<button data-app="${l.app}" title="${echapper(l.nom)}" aria-label="${echapper(l.nom)}">${xp(l.icone, 16)}</button>`).join('')}
         </div>
@@ -322,6 +323,7 @@
               <button class="fermer" title="Fermer" aria-label="Fermer">${GLYPHE.fermer}</button>
             </span>
           </header>
+          ${a.dialogue ? '' : `<nav class="barre-menus" aria-label="Menus">${menusFenetre(id).map(([nom], i) => `<button data-menu="${i}">${echapper(nom)}</button>`).join('')}</nav>`}
           <div class="corps${a.dialogue ? ' dialogue' : ''}"></div>
           ${a.dialogue ? '' : '<div class="poignee" aria-hidden="true"></div>'}
         </section>`);
@@ -345,10 +347,98 @@
       });
 
       deplacement(etat);
-      if (!a.dialogue) redimension(etat);
+      if (!a.dialogue) { redimension(etat); brancherMenus(etat); }
       a.ouvrir($('.corps', el), etat, options);
       focusFenetre(id);
       return etat;
+    }
+
+    /* ----- Barre de menus des fenêtres (Fichier, Édition…) ----- */
+
+    function menusFenetre(id) {
+      const aPropos = ['?', [['apropos', 'À propos de ' + NOM, 'info']]];
+      if (id.startsWith('jeu-')) {
+        return [
+          ['Partie', [['recommencer', 'Recommencer', 'recharger'], ['plein', 'Plein écran', 'agrandir'], ['onglet', 'Ouvrir dans un nouvel onglet', 'externe'], null, ['fermer', 'Quitter']]],
+          aPropos
+        ];
+      }
+      return [
+        ['Fichier', [['app:blog', 'Ouvrir le blog', 'fichier'], ['app:jeux', 'Ouvrir les jeux', 'manette'], null, ['fermer', 'Fermer']]],
+        ['Édition', [['copier', "Copier l'adresse", 'copier']]],
+        ['Affichage', [['max', 'Agrandir / Restaurer', 'agrandir'], ['fond', "Fond d'écran suivant", 'image']]],
+        ['Favoris', [['app:blog', 'Blog', 'fichier'], ['app:jeux', 'Jeux', 'manette'], ...(APPS['jeu-cercle'] ? [['app:jeu-cercle', 'Le Cercle', 'cercle']] : [])]],
+        ['Outils', [['hasard', 'Jeu au hasard', 'hasard'], ['pageBlog', 'Blog en pleine page', 'internet']]],
+        aPropos
+      ];
+    }
+
+    let deroulant = null;
+    let menuOuvert = null;   // { etat, bouton }
+
+    function fermerDeroulant() {
+      if (deroulant) deroulant.hidden = true;
+      if (menuOuvert) menuOuvert.bouton.classList.remove('ouvert');
+      menuOuvert = null;
+    }
+
+    function ouvrirDeroulant(etat, bouton) {
+      if (!deroulant) {
+        deroulant = creer('<div class="menu-contextuel menu-deroulant" role="menu" hidden></div>');
+        document.body.append(deroulant);
+        deroulant.addEventListener('click', e => {
+          const b = e.target.closest('[data-cmd]');
+          if (!b || !menuOuvert) return;
+          const cible = menuOuvert.etat;
+          fermerDeroulant();
+          commandeMenu(cible, b.dataset.cmd);
+        });
+        document.addEventListener('pointerdown', e => {
+          if (menuOuvert && !e.target.closest('.menu-deroulant, .barre-menus')) fermerDeroulant();
+        }, true);
+      }
+      fermerDeroulant();
+      const [, items] = menusFenetre(etat.id)[Number(bouton.dataset.menu)];
+      deroulant.innerHTML = items.map(it => it
+        ? `<button role="menuitem" data-cmd="${it[0]}">${it[2] ? xp(it[2], 16) : '<span class="vide-ico"></span>'}${echapper(it[1])}</button>`
+        : '<hr>').join('');
+      const r = bouton.getBoundingClientRect();
+      deroulant.style.left = Math.min(r.left, window.innerWidth - 200) + 'px';
+      deroulant.style.top = r.bottom + 'px';
+      deroulant.style.zIndex = 9600;
+      deroulant.hidden = false;
+      bouton.classList.add('ouvert');
+      menuOuvert = { etat, bouton };
+    }
+
+    function commandeMenu(etat, cmd) {
+      if (cmd.startsWith('app:')) return ouvrirApp(cmd.slice(4));
+      if (cmd === 'fermer') return fermer(etat.id);
+      if (cmd === 'max') return basculerMax(etat.id);
+      if (cmd === 'apropos') return ouvrirApp('apropos');
+      if (cmd === 'copier') {
+        const lien = location.origin + location.pathname + (etat.adresse ? '#' + etat.adresse : '');
+        if (navigator.clipboard) navigator.clipboard.writeText(lien).then(() => bulle('Adresse copiée', lien, 3000), () => {});
+        return;
+      }
+      if (['recommencer', 'plein', 'onglet'].includes(cmd)) { $(`[data-a="${cmd}"]`, etat.el)?.click(); return; }
+      if (actions[cmd]) actions[cmd]();
+    }
+
+    function brancherMenus(etat) {
+      const barre = $('.barre-menus', etat.el);
+      if (!barre) return;
+      barre.addEventListener('click', e => {
+        const b = e.target.closest('[data-menu]');
+        if (!b) return;
+        if (menuOuvert && menuOuvert.bouton === b) fermerDeroulant();
+        else ouvrirDeroulant(etat, b);
+      });
+      // comme sur XP : une fois un menu ouvert, survoler les autres les ouvre
+      barre.addEventListener('mouseover', e => {
+        const b = e.target.closest('[data-menu]');
+        if (b && menuOuvert && menuOuvert.bouton !== b && menuOuvert.etat === etat) ouvrirDeroulant(etat, b);
+      });
     }
 
     function fenetreDuDessus() {
@@ -499,11 +589,11 @@
       corps.classList.add('explorateur-corps');
       corps.innerHTML = `
         <div class="barre-outils">
-          <button data-a="prec" disabled>${xp('precedent', 22)}Précédent</button>
-          <button data-a="suiv" disabled>${xp('suivant', 22)}Suivant</button>
+          <button data-a="prec" disabled>${xp('precedent', 24)}Précédent</button>
+          <button data-a="suiv" disabled>${xp('suivant', 24)}Suivant</button>
           <span class="sep"></span>
-          <button data-a="lien" disabled>${xp('lien', 16)}Copier le lien</button>
-          <button data-a="page" disabled>${xp('externe', 16)}Ouvrir la page</button>
+          <button data-a="lien" disabled>${xp('lien', 24)}Copier le lien</button>
+          <button data-a="page" disabled>${xp('externe', 24)}Ouvrir la page</button>
         </div>
         <div class="barre-adresse">Adresse<div class="champ">${xp('internet', 16)}<span class="url">${hote()}/blog/</span></div><button class="ok" data-a="page">${xp('suivant', 16)}OK</button></div>
         <div class="explorateur">
@@ -669,10 +759,10 @@
       corps.classList.add('sans-defilement');
       corps.innerHTML = `
         <div class="barre-outils">
-          <button data-a="recommencer">${xp('recharger', 16)}Recommencer</button>
-          <button data-a="plein">${xp('agrandir', 16)}Plein écran</button>
+          <button data-a="recommencer">${xp('recharger', 24)}Recommencer</button>
+          <button data-a="plein">${xp('agrandir', 24)}Plein écran</button>
           <span class="sep"></span>
-          <button data-a="onglet">${xp('externe', 16)}Nouvel onglet</button>
+          <button data-a="onglet">${xp('externe', 24)}Nouvel onglet</button>
         </div>
         <iframe src="${echapper(source())}" title="${echapper(jeu.titre)}" allow="fullscreen; clipboard-write"></iframe>`;
       const iframe = $('iframe', corps);
@@ -695,7 +785,7 @@
         <div class="dialogue-xp">
           <div class="dialogue-tete">
             <span class="photo">${logo(46)}</span>
-            <div><b>${echapper(NOM)}</b><br>Édition noire · Version 2.0<br>© ${new Date().getFullYear()} ${echapper(C.pseudo || NOM)}</div>
+            <div><b>${echapper(NOM)}</b><br>Édition familiale · Version 2.0<br>© ${new Date().getFullYear()} ${echapper(C.pseudo || NOM)}</div>
           </div>
           <hr class="grave">
           <p class="bio selectionnable">${echapper(C.bio || '')}</p>
@@ -894,7 +984,7 @@
       const i = FONDS.findIndex(f => f.id === actuel);
       const suivant = FONDS[(i + 1) % FONDS.length];
       document.documentElement.dataset.fond = suivant.id;
-      stockage.ecrire('site-fond-xp', suivant.id);
+      stockage.ecrire('site-fond-xp2', suivant.id);
       bulle("Fond d'écran", suivant.nom, 2500);
       return suivant;
     }
@@ -1004,7 +1094,7 @@
 
     /* ----- C'est parti ----- */
 
-    const fondEnregistre = stockage.lire('site-fond-xp', FONDS[0].id);
+    const fondEnregistre = stockage.lire('site-fond-xp2', FONDS[0].id);
     document.documentElement.dataset.fond = FONDS.some(f => f.id === fondEnregistre) ? fondEnregistre : FONDS[0].id;
 
     dessinerIcones();

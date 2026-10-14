@@ -1,6 +1,6 @@
 # dinosaurrr
 
-Blog et mini-jeux faits maison. Sur ordinateur, le site s'affiche comme un bureau noir inspiré de Windows XP (fenêtres, barre des tâches, menu démarrer). Sur téléphone, il devient une vraie appli : accueil, onglets en bas, articles et jeux en plein écran.
+Blog et mini-jeux faits maison. Sur ordinateur, le site s'affiche comme un bureau Windows XP (thème bleu Luna, icônes en pixels, fenêtres, barre des tâches, menu démarrer). Sur téléphone, il devient une vraie appli : accueil, onglets en bas, articles et jeux en plein écran.
 
 Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher ton adresse mail et écrire des articles.
 
@@ -119,7 +119,7 @@ Astuce : dans un article, un lien vers `/#jeu/meteorites` ouvre directement le j
 - **Ajouter un jeu** :
   1. copie `games/modele.html` → par exemple `games/mon-jeu.html` et code ton jeu dedans (le style noir du site est déjà branché via `jeu.css`) ;
   2. ajoute un bloc dans `assets/jeux.js` (copie un bloc existant et change `id`, `titre`, `fichier`, `icone`, `description`). Mets `bureau: true` pour avoir une icône sur le bureau, `nouveau: true` pour le badge « Nouveau ».
-- **Changer le fond d'écran du bureau** : clic droit sur le bureau (ou menu démarrer → Fond d'écran). Quatre fonds : colline la nuit, halo vert, grille, noir pur.
+- **Changer le fond d'écran du bureau** : clic droit sur le bureau (ou menu démarrer → Fond d'écran). Cinq fonds : colline en pixels (avec le dino), bleu, colline la nuit, vert, noir.
 
 Sur GitHub, tu peux modifier n'importe quel fichier directement : ouvre-le, clique sur l'icône crayon, puis **Commit changes**.
 

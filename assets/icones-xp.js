@@ -224,13 +224,67 @@
     <path d="M26.5 6.5l3 3L16 23l-4.2 1.2L13 20z" fill="url(#cr)" stroke="#7a4a05" stroke-linejoin="round"/>
     <path d="M13 20l3 3" stroke="#7a4a05"/><path d="M11.8 24.2l1.2-4.2 3 3z" fill="#f2d7a8" stroke="#7a4a05" stroke-linejoin="round"/></svg>`;
 
+  // Petit dino en pixels (bouton « démarrer ») : un caractère = un pixel
+  const pixels = (lignes, couleurs) => {
+    const n = lignes.length;
+    let r = '';
+    lignes.forEach((ligne, y) => [...ligne].forEach((c, x) => { if (couleurs[c]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${couleurs[c]}"/>`; }));
+    return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges">${r}</svg>`;
+  };
+  D.dino = pixels([
+    '.......kkk.',
+    '......kwowk',
+    '......kwwk.',
+    '.......kwk.',
+    '.......kwk.',
+    '..kkkkkkwk.',
+    '.kwwwwwwwk.',
+    'kwwwwwwwwk.',
+    'kwkwwwwwk..',
+    '.k.kwk.kwk.',
+    '...kk...kk.'
+  ], { k: '#1d4d1d', w: '#ffffff', o: '#1d4d1d' });
+
   // Un cache pour ne fabriquer chaque image qu'une fois
   const cache = {};
+  const png = {};
+  const enCours = {};
+  const svgURL = nom => cache[nom] || (cache[nom] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(D[nom].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/\s*\n\s*/g, ' ')));
+
+  // On redessine chaque icône à sa vraie taille en pixels (16, 32…), bords nets,
+  // puis on l'agrandit sans lissage : sur un écran Retina on voit les pixels, comme sur XP.
+  function pixeliser(nom, taille) {
+    const cle = nom + '@' + taille;
+    if (png[cle] || enCours[cle]) return;
+    enCours[cle] = true;
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const toile = document.createElement('canvas');
+        toile.width = toile.height = taille;
+        const g = toile.getContext('2d');
+        g.drawImage(image, 0, 0, taille, taille);
+        const donnees = g.getImageData(0, 0, taille, taille);
+        const p = donnees.data;
+        for (let i = 3; i < p.length; i += 4) p[i] = p[i] < 90 ? 0 : 255;
+        g.putImageData(donnees, 0, 0);
+        png[cle] = toile.toDataURL('image/png');
+        document.querySelectorAll(`img[data-ico="${cle}"]`).forEach(el => { el.src = png[cle]; });
+      } catch (e) { /* on garde le dessin d'origine */ }
+    };
+    image.src = svgURL(nom);
+  }
+
   window.ICONES_XP = D;
   window.iconeXP = (nom, taille = 32, classe = '') => {
-    const source = D[nom];
-    if (!source) return '';
-    if (!cache[nom]) cache[nom] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replace(/\s*\n\s*/g, ' '));
-    return `<img class="ico-xp${classe ? ' ' + classe : ''}" src="${cache[nom]}" width="${taille}" height="${taille}" alt="" draggable="false">`;
+    if (!D[nom]) return '';
+    const cle = nom + '@' + taille;
+    if (!png[cle]) pixeliser(nom, taille);
+    return `<img class="ico-xp${classe ? ' ' + classe : ''}" data-ico="${cle}" src="${png[cle] || svgURL(nom)}" width="${taille}" height="${taille}" alt="" draggable="false">`;
   };
+
+  // on prépare tout de suite les tailles les plus utilisées
+  if (window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    Object.keys(D).forEach(nom => { pixeliser(nom, 16); pixeliser(nom, 32); });
+  }
 })();
