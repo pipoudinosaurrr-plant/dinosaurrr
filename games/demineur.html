@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Démineur</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 10px 14px;
+      overflow: auto;
+      background: #c0c0c0;
+      color: #000;
+      font: 11px Tahoma, "Segoe UI", Verdana, sans-serif;
+      -webkit-font-smoothing: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .outils { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; }
+    .outils button {
+      height: 23px;
+      padding: 0 9px;
+      border: 1px solid #003c74;
+      border-radius: 3px;
+      background: linear-gradient(180deg, #fff, #ecebe6 86%, #d6d0c5);
+      color: #000;
+      font: 11px Tahoma, "Segoe UI", Verdana, sans-serif;
+      cursor: default;
+    }
+    .outils button:hover { box-shadow: inset -1px 1px #fff0cf, inset 1px 2px #fdd889, inset -2px 2px #fbc761, inset 2px -2px #e5a01a; }
+    .outils button[aria-pressed="true"] { background: linear-gradient(180deg, #cdcac3, #e3e3db 8%, #e5e5de 94%, #f2f2f1); font-weight: bold; }
+    #drapeau { display: none; }
+    body.tactile #drapeau { display: inline-block; }
+    canvas { display: block; flex: none; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: manipulation; }
+    .records { color: #333; text-align: center; }
+    .toast {
+      position: fixed;
+      left: 50%;
+      top: 12px;
+      z-index: 5;
+      padding: 6px 12px;
+      border: 1px solid #000;
+      border-radius: 6px;
+      background: #ffffe1;
+      box-shadow: 2px 2px 3px rgba(0, 0, 0, .3);
+      font-weight: bold;
+      transform: translateX(-50%);
+    }
+    .toast[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <div class="outils" role="toolbar" aria-label="Niveau">
+    <button data-niveau="debutant">Débutant</button>
+    <button data-niveau="intermediaire">Intermédiaire</button>
+    <button data-niveau="expert">Expert</button>
+    <button id="drapeau" aria-pressed="false" title="Poser des drapeaux au toucher">Mode drapeau</button>
+  </div>
+  <canvas id="jeu" aria-label="Grille du démineur"></canvas>
+  <div class="records" id="records"></div>
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const NIVEAUX = {
+    debutant: { nom: 'Débutant', c: 9, l: 9, m: 10 },
+    intermediaire: { nom: 'Intermédiaire', c: 16, l: 16, m: 40 },
+    expert: { nom: 'Expert', c: 30, l: 16, m: 99 }
+  };
+  const TACTILE = matchMedia('(pointer: coarse)').matches;
+  if (TACTILE) document.body.classList.add('tactile');
+
+  const lire = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } };
+  const ecrire = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* rien */ } };
+
+  const toile = document.getElementById('jeu');
+  const g = toile.getContext('2d');
+
+  // ---------- dessins en pixels ----------
+  const CHIFFRES = {
+    1: ['..##...', '.###...', '####...', '..##...', '..##...', '..##...', '######.', '######.'],
+    2: ['.#####.', '##...##', '.....##', '...###.', '.###...', '##.....', '#######', '#######'],
+    3: ['######.', '.....##', '.....##', '..####.', '.....##', '.....##', '##...##', '.#####.'],
+    4: ['...###.', '..####.', '.##.##.', '##..##.', '#######', '#######', '....##.', '....##.'],
+    5: ['#######', '##.....', '######.', '.....##', '.....##', '.....##', '##...##', '.#####.'],
+    6: ['.#####.', '##.....', '##.....', '######.', '##...##', '##...##', '##...##', '.#####.'],
+    7: ['#######', '#######', '.....##', '....##.', '...##..', '..##...', '..##...', '..##...'],
+    8: ['.#####.', '##...##', '##...##', '.#####.', '##...##', '##...##', '##...##', '.#####.']
+  };
+  const COULEURS = { 1: '#0000ff', 2: '#008000', 3: '#ff0000', 4: '#000080', 5: '#800000', 6: '#008080', 7: '#000000', 8: '#808080' };
+  const MINE = ['.....#.....', '.#.#####.#.', '..#######..', '.##ww#####.', '.##ww#####.', '###########', '.#########.', '.#########.', '..#######..', '.#.#####.#.', '.....#.....'];
+  const DRAPEAU = ['....rk....', '..rrrk....', '.rrrrk....', '..rrrk....', '....rk....', '.....k....', '...kkkk...', '.kkkkkkkk.'];
+
+  function sprite(lignes, x, y, pal) {
+    lignes.forEach((ligne, j) => [...ligne].forEach((ch, i) => {
+      if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x + i, y + j, 1, 1); }
+    }));
+  }
+
+  function relief(x, y, w, h, epaisseur, creux) {
+    const clair = creux ? '#808080' : '#ffffff', sombre = creux ? '#ffffff' : '#808080';
+    for (let k = 0; k < epaisseur; k++) {
+      g.fillStyle = clair;
+      g.fillRect(x + k, y + k, w - 2 * k - 1, 1);
+      g.fillRect(x + k, y + k, 1, h - 2 * k - 1);
+      g.fillStyle = sombre;
+      g.fillRect(x + k + 1, y + h - k - 1, w - 2 * k - 1, 1);
+      g.fillRect(x + w - k - 1, y + k + 1, 1, h - 2 * k - 1);
+    }
+  }
+
+  // afficheur rouge à 7 segments
+  const SEG = { 0: 'abcdef', 1: 'bc', 2: 'abdeg', 3: 'abcdg', 4: 'bcfg', 5: 'acdfg', 6: 'acdefg', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg', '-': 'g' };
+  function chiffreLED(x, y, c) {
+    const r = { a: [2, 1, 9, 2], b: [10, 2, 2, 9], c: [10, 12, 2, 9], d: [2, 20, 9, 2], e: [1, 12, 2, 9], f: [1, 2, 2, 9], g: [2, 10, 9, 2] };
+    for (const s of 'abcdefg') {
+      g.fillStyle = (SEG[c] || '').includes(s) ? '#ff0000' : '#3a0000';
+      const [a, b, w, h] = r[s];
+      g.fillRect(x + a, y + b, w, h);
+    }
+  }
+  function nombreLED(x, y, n) {
+    n = Math.max(-99, Math.min(999, n));
+    const t = n < 0 ? '-' + String(-n).padStart(2, '0') : String(n).padStart(3, '0');
+    g.fillStyle = '#000';
+    g.fillRect(x, y, 41, 25);
+    relief(x - 1, y - 1, 43, 27, 1, true);
+    [...t].forEach((ch, i) => chiffreLED(x + 1 + i * 13, y + 1, ch));
+  }
+
+  // la tête du dino sur le bouton (normal, surpris, perdu, gagné)
+  function tete(x, y, humeur) {
+    const V = '#3fae4f', F = '#1d5a28', N = '#000';
+    // piquants
+    g.fillStyle = F;
+    [[6, 4], [9, 3], [12, 2], [15, 3]].forEach(([a, b]) => { g.fillRect(x + a, y + b, 2, 2); g.fillRect(x + a - 1, y + b + 2, 4, 1); });
+    // tête ronde avec contour
+    for (let j = 0; j < 17; j++) for (let i = 0; i < 17; i++) {
+      const d = Math.hypot(i - 8, j - 8.5);
+      if (d < 8.2) { g.fillStyle = d > 7.1 ? N : V; g.fillRect(x + 1 + i, y + 4 + j, 1, 1); }
+    }
+    g.fillStyle = '#7fd58a'; g.fillRect(x + 5, y + 7, 3, 1); g.fillRect(x + 4, y + 8, 2, 2);
+    const yeux = y + 11;
+    g.fillStyle = N;
+    if (humeur === 'perdu') {
+      [[6, 0], [7, 1], [8, 2], [8, 0], [6, 2], [12, 0], [13, 1], [14, 2], [14, 0], [12, 2]].forEach(([a, b]) => g.fillRect(x + a, yeux + b, 1, 1));
+    } else if (humeur === 'gagne') {
+      g.fillRect(x + 4, yeux, 13, 1); g.fillRect(x + 5, yeux + 1, 4, 2); g.fillRect(x + 12, yeux + 1, 4, 2);
+      g.fillStyle = '#fff'; g.fillRect(x + 6, yeux + 1, 1, 1); g.fillRect(x + 13, yeux + 1, 1, 1);
+    } else {
+      g.fillRect(x + 6, yeux, 2, 2); g.fillRect(x + 13, yeux, 2, 2);
+      g.fillStyle = '#fff'; g.fillRect(x + 6, yeux, 1, 1); g.fillRect(x + 13, yeux, 1, 1);
+    }
+    g.fillStyle = N;
+    if (humeur === 'surpris') { g.fillRect(x + 9, y + 16, 3, 3); g.fillStyle = '#7a1010'; g.fillRect(x + 10, y + 17, 1, 1); }
+    else if (humeur === 'perdu') { g.fillRect(x + 7, y + 17, 7, 1); g.fillRect(x + 6, y + 18, 1, 1); g.fillRect(x + 14, y + 18, 1, 1); }
+    else { g.fillRect(x + 6, y + 16, 1, 1); g.fillRect(x + 7, y + 17, 7, 1); g.fillRect(x + 14, y + 16, 1, 1); }
+    // narines
+    g.fillStyle = F; g.fillRect(x + 8, y + 14, 1, 1); g.fillRect(x + 12, y + 14, 1, 1);
+  }
+
+  // ---------- état de la partie ----------
+  let niveau = NIVEAUX[lire('demineur-niveau', 'debutant')] ? lire('demineur-niveau', 'debutant') : 'debutant';
+  let N, cases, etat, debut, temps, drapeaux, revelees, appui = null, faceAppuyee = false, modeDrapeau = false, minuterie = null;
+  let W, H, S = 2, BX, BY;
+
+  function nouvelle() {
+    N = NIVEAUX[niveau];
+    cases = Array.from({ length: N.c * N.l }, () => ({ mine: false, n: 0, vue: false, drapeau: false, boum: false }));
+    etat = 'pret'; temps = 0; drapeaux = 0; revelees = 0;
+    clearInterval(minuterie);
+    W = N.c * 16 + 24; H = N.l * 16 + 67; BX = 12; BY = 55;
+    toile.width = W; toile.height = H;
+    echelle();
+    document.querySelectorAll('[data-niveau]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.niveau === niveau)));
+    afficherRecords();
+    dessiner();
+  }
+
+  function echelle() {
+    let maxW = innerWidth - 20, maxH = innerHeight - 90;
+    try { if (top !== self) { maxW = top.innerWidth * .78; maxH = top.innerHeight * .72; } } catch (e) { /* rien */ }
+    S = Math.max(1, Math.min(3, Math.floor(Math.min(maxW / W, maxH / H))));
+    if (TACTILE) S = Math.max(1, Math.min((innerWidth - 20) / W, 3));
+    toile.style.width = W * S + 'px';
+    toile.style.height = H * S + 'px';
+    // la fenêtre du bureau s'ajuste à la grille
+    if (top !== self) parent.postMessage({ type: 'dino-taille', w: Math.ceil(W * S + 20), h: Math.ceil(H * S + 80) }, '*');
+  }
+
+  const idx = (c, l) => l * N.c + c;
+  function voisins(c, l) {
+    const r = [];
+    for (let dl = -1; dl <= 1; dl++) for (let dc = -1; dc <= 1; dc++) {
+      const x = c + dc, y = l + dl;
+      if ((dc || dl) && x >= 0 && y >= 0 && x < N.c && y < N.l) r.push([x, y]);
+    }
+    return r;
+  }
+
+  function poserMines(c0, l0) {
+    const interdit = new Set([idx(c0, l0), ...voisins(c0, l0).map(([x, y]) => idx(x, y))]);
+    const libres = cases.map((_, i) => i).filter(i => !interdit.has(i));
+    for (let k = 0; k < N.m; k++) {
+      const j = k + Math.floor(Math.random() * (libres.length - k));
+      [libres[k], libres[j]] = [libres[j], libres[k]];
+      cases[libres[k]].mine = true;
+    }
+    for (let l = 0; l < N.l; l++) for (let c = 0; c < N.c; c++) {
+      cases[idx(c, l)].n = voisins(c, l).filter(([x, y]) => cases[idx(x, y)].mine).length;
+    }
+  }
+
+  function demarrerChrono() {
+    etat = 'jeu'; debut = performance.now(); temps = 1;
+    minuterie = setInterval(() => { temps = Math.min(999, 1 + Math.floor((performance.now() - debut) / 1000)); dessinerHaut(); }, 250);
+  }
+
+  function reveler(c, l) {
+    if (etat === 'perdu' || etat === 'gagne') return;
+    const ca = cases[idx(c, l)];
+    if (ca.drapeau) return;
+    if (etat === 'pret') { poserMines(c, l); demarrerChrono(); }
+    if (ca.vue) { accord(c, l); return; }
+    if (ca.mine) { ca.boum = true; perdre(); return; }
+    const pile = [[c, l]];
+    while (pile.length) {
+      const [x, y] = pile.pop();
+      const k = cases[idx(x, y)];
+      if (k.vue || k.drapeau) continue;
+      k.vue = true; revelees++;
+      if (k.n === 0) pile.push(...voisins(x, y));
+    }
+    verifier();
+  }
+
+  // clic sur un chiffre entouré du bon nombre de drapeaux : on ouvre autour
+  function accord(c, l) {
+    const ca = cases[idx(c, l)];
+    if (!ca.vue || !ca.n) return;
+    const vs = voisins(c, l);
+    if (vs.filter(([x, y]) => cases[idx(x, y)].drapeau).length !== ca.n) return;
+    for (const [x, y] of vs) {
+      const k = cases[idx(x, y)];
+      if (!k.vue && !k.drapeau) {
+        if (k.mine) { k.boum = true; perdre(); return; }
+        reveler(x, y);
+      }
+    }
+  }
+
+  function basculerDrapeau(c, l) {
+    if (etat === 'perdu' || etat === 'gagne') return;
+    const ca = cases[idx(c, l)];
+    if (ca.vue) return;
+    ca.drapeau = !ca.drapeau;
+    drapeaux += ca.drapeau ? 1 : -1;
+    if (navigator.vibrate && TACTILE) navigator.vibrate(15);
+    dessiner();
+  }
+
+  function perdre() {
+    etat = 'perdu';
+    clearInterval(minuterie);
+    dessiner();
+  }
+
+  function verifier() {
+    if (revelees === N.c * N.l - N.m) {
+      etat = 'gagne';
+      clearInterval(minuterie);
+      cases.forEach(k => { if (k.mine) k.drapeau = true; });
+      drapeaux = N.m;
+      const records = lire('demineur-records', {});
+      if (!records[niveau] || temps < records[niveau]) {
+        records[niveau] = temps;
+        ecrire('demineur-records', records);
+        montrerToast(`Nouveau record en ${N.nom} : ${temps} s !`);
+      } else montrerToast(`Gagné en ${temps} s !`);
+      afficherRecords();
+    }
+    dessiner();
+  }
+
+  function afficherRecords() {
+    const r = lire('demineur-records', {});
+    document.getElementById('records').textContent = 'Meilleurs temps : ' + Object.entries(NIVEAUX).map(([k, v]) => `${v.nom} ${r[k] ? r[k] + ' s' : '—'}`).join(' · ');
+  }
+
+  let minuterieToast = null;
+  function montrerToast(texte) {
+    const t = document.getElementById('toast');
+    t.textContent = texte;
+    t.hidden = false;
+    clearTimeout(minuterieToast);
+    minuterieToast = setTimeout(() => { t.hidden = true; }, 3500);
+  }
+
+  // ---------- dessin ----------
+  function dessinerHaut() {
+    const px = 9, py = 9, pw = W - 18;
+    g.fillStyle = '#c0c0c0';
+    g.fillRect(px, py, pw, 37);
+    relief(px, py, pw, 37, 2, true);
+    nombreLED(px + 7, py + 6, N.m - drapeaux);
+    nombreLED(px + pw - 48, py + 6, temps);
+    const fx = Math.floor(px + pw / 2 - 13), fy = py + 5;
+    g.fillStyle = '#c0c0c0';
+    g.fillRect(fx, fy, 26, 26);
+    g.fillStyle = '#808080';
+    g.strokeStyle = '#808080';
+    g.fillRect(fx - 1, fy - 1, 28, 1); g.fillRect(fx - 1, fy - 1, 1, 28); g.fillRect(fx - 1, fy + 26, 28, 1); g.fillRect(fx + 26, fy - 1, 1, 28);
+    if (faceAppuyee) relief(fx, fy, 26, 26, 1, true); else relief(fx, fy, 26, 26, 2, false);
+    const humeur = etat === 'perdu' ? 'perdu' : etat === 'gagne' ? 'gagne' : appui ? 'surpris' : 'normal';
+    tete(fx + 3 + (faceAppuyee ? 1 : 0), fy + 0 + (faceAppuyee ? 1 : 0), humeur);
+  }
+
+  function dessiner() {
+    g.fillStyle = '#c0c0c0';
+    g.fillRect(0, 0, W, H);
+    relief(0, 0, W, H, 3, false);
+    dessinerHaut();
+    relief(BX - 3, BY - 3, N.c * 16 + 6, N.l * 16 + 6, 3, true);
+    const appuyees = new Set();
+    if (appui && etat !== 'perdu' && etat !== 'gagne') {
+      const k = cases[idx(appui.c, appui.l)];
+      if (k.vue) voisins(appui.c, appui.l).forEach(([x, y]) => appuyees.add(idx(x, y)));
+      else appuyees.add(idx(appui.c, appui.l));
+    }
+    for (let l = 0; l < N.l; l++) for (let c = 0; c < N.c; c++) {
+      const k = cases[idx(c, l)], x = BX + c * 16, y = BY + l * 16;
+      const montreMine = etat === 'perdu' && k.mine && !k.drapeau;
+      const fauxDrapeau = etat === 'perdu' && k.drapeau && !k.mine;
+      if (k.vue || montreMine || fauxDrapeau || (appuyees.has(idx(c, l)) && !k.drapeau)) {
+        g.fillStyle = k.boum ? '#ff0000' : '#c0c0c0';
+        g.fillRect(x, y, 16, 16);
+        g.fillStyle = '#808080';
+        g.fillRect(x, y, 16, 1); g.fillRect(x, y, 1, 16);
+        if (montreMine || fauxDrapeau) sprite(MINE, x + 3, y + 3, { '#': '#000', w: '#fff' });
+        if (fauxDrapeau) { g.fillStyle = '#ff0000'; for (let i = 0; i < 12; i++) { g.fillRect(x + 2 + i, y + 2 + i, 1, 1); g.fillRect(x + 13 - i, y + 2 + i, 1, 1); } }
+        if (k.vue && k.n && !k.mine) sprite(CHIFFRES[k.n], x + 5, y + 4, { '#': COULEURS[k.n] });
+      } else {
+        g.fillStyle = '#c0c0c0';
+        g.fillRect(x, y, 16, 16);
+        relief(x, y, 16, 16, 2, false);
+        if (k.drapeau) sprite(DRAPEAU, x + 3, y + 4, { r: '#ff0000', k: '#000' });
+      }
+    }
+  }
+
+  // ---------- souris et doigt ----------
+  function caseSous(e) {
+    const r = toile.getBoundingClientRect();
+    const x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
+    const c = Math.floor((x - BX) / 16), l = Math.floor((y - BY) / 16);
+    return c >= 0 && l >= 0 && c < N.c && l < N.l ? { c, l } : null;
+  }
+  function surFace(e) {
+    const r = toile.getBoundingClientRect();
+    const x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
+    const fx = Math.floor(9 + (W - 18) / 2 - 13);
+    return x >= fx && x < fx + 26 && y >= 14 && y < 40;
+  }
+
+  let appuiLong = null, longFait = false;
+  toile.addEventListener('contextmenu', e => e.preventDefault());
+  toile.addEventListener('pointerdown', e => {
+    if (surFace(e)) { faceAppuyee = true; dessinerHaut(); toile.setPointerCapture(e.pointerId); return; }
+    const k = caseSous(e);
+    if (!k) return;
+    if (e.button === 2) { basculerDrapeau(k.c, k.l); return; }
+    if (e.button !== 0) return;
+    toile.setPointerCapture(e.pointerId);
+    appui = k; longFait = false;
+    if (e.pointerType === 'touch') {
+      clearTimeout(appuiLong);
+      appuiLong = setTimeout(() => { if (appui) { longFait = true; basculerDrapeau(appui.c, appui.l); appui = null; dessiner(); } }, 380);
+    }
+    dessiner();
+  });
+  toile.addEventListener('pointermove', e => {
+    if (faceAppuyee) return;
+    if (!appui) return;
+    const k = caseSous(e);
+    if (e.pointerType === 'touch') { if (!k || k.c !== appui.c || k.l !== appui.l) { clearTimeout(appuiLong); appui = null; dessiner(); } return; }
+    if (k && (k.c !== appui.c || k.l !== appui.l)) { appui = k; dessiner(); }
+    if (!k) { appui = { ...appui, hors: true }; }
+  });
+  toile.addEventListener('pointerup', e => {
+    clearTimeout(appuiLong);
+    if (faceAppuyee) { faceAppuyee = false; if (surFace(e)) nouvelle(); else dessinerHaut(); return; }
+    if (!appui) return;
+    const k = caseSous(e);
+    const a = appui;
+    appui = null;
+    if (longFait) return;
+    if (k && k.c === a.c && k.l === a.l) {
+      if (modeDrapeau && !cases[idx(k.c, k.l)].vue) basculerDrapeau(k.c, k.l);
+      else reveler(k.c, k.l);
+    }
+    dessiner();
+  });
+  toile.addEventListener('pointercancel', () => { clearTimeout(appuiLong); appui = null; faceAppuyee = false; dessiner(); });
+
+  document.querySelector('.outils').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.id === 'drapeau') { modeDrapeau = !modeDrapeau; b.setAttribute('aria-pressed', String(modeDrapeau)); return; }
+    niveau = b.dataset.niveau;
+    ecrire('demineur-niveau', niveau);
+    nouvelle();
+  });
+  addEventListener('keydown', e => { if (e.key === 'F2') { e.preventDefault(); nouvelle(); } });
+  let attente = null;
+  addEventListener('resize', () => { clearTimeout(attente); attente = setTimeout(() => { if (top === self) { echelle(); } }, 150); });
+
+  nouvelle();
+})();
+</script>
+</body>
+</html>

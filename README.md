@@ -119,6 +119,7 @@ Astuce : dans un article, un lien vers `/#jeu/meteorites` ouvre directement le j
 - **Ajouter un jeu** :
   1. copie `games/modele.html` → par exemple `games/mon-jeu.html` et code ton jeu dedans (le style noir du site est déjà branché via `jeu.css`) ;
   2. ajoute un bloc dans `assets/jeux.js` (copie un bloc existant et change `id`, `titre`, `fichier`, `icone`, `description`). Mets `bureau: true` pour avoir une icône sur le bureau, `nouveau: true` pour le badge « Nouveau ».
+- **Les petits plus du bureau** (fichier `assets/xp-extras.js`) : Invite de commandes (tape `aide`), Bloc-notes, Exécuter… (menu démarrer), Date et heure (clic sur l'horloge), écrans de veille (onglet dans Propriétés d'affichage), sons (clic sur le haut-parleur pour couper), sélection au lasso. Il y a aussi des surprises cachées : essaie `crash` dans Exécuter, ou le code Konami (↑ ↑ ↓ ↓ ← → ← → B A) sur le bureau.
 - **Changer le fond d'écran du bureau** : clic droit sur le bureau → **Propriétés** (ou menu démarrer → Fond d'écran). Huit fonds en pixel art avec le dino (colline, coucher de soleil, nuit et aurore, plage, volcan, hiver, espace, rétro 80) + bleu et noir unis. Les images sont dans `assets/fonds/` (400 × 250 pixels, agrandies sans lissage).
 
 Sur GitHub, tu peux modifier n'importe quel fichier directement : ouvre-le, clique sur l'icône crayon, puis **Commit changes**.

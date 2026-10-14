@@ -832,6 +832,65 @@ fieldset.groupe legend { padding: 0 2px; color: #0046d5; }
 .liste-fonds:focus button[aria-selected="true"] { border-color: #ffd65c; }
 .astuce-xp { margin: 0; color: #6d6d6d; }
 
+.onglet-corps[hidden] { display: none; }
+.veille-reglages { display: flex; gap: 6px; align-items: center; }
+.veille-reglages select { flex: 1; height: 22px; padding: 0 2px; }
+.veille-attente { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+.veille-attente input { width: 52px; height: 21px; }
+.onglet-veille .moniteur { margin-bottom: 4px; }
+
+/* Boîtes de message (erreur, question…) */
+.boite-xp { gap: 14px; padding: 14px 14px 12px; }
+.boite-message { display: flex; align-items: flex-start; gap: 12px; }
+.boite-message img { flex: none; }
+.boite-message p { margin: 6px 0 0; line-height: 1.5; }
+.boutons-dialogue.centre { justify-content: center; }
+.executer .ligne-champ { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.executer .ligne-champ input { flex: 1; }
+
+/* Bloc-notes */
+.bloc-notes { flex: 1; min-height: 0; width: 100%; padding: 2px 4px; resize: none; border: 0; border-top: 1px solid #aca899; outline: none; background: #fff; color: #000; font: 13px/1.35 "Lucida Console", Consolas, "Courier New", monospace; tab-size: 8; -webkit-font-smoothing: none; }
+
+/* Invite de commandes */
+.console { position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 2px 4px 6px; background: #000; color: #c0c0c0; font: 13px/1.25 "Lucida Console", Consolas, "Courier New", monospace; cursor: text; -webkit-font-smoothing: none; }
+.console-sortie { margin: 0; font: inherit; white-space: pre-wrap; word-break: break-all; }
+.console-ligne { display: flex; }
+.console-invite { white-space: pre; }
+.console-saisie { flex: 1; min-width: 20px; padding: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; caret-color: #c0c0c0; }
+.console-vert { color: #00ff41; }
+.console-rouge { color: #ff5555; }
+.console-matrice { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+body.mode-bureau .console::-webkit-scrollbar { background: #f4f3ee; }
+
+/* Date et heure */
+.date-heure .onglet-corps { gap: 4px; }
+.dh-colonnes { display: grid; grid-template-columns: 1fr 140px; gap: 10px; }
+.dh-mois { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.dh-mois b { text-transform: capitalize; }
+.btn-mini { width: 20px; height: 18px; padding: 0; border: 1px solid #003c74; border-radius: 2px; background: linear-gradient(180deg, #fff, #ecebe6 86%, #d6d0c5); color: #000; font: 8px var(--xp); cursor: default; }
+.dh-calendrier { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid #7f9db9; background: #fff; }
+.dh-calendrier span, .dh-jour { display: grid; place-items: center; height: 17px; font: 11px var(--xp); }
+.dh-entete { background: #316ac5; color: #fff; }
+.dh-jour { padding: 0; border: 0; background: none; color: #000; cursor: default; }
+.dh-jour.auj { background: #316ac5; color: #fff; }
+.dh-jour.article { font-weight: bold; text-decoration: underline; cursor: pointer; color: #0b3ea8; }
+.dh-jour.auj.article { color: #fff; }
+.dh-jour.article:hover { background: #ffe8a8; color: #000; }
+.dh-legende { margin: 5px 0 0; color: #6d6d6d; }
+.dh-horloge { display: block; width: 96px; height: 96px; margin: 4px auto 8px; image-rendering: pixelated; }
+.dh-numerique { display: flex; align-items: center; justify-content: center; }
+.dh-fuseau { margin: 2px 0 0; }
+
+/* Écran de veille, pluie de dinos, écran bleu, lasso */
+.veille-xp { position: fixed; inset: 0; z-index: 10050; width: 100vw; height: 100vh; background: #000; image-rendering: pixelated; cursor: none; }
+.pluie-dinos { position: fixed; inset: 0; z-index: 9990; width: 100vw; height: 100vh; image-rendering: pixelated; pointer-events: none; }
+.ecran-bleu { position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center; padding: 24px; background: #0000aa; color: #fff; cursor: none; }
+.ecran-bleu pre { margin: 0; font: 15px/1.35 "Lucida Console", Consolas, "Courier New", monospace; white-space: pre-wrap; -webkit-font-smoothing: none; }
+.lasso { position: fixed; z-index: 50; border: 1px solid #316ac5; background: rgba(49, 106, 197, .28); pointer-events: none; }
+.zone-notif .icone-notif[title="Volume"] { position: relative; cursor: default; }
+.zone-notif .icone-notif.muet::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle, #fff 0 1.5px, transparent 2px), #e2311d; box-shadow: 0 0 0 1px #7a0e06; }
+.zone-notif .icone-notif.muet::before { content: ""; position: absolute; right: 2px; bottom: 2px; z-index: 1; width: 7px; height: 1.5px; background: #fff; transform: translate(2px, -1px) rotate(-45deg); }
+
 /* boutons XP (beiges arrondis, liseré orange au survol) */
 body.mode-bureau .btn {
   display: inline-flex;

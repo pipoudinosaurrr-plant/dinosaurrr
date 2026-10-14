@@ -224,6 +224,47 @@
     <path d="M26.5 6.5l3 3L16 23l-4.2 1.2L13 20z" fill="url(#cr)" stroke="#7a4a05" stroke-linejoin="round"/>
     <path d="M13 20l3 3" stroke="#7a4a05"/><path d="M11.8 24.2l1.2-4.2 3 3z" fill="#f2d7a8" stroke="#7a4a05" stroke-linejoin="round"/></svg>`;
 
+  // Démineur : une mine noire avec reflet
+  D.mine = `<svg viewBox="0 0 32 32"><defs>${rad('mn', '#9a9a9a', '#2a2a2a', '#000', .35, .3)}</defs>
+    <g stroke="#111" stroke-width="2.4" stroke-linecap="round"><path d="M16 3v26M3 16h26M6.8 6.8l18.4 18.4M25.2 6.8L6.8 25.2"/></g>
+    <circle cx="16" cy="16" r="9" fill="url(#mn)" stroke="#000"/><rect x="11" y="11" width="4" height="4" fill="#fff"/></svg>`;
+
+  // Invite de commandes : fenêtre noire avec C:\>
+  D.console = `<svg viewBox="0 0 32 32"><defs>${lin('cb', '#3d8bf0', '#0b47c9')}</defs>
+    <rect x="2.5" y="4.5" width="27" height="23" rx="1.5" fill="#000" stroke="#4a4a4a"/><rect x="2.5" y="4.5" width="27" height="5" rx="1.5" fill="url(#cb)" stroke="#0a3a9e"/>
+    <path d="M6 15l4 3-4 3" fill="none" stroke="#d8d8d8" stroke-width="2" stroke-linecap="square"/><path d="M12 22h7" stroke="#d8d8d8" stroke-width="2"/></svg>`;
+
+  // Bloc-notes : bloc à spirale bleu
+  D.blocnotes = `<svg viewBox="0 0 32 32"><defs>${lin('bp', '#ffffff', '#dfe7f5', 1, 1)}${lin('bh', '#7fb2ff', '#2a62d6')}</defs>
+    <rect x="6.5" y="5.5" width="20" height="24" rx="1" fill="url(#bp)" stroke="#5a6b8a"/>
+    <rect x="6.5" y="3.5" width="20" height="5" rx="1" fill="url(#bh)" stroke="#1c4aa8"/>
+    <g fill="#fff" stroke="#333" stroke-width=".8"><circle cx="10" cy="6" r="1.2"/><circle cx="14" cy="6" r="1.2"/><circle cx="18" cy="6" r="1.2"/><circle cx="22" cy="6" r="1.2"/></g>
+    <g stroke="#7fa0d8"><path d="M9.5 13h14M9.5 16.5h14M9.5 20h14M9.5 23.5h10"/></g><path d="M9.5 13h9" stroke="#222"/><path d="M9.5 16.5h12" stroke="#222"/></svg>`;
+
+  // Exécuter : une fenêtre avec une flèche qui part
+  D.executer = `<svg viewBox="0 0 32 32"><defs>${lin('eb', '#ffffff', '#d6dceb', 1, 1)}${lin('eh', '#3d8bf0', '#0b47c9')}${lin('ef', '#9be36a', '#2f9a2a')}</defs>
+    <rect x="3.5" y="8.5" width="20" height="18" rx="1" fill="url(#eb)" stroke="#5a6b8a"/><rect x="3.5" y="8.5" width="20" height="4" fill="url(#eh)" stroke="#0a3a9e"/>
+    <path d="M14 22l9-9v4l5-5-5-5v4l-11 9z" fill="url(#ef)" stroke="#1e6a1a" stroke-linejoin="round"/></svg>`;
+
+  // Erreur : rond rouge avec croix blanche
+  D.erreur = `<svg viewBox="0 0 32 32"><defs>${rad('er', '#ff8a7a', '#e2311d', '#a3140a')}</defs>
+    <circle cx="16" cy="16" r="13" fill="url(#er)" stroke="#7a0e06"/><path d="M11 11l10 10M21 11L11 21" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/></svg>`;
+
+  // Attention : triangle jaune
+  D.attention = `<svg viewBox="0 0 32 32"><defs>${lin('at', '#fff2a0', '#f2b81e')}</defs>
+    <path d="M16 3.5L29.5 27.5h-27z" fill="url(#at)" stroke="#8a5a00" stroke-linejoin="round"/><path d="M16 11v9" stroke="#222" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="24" r="1.7" fill="#222"/></svg>`;
+
+  // Date et heure : petite horloge
+  D.horloge = `<svg viewBox="0 0 32 32"><defs>${rad('hc', '#ffffff', '#eef2fb', '#c3cde6')}${lin('hb', '#6aa0f5', '#1d4fc0')}</defs>
+    <circle cx="16" cy="16" r="13" fill="url(#hb)" stroke="#0d3590"/><circle cx="16" cy="16" r="10" fill="url(#hc)" stroke="#5a6b8a"/>
+    <g stroke="#333" stroke-width="1.2"><path d="M16 7.5v2M16 22.5v2M7.5 16h2M22.5 16h2"/></g><path d="M16 16V10M16 16l4.5 2.5" stroke="#111" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="1.3" fill="#d22"/></svg>`;
+
+  // Écran de veille : un écran avec des étoiles
+  D.veilleuse = `<svg viewBox="0 0 32 32"><defs>${lin('vb', '#eeeeee', '#a9a9a9')}</defs>
+    <rect x="3.5" y="4.5" width="25" height="18" rx="2" fill="url(#vb)" stroke="#555"/><rect x="6" y="7" width="20" height="13" fill="#0a0f3a"/>
+    <g fill="#fff"><rect x="9" y="9" width="1" height="1"/><rect x="20" y="10" width="1" height="1"/><rect x="14" y="15" width="1" height="1"/><rect x="23" y="17" width="1" height="1"/></g>
+    <path d="M10 18c2-4 4-4 6-2s3-2 6-4" stroke="#3fae4f" stroke-width="1.6" fill="none"/><path d="M12 22.5h8l2 4H10z" fill="#bdbdbd" stroke="#555"/></svg>`;
+
   // Petit dino en pixels (bouton « démarrer ») : un caractère = un pixel
   const pixels = (lignes, couleurs) => {
     const n = lignes.length;

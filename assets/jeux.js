@@ -105,6 +105,16 @@ window.JEUX = [
     multi: true
   },
   {
+    id: "demineur",
+    titre: "Démineur",
+    fichier: "games/demineur.html",
+    icone: "mine",
+    description: "Le grand classique : trouve toutes les mines sans en faire sauter une. 3 niveaux, records, et un dino à la place du smiley.",
+    taille: [380, 520],
+    bureau: true,
+    nouveau: true
+  },
+  {
     id: "meteorites",
     titre: "Pluie de météorites",
     fichier: "games/meteorites.html",

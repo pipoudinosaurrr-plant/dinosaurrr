@@ -22,6 +22,7 @@ window.ICONES = {
   chrono: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6M12 2v3"/>',
   quiz: '<path d="M21 12a8 8 0 0 1-11.8 7L4 20l1-5A8 8 0 1 1 21 12z"/><path d="M10 9.5a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.9V14M12 16.8h.01"/>',
   crayon: '<path d="M4 20l1-4L16 5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/>',
+  mine: '<circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v1M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l1.1 1.1M18.4 6.6l-2.1 2.1M7.7 17.3l-1.1 1.1"/><path d="M10 11h.01"/>',
   meteore: '<circle cx="15" cy="15" r="5"/><path d="M3 3l7.5 7.5M7 3l4.5 4.5M3 7l4.5 4.5"/>',
   processeur: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   histoire: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',

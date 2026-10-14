@@ -215,7 +215,7 @@
       apropos: { titre: 'À propos de ' + NOM, icone: 'info', taille: [410, 430], adresse: 'apropos', ouvrir: contenuAPropos, dialogue: true },
       affichage: { titre: "Propriétés d'affichage", icone: 'image', taille: [404, 486], adresse: '', ouvrir: contenuAffichage, dialogue: true },
       contact: { titre: 'Contact', icone: 'mail', taille: [410, 196], adresse: 'contact', ouvrir: contenuContact, dialogue: true },
-      corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [620, 380], adresse: '', ouvrir: contenuCorbeille }
+      corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [720, 400], adresse: '', ouvrir: contenuCorbeille }
     };
 
     JEUX.forEach(jeu => {
@@ -227,6 +227,21 @@
         ouvrir: (corps, etat, options) => contenuJeu(corps, etat, jeu, options)
       };
     });
+
+    // les petits plus (Invite de commandes, Bloc-notes, écran de veille…) : assets/xp-extras.js
+    const extras = typeof window.XP_EXTRAS === 'function' ? window.XP_EXTRAS({
+      APPS, $, $$, echapper, creer, stockage, NOM, C, JEUX, FONDS,
+      xp: (n, t) => xp(n, t),
+      ouvrirApp: (id, o) => ouvrirApp(id, o),
+      fermer: id => fermer(id),
+      bulle: (a, b, c) => bulle(a, b, c),
+      chargerArticles: () => chargerArticles(),
+      appliquerFond: id => appliquerFond(id),
+      arreter: () => arreter(),
+      fermerSession: () => fermerSession()
+    }) : null;
+    if (extras) Object.assign(APPS, extras.apps);
+    const son = nom => { if (extras) extras.son(nom); };
 
     const ICONES_BUREAU = [
       { app: 'blog', nom: 'Blog', icone: 'fichier' },
@@ -333,7 +348,7 @@
               <button class="fermer" title="Fermer" aria-label="Fermer">${GLYPHE.fermer}</button>
             </span>
           </header>
-          ${a.dialogue ? '' : `<nav class="barre-menus" aria-label="Menus">${menusFenetre(id).map(([nom], i) => `<button data-menu="${i}">${echapper(nom)}</button>`).join('')}</nav>`}
+          ${a.dialogue || a.sansMenus ? '' : `<nav class="barre-menus" aria-label="Menus">${menusFenetre(id).map(([nom], i) => `<button data-menu="${i}">${echapper(nom)}</button>`).join('')}</nav>`}
           <div class="corps${a.dialogue ? ' dialogue' : ''}"></div>
           ${a.dialogue ? '' : '<div class="poignee" aria-hidden="true"></div>'}
         </section>`);
@@ -367,6 +382,7 @@
 
     function menusFenetre(id) {
       const aPropos = ['?', [['apropos', 'À propos de ' + NOM, 'info']]];
+      if (APPS[id] && APPS[id].menus) return APPS[id].menus;
       if (id.startsWith('jeu-')) {
         return [
           ['Partie', [['recommencer', 'Recommencer', 'recharger'], ['plein', 'Plein écran', 'agrandir'], ['onglet', 'Ouvrir dans un nouvel onglet', 'externe'], null, ['fermer', 'Quitter']]],
@@ -422,6 +438,7 @@
     }
 
     function commandeMenu(etat, cmd) {
+      if (etat.commande && etat.commande(cmd)) return;
       if (cmd.startsWith('app:')) return ouvrirApp(cmd.slice(4));
       if (cmd === 'fermer') return fermer(etat.id);
       if (cmd === 'max') return basculerMax(etat.id);
@@ -780,6 +797,20 @@
       const focusJeu = () => { try { iframe.contentWindow.focus(); } catch (e) { /* rien */ } };
       etat.surFocus = focusJeu;
       iframe.addEventListener('load', () => { if (!etat.el.classList.contains('inactive')) focusJeu(); });
+      // un jeu peut demander une taille de fenêtre (ex. le Démineur selon le niveau)
+      const surMessage = e => {
+        if (!iframe.isConnected) { window.removeEventListener('message', surMessage); return; }
+        if (e.source !== iframe.contentWindow || !e.data || e.data.type !== 'dino-taille') return;
+        if (etat.el.classList.contains('maximisee')) return;
+        const zone = zoneFenetres.getBoundingClientRect();
+        const dW = etat.el.offsetWidth - iframe.clientWidth, dH = etat.el.offsetHeight - iframe.clientHeight;
+        const w = Math.min(zone.width - 8, Math.max(300, Number(e.data.w) + dW));
+        const h = Math.min(zone.height - 8, Math.max(200, Number(e.data.h) + dH));
+        Object.assign(etat.el.style, { width: w + 'px', height: h + 'px' });
+        etat.el.style.left = Math.max(0, Math.min(etat.el.offsetLeft, zone.width - w - 4)) + 'px';
+        etat.el.style.top = Math.max(0, Math.min(etat.el.offsetTop, zone.height - h - 4)) + 'px';
+      };
+      window.addEventListener('message', surMessage);
       $('.barre-outils', corps).addEventListener('click', e => {
         const a = e.target.closest('button')?.dataset.a;
         if (a === 'recommencer') { try { iframe.contentWindow.location.reload(); } catch (err) { iframe.src = source(); } }
@@ -864,7 +895,12 @@
           <div class="barre-etat"><span>${vide ? '0 objet' : FICHIERS.length + ' objets'}</span></div>`;
       };
       corps.addEventListener('click', e => {
-        if (e.target.closest('[data-a="vider"]')) { session.ecrire('site-corbeille', 'vide'); dessiner(); return; }
+        if (e.target.closest('[data-a="vider"]')) {
+          const vider = () => { session.ecrire('site-corbeille', 'vide'); son('corbeille'); dessiner(); };
+          if (extras) extras.boite({ titre: 'Confirmer la suppression de plusieurs fichiers', icone: 'attention', boutons: ['Oui', 'Non'], texte: `Voulez-vous vraiment supprimer ces ${FICHIERS.length} éléments ?` }).then(r => { if (r === 'Oui') vider(); });
+          else vider();
+          return;
+        }
         const appli = e.target.closest('[data-app]');
         if (appli) ouvrirApp(appli.dataset.app);
       });
@@ -919,6 +955,7 @@
             ${item('data-action="hasard"', 'hasard', 'Jeu au hasard', 24)}
             <hr>
             ${item('data-action="pageBlog"', 'internet', 'Blog en pleine page', 24)}
+            ${extras ? item('data-app="executer"', 'executer', 'Exécuter…', 24) : ''}
           </div>
         </div>
         <div class="menu-pied">
@@ -930,6 +967,7 @@
           <hr>
           ${JEUX.filter(j => !j.multi).map(j => petit(`data-app="jeu-${echapper(j.id)}"`, j.icone, j.titre)).join('')}
           <hr>
+          ${extras ? extras.programmes.map(p => petit(`data-app="${p.app}"`, p.icone, p.nom)).join('') + '<hr>' : ''}
           ${petit('data-app="blog"', 'fichier', 'Blog')}
           ${petit('data-app="jeux"', 'manette', 'Dossier Jeux')}
         </div>`;
@@ -977,6 +1015,7 @@
         <button data-action="fond">${xp('image', 16)}Fond d'écran suivant</button>
         <button data-action="actualiser"><span class="vide-ico"></span>Actualiser</button>
         <hr>
+        ${extras ? `<button data-app="notepad">${xp('blocnotes', 16)}Nouveau document texte</button><button data-app="cmd">${xp('console', 16)}Ouvrir l'invite de commandes</button><hr>` : ''}
         <button data-app="blog">${xp('fichier', 16)}Ouvrir le blog</button>
         <button data-app="jeux">${xp('manette', 16)}Ouvrir les jeux</button>
         <button data-action="hasard">${xp('hasard', 16)}Jeu au hasard</button>
@@ -1014,8 +1053,9 @@
       let choix = actuel();
       corps.innerHTML = `
         <div class="dialogue-xp affichage">
-          <div class="onglets-xp" role="tablist"><button class="actif" role="tab" aria-selected="true">Bureau</button></div>
-          <div class="onglet-corps">
+          <div class="onglets-xp" role="tablist"><button class="actif" role="tab" aria-selected="true" data-onglet="bureau">Bureau</button>${extras ? '<button role="tab" aria-selected="false" data-onglet="veille">Écran de veille</button>' : ''}</div>
+          <div class="onglet-corps onglet-veille" data-panneau="veille" hidden></div>
+          <div class="onglet-corps" data-panneau="bureau">
             <div class="moniteur" aria-hidden="true"><div class="ecran-apercu"></div></div>
             <label class="etiquette-xp" id="lbl-fonds">Arrière-plan :</label>
             <div class="liste-fonds" role="listbox" aria-labelledby="lbl-fonds" tabindex="0">
@@ -1034,6 +1074,16 @@
       const apercu = $('.ecran-apercu', corps);
       const liste = $('.liste-fonds', corps);
       const btnAppliquer = $('[data-a="appliquer"]', corps);
+      const panneauVeille = $('[data-panneau="veille"]', corps);
+      const veille = extras ? extras.ongletVeille(panneauVeille) : null;
+      panneauVeille.addEventListener('change', () => { btnAppliquer.disabled = false; });
+      panneauVeille.addEventListener('input', () => { btnAppliquer.disabled = false; });
+      $('.onglets-xp', corps).addEventListener('click', e => {
+        const o = e.target.closest('[data-onglet]');
+        if (!o) return;
+        $$('[data-onglet]', corps).forEach(b => { b.classList.toggle('actif', b === o); b.setAttribute('aria-selected', String(b === o)); });
+        $$('[data-panneau]', corps).forEach(p => { p.hidden = p.dataset.panneau !== o.dataset.onglet; });
+      });
       function montrer(id) {
         choix = id;
         const f = FONDS.find(x => x.id === id) || FONDS[0];
@@ -1057,8 +1107,8 @@
       });
       corps.addEventListener('click', e => {
         const a = e.target.closest('[data-a]')?.dataset.a;
-        if (a === 'appliquer') { appliquerFond(choix); btnAppliquer.disabled = true; }
-        if (a === 'ok') { appliquerFond(choix); fermer(etat.id); }
+        if (a === 'appliquer') { appliquerFond(choix); if (veille) veille.valider(); btnAppliquer.disabled = true; }
+        if (a === 'ok') { appliquerFond(choix); if (veille) veille.valider(); fermer(etat.id); }
         if (a === 'annuler') fermer(etat.id);
       });
     }
@@ -1068,6 +1118,7 @@
       const b = $('.bulle');
       b.innerHTML = `<button class="fermer-bulle" aria-label="Fermer">${GLYPHE.petit}</button><strong>${xp('info', 16)}${echapper(titre)}</strong><p>${echapper(texte)}</p>`;
       b.hidden = false;
+      son('ding');
       $('.fermer-bulle', b).addEventListener('click', () => { b.hidden = true; });
       clearTimeout(minuterieBulle);
       minuterieBulle = setTimeout(() => { b.hidden = true; }, duree);
@@ -1128,6 +1179,7 @@
 
     function eteindre() {
       fermerMenus();
+      son('arret');
       const ecran = creer(`<div class="extinction"><div><p>Tu peux maintenant fermer cet onglet en toute sécurité.</p><button class="btn">Redémarrer</button></div></div>`);
       document.body.append(ecran);
       $('button', ecran).addEventListener('click', () => { session.ecrire('site-demarre', '0'); location.href = location.pathname; });
@@ -1149,7 +1201,7 @@
           </div>
         </div>`);
       document.body.append(ecran);
-      $('.utilisateur', ecran).addEventListener('click', () => { ecran.remove(); bulle('Bon retour', 'Session ouverte : ' + (C.pseudo || NOM), 3500); });
+      $('.utilisateur', ecran).addEventListener('click', () => { ecran.remove(); son('demarrage'); bulle('Bon retour', 'Session ouverte : ' + (C.pseudo || NOM), 3500); });
       $('[data-c="arreter"]', ecran).addEventListener('click', () => { ecran.remove(); eteindre(); });
     }
 
@@ -1174,6 +1226,7 @@
     construireMenu();
     horloge();
     setInterval(horloge, 10000);
+    if (extras) extras.demarrer();
 
     btnDemarrer.addEventListener('click', e => { e.stopPropagation(); basculerMenu(); });
     $('.notif-contact').addEventListener('click', () => ouvrirApp('contact'));
