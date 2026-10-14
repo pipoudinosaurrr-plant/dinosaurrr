@@ -140,7 +140,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -208,6 +208,23 @@ content:
         label: Mot
         type: string
         required: true
+
+  # ---------------------------------------------------------------- Pendu
+  - name: pendu
+    label: Mots du Pendu
+    type: file
+    path: games/pendu-mots.json
+    format: json
+    list: true
+    fields:
+      - name: mot
+        label: Mot (ou plusieurs mots)
+        type: string
+        required: true
+        description: "Accents, espaces et tirets autorisés (ex. chauve-souris, carte graphique)"
+      - name: categorie
+        label: Catégorie (affichée comme indice)
+        type: string
 
   # ---------------------------------------------------------------- Invite de commandes
   - name: commandes
@@ -400,6 +417,20 @@ content:
                   label: "Jeu : Serpent"
                 - name: jeu-briques
                   label: "Jeu : Casse-briques"
+                - name: jeu-echecs
+                  label: "Jeu : Échecs"
+                - name: jeu-hockey
+                  label: "Jeu : Air hockey"
+                - name: jeu-dinorun
+                  label: "Jeu : Dino Run"
+                - name: jeu-flap
+                  label: "Jeu : Dino Flap"
+                - name: jeu-2048
+                  label: "Jeu : 2048"
+                - name: jeu-pendu
+                  label: "Jeu : Pendu"
+                - name: jeu-solitaire
+                  label: "Jeu : Solitaire"
                 - name: jeu-demineur
                   label: "Jeu : Démineur"
                 - name: jeu-meteorites

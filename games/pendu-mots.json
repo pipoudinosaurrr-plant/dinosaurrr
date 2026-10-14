@@ -1,0 +1,490 @@
+[
+  {
+    "mot": "tyrannosaure",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "vélociraptor",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "tricératops",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "stégosaure",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "diplodocus",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "ptérodactyle",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "brachiosaure",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "ankylosaure",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "spinosaure",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "iguanodon",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "fossile",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "météorite",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "préhistoire",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "volcan",
+    "categorie": "Dinosaures"
+  },
+  {
+    "mot": "éléphant",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "girafe",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "crocodile",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "kangourou",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "pingouin",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "dauphin",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "requin",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "hérisson",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "écureuil",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "perroquet",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "tortue",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "papillon",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "chauve-souris",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "hippopotame",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "caméléon",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "araignée",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "grenouille",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "escargot",
+    "categorie": "Animaux"
+  },
+  {
+    "mot": "manette",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "console",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "joystick",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "niveau",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "sauvegarde",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "multijoueur",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "pixel",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "boss",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "checkpoint",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "inventaire",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "minecraft",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "plateforme",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "tournoi",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "classement",
+    "categorie": "Jeux vidéo"
+  },
+  {
+    "mot": "ordinateur",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "clavier",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "souris",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "écran",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "processeur",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "carte graphique",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "internet",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "navigateur",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "mot de passe",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "téléchargement",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "serveur",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "programme",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "robot",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "imprimante",
+    "categorie": "Informatique"
+  },
+  {
+    "mot": "chocolat",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "croissant",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "spaghetti",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "pizza",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "hamburger",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "fromage",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "crêpe",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "banane",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "fraise",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "sandwich",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "frites",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "gaufre",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "pastèque",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "brocoli",
+    "categorie": "Nourriture"
+  },
+  {
+    "mot": "football",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "basket",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "natation",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "escalade",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "skateboard",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "trampoline",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "tennis",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "marathon",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "gymnastique",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "handball",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "équitation",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "judo",
+    "categorie": "Sport"
+  },
+  {
+    "mot": "belgique",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "bruxelles",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "japon",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "canada",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "australie",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "brésil",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "égypte",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "islande",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "norvège",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "mexique",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "portugal",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "new york",
+    "categorie": "Pays et villes"
+  },
+  {
+    "mot": "montagne",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "cascade",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "arc-en-ciel",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "tempête",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "désert",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "forêt",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "océan",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "glacier",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "tornade",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "éclair",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "coquillage",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "galaxie",
+    "categorie": "Nature"
+  },
+  {
+    "mot": "parapluie",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "trottinette",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "aspirateur",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "frigo",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "réveil",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "lampe de poche",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "sac à dos",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "télescope",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "boussole",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "casque",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "guitare",
+    "categorie": "Objets"
+  },
+  {
+    "mot": "trompette",
+    "categorie": "Objets"
+  }
+]

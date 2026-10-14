@@ -33,12 +33,13 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `games/multi/` | Le salon commun des autres jeux à plusieurs (`salon.js`) et leurs règles (`jeux/`) |
 | `games/multi/jeux/questions.json` | Les questions du Quiz battle (Pages CMS « Questions du quiz ») |
 | `games/multi/jeux/mots.json` | Les mots de Dessine et devine (Pages CMS « Mots à dessiner ») |
+| `games/pendu-mots.json` | Les mots du Pendu (Pages CMS « Mots du Pendu ») |
 
-Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine.
+Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine, Échecs, Air hockey (les deux derniers se jouent aussi à 2 sur le même écran).
 
-Les jeux en solo : Turbo Dino (course de voitures 3D), Dino Blaster (shooter spatial), Dino Aventure (plateformes), Blocs, Serpent, Casse-briques, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
+Les jeux en solo : Turbo Dino (course de voitures 3D), Dino Blaster (shooter spatial), Dino Aventure (plateformes), Blocs, Serpent, Casse-briques, Dino Run, Dino Flap, 2048, Pendu, Solitaire, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
 
-Les 6 jeux d'arcade (Turbo, Blaster, Aventure, Blocs, Serpent, Casse-briques) partagent `games/arcade.js` : clavier (flèches, WASD/ZQSD), boutons tactiles sur téléphone, menus, pause, records et sons.
+Les jeux d'arcade (Turbo, Blaster, Aventure, Blocs, Serpent, Casse-briques, Dino Run, Dino Flap, 2048) partagent `games/arcade.js` : clavier (flèches, WASD/ZQSD), boutons tactiles sur téléphone, menus, pause, records et sons.
 
 ---
 

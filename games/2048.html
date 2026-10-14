@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>2048</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="2048"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const N = 4, C = 86, G = 10;
+  const BX = 16, BY = 96, TAILLE = N * C + (N + 1) * G;
+  const W = TAILLE + 32, H = BY + TAILLE + 64;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const COUL = {
+    2: ['#1f2937', '#e5e7eb'], 4: ['#273449', '#e5e7eb'], 8: ['#14532d', '#bbf7d0'], 16: ['#166534', '#dcfce7'], 32: ['#15803d', '#fff'],
+    64: ['#16a34a', '#fff'], 128: ['#0e7490', '#fff'], 256: ['#0891b2', '#fff'], 512: ['#2563eb', '#fff'], 1024: ['#7c3aed', '#fff'],
+    2048: ['#facc15', '#422006'], 4096: ['#f97316', '#fff'], 8192: ['#ef4444', '#fff']
+  };
+
+  let tuiles, score, record, etat = 'menu', annuler = null, gagneVu = false, idSuivant = 1, ajoutScore = [];
+  record = A.record('2048') || 0;
+
+  const pos = i => BX + G + i * (C + G);
+  function vides() {
+    const v = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!tuiles.some(t => t.x === x && t.y === y && !t.fusion)) v.push([x, y]);
+    return v;
+  }
+  function ajouter() {
+    const v = vides();
+    if (!v.length) return;
+    const [x, y] = v[Math.floor(Math.random() * v.length)];
+    tuiles.push({ id: idSuivant++, x, y, v: Math.random() < 0.9 ? 2 : 4, ax: x, ay: y, nait: 0, pop: 0 });
+  }
+  function nouvellePartie() {
+    tuiles = []; score = 0; gagneVu = false; annuler = null; ajoutScore = [];
+    ajouter(); ajouter();
+  }
+  const copie = () => ({ tuiles: tuiles.filter(t => !t.fusion).map(t => ({ ...t })), score });
+
+  function bouger(dx, dy) {
+    if (etat !== 'jeu') return;
+    tuiles = tuiles.filter(t => !t.fusion);
+    for (const t of tuiles) { t.ax = t.x; t.ay = t.y; t.nait = 1; t.pop = 0; }
+    const sauvegarde = copie();
+    const ordre = [...Array(N).keys()];
+    if (dx > 0) ordre.reverse();
+    const ordreY = [...Array(N).keys()];
+    if (dy > 0) ordreY.reverse();
+    const grille = {};
+    for (const t of tuiles) grille[t.x + ',' + t.y] = t;
+    let bouge = false, gain = 0;
+    const fusionnees = new Set();
+    for (const y of ordreY) for (const x of ordre) {
+      const t = grille[x + ',' + y];
+      if (!t) continue;
+      let nx = x, ny = y;
+      while (true) {
+        const sx = nx + dx, sy = ny + dy;
+        if (sx < 0 || sx >= N || sy < 0 || sy >= N) break;
+        const autre = grille[sx + ',' + sy];
+        if (!autre) { nx = sx; ny = sy; continue; }
+        if (autre.v === t.v && !fusionnees.has(autre.id)) {
+          // fusion
+          delete grille[x + ',' + y];
+          t.x = sx; t.y = sy; t.fusion = true;
+          autre.v *= 2; autre.pop = 1; fusionnees.add(autre.id);
+          gain += autre.v;
+          bouge = true;
+          nx = null;
+        }
+        break;
+      }
+      if (nx === null) continue;
+      if (nx !== x || ny !== y) {
+        delete grille[x + ',' + y];
+        grille[nx + ',' + ny] = t;
+        t.x = nx; t.y = ny;
+        bouge = true;
+      }
+    }
+    if (!bouge) return;
+    annuler = sauvegarde;
+    score += gain;
+    if (gain) { ajoutScore.push({ v: gain, t: 0.8 }); A.son(gain >= 128 ? 'bonus' : 'mange'); } else A.son('tourne');
+    anim = 0;
+    setTimeout(() => {
+      ajouter();
+      if (!gagneVu && tuiles.some(t => t.v >= 2048)) { gagneVu = true; gagner(); }
+      else if (!peutBouger()) perdre();
+    }, 110);
+  }
+  function peutBouger() {
+    const g = {};
+    for (const t of tuiles) if (!t.fusion) g[t.x + ',' + t.y] = t.v;
+    if (Object.keys(g).length < N * N) return true;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (g[(x + 1) + ',' + y] === g[x + ',' + y] || g[x + ',' + (y + 1)] === g[x + ',' + y]) return true;
+    }
+    return false;
+  }
+  function revenir() {
+    if (!annuler || etat !== 'jeu') return;
+    tuiles = annuler.tuiles.map(t => ({ ...t, ax: t.x, ay: t.y, nait: 1, pop: 0 }));
+    score = annuler.score;
+    annuler = null;
+    A.son('clic');
+  }
+  function gagner() {
+    A.son('gagne');
+    A.record('2048', score);
+    A.panneau({ pastille: 'Bravo', titre: '🎉 2048 !', texte: 'Tu as fait la tuile 2048. Tu peux continuer pour aller plus loin.', lignes: [['Score', A.format(score)]],
+      boutons: [{ texte: 'Continuer', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Nouvelle partie', action: lancer }] });
+    etat = 'pause';
+  }
+  function perdre() {
+    etat = 'fin';
+    A.son('perdu');
+    const r = A.record('2048', score);
+    record = r.record;
+    const max = Math.max(...tuiles.map(t => t.v));
+    const rm = A.record('2048-tuile', max);
+    setTimeout(() => A.panneau({ pastille: 'Plus de place', titre: r.nouveau ? '🏅 Nouveau record !' : 'Perdu !', lignes: [['Score', A.format(score)], ['Plus grosse tuile', String(max)], ['Record', A.format(r.record)], ['Meilleure tuile', String(rm.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }] }), 700);
+  }
+
+  /* ---------- Dessin ---------- */
+  let anim = 1;
+  function dessiner(dt) {
+    anim = Math.min(1, anim + dt / 0.11);
+    T.effacer('#000');
+    ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.roundRect(BX, BY, TAILLE, TAILLE, 12); ctx.fill();
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { ctx.fillStyle = '#161616'; ctx.beginPath(); ctx.roundRect(pos(x), BY - BX + pos(y), C, C, 8); ctx.fill(); }
+    if (!tuiles) return;
+    const ease = 1 - Math.pow(1 - anim, 3);
+    const liste = [...tuiles].sort((a, b) => (a.fusion ? 0 : 1) - (b.fusion ? 0 : 1));
+    for (const t of liste) {
+      t.nait = Math.min(1, t.nait + dt * 8);
+      if (anim >= 1) t.pop = Math.max(0, t.pop - dt * 6);
+      const x = pos(t.ax + (t.x - t.ax) * ease), y = BY - BX + pos(t.ay + (t.y - t.ay) * ease);
+      const echelle = (t.nait < 1 ? 0.3 + t.nait * 0.7 : 1) * (1 + (anim >= 1 ? t.pop * 0.12 : 0));
+      const [fond, texte] = COUL[t.v] || ['#ef4444', '#fff'];
+      ctx.save();
+      ctx.translate(x + C / 2, y + C / 2); ctx.scale(echelle, echelle);
+      if (t.v >= 128) { ctx.shadowColor = fond; ctx.shadowBlur = 18; }
+      ctx.fillStyle = fond; ctx.beginPath(); ctx.roundRect(-C / 2, -C / 2, C, C, 8); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = texte;
+      const tailleTexte = t.v < 100 ? 38 : t.v < 1000 ? 32 : 26;
+      ctx.font = `800 ${tailleTexte}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(t.v), 0, 2);
+      ctx.restore();
+    }
+    // en-tête
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#fafafa'; ctx.font = `900 40px ${MONO}`; ctx.fillText('2048', BX, 56);
+    const boite = (x, nom, v) => {
+      ctx.fillStyle = '#141414'; ctx.beginPath(); ctx.roundRect(x, 24, 92, 46, 8); ctx.fill();
+      ctx.fillStyle = '#71717a'; ctx.font = `700 10px ${MONO}`; ctx.textAlign = 'center'; ctx.fillText(nom, x + 46, 40);
+      ctx.fillStyle = '#fff'; ctx.font = `800 17px ${MONO}`; ctx.fillText(A.format(v), x + 46, 62);
+    };
+    boite(W - BX - 92 - 100, 'SCORE', score);
+    boite(W - BX - 92, 'RECORD', Math.max(record, score));
+    for (const a of ajoutScore) {
+      a.t -= dt;
+      ctx.globalAlpha = Math.max(0, a.t / 0.8);
+      ctx.fillStyle = '#4ade80'; ctx.font = `800 15px ${MONO}`; ctx.textAlign = 'center';
+      ctx.fillText('+' + a.v, W - BX - 92 - 100 + 46, 20 - (0.8 - a.t) * 20);
+      ctx.globalAlpha = 1;
+    }
+    ajoutScore = ajoutScore.filter(a => a.t > 0);
+    ctx.fillStyle = '#71717a'; ctx.font = `600 12px ${MONO}`; ctx.textAlign = 'left';
+    ctx.fillText(annuler ? 'U ou ↶ : annuler le dernier coup' : 'Fusionne les tuiles pareilles', BX, H - 26);
+  }
+
+  /* ---------- Contrôles ---------- */
+  addEventListener('keydown', e => { if (etat === 'jeu' && (e.code === 'KeyU' || (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)))) { e.preventDefault(); revenir(); } });
+  let debut = null;
+  T.canvas.addEventListener('pointerdown', e => {
+    const p = T.point(e);
+    if (p.y > H - 46 && annuler) { revenir(); return; }
+    debut = { x: e.clientX, y: e.clientY };
+  });
+  addEventListener('pointerup', e => {
+    if (!debut) return;
+    const dx = e.clientX - debut.x, dy = e.clientY - debut.y;
+    debut = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) bouger(Math.sign(dx), 0); else bouger(0, Math.sign(dy));
+  });
+
+  function lancer() { A.fermerPanneau(); nouvellePartie(); etat = 'jeu'; }
+  function menu() {
+    etat = 'menu';
+    nouvellePartie();
+    A.panneau({
+      pastille: 'Puzzle', titre: '2048',
+      texte: 'Fais glisser les tuiles. Deux tuiles pareilles qui se touchent fusionnent. Arriveras-tu jusqu’à 2048 ?',
+      lignes: [['Record', A.format(A.record('2048') || 0)], ['Meilleure tuile', String(A.record('2048-tuile') || '–')]],
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancer }],
+      aide: A.TACTILE ? 'Glisse le doigt dans une direction.' : 'Flèches ou WASD / ZQSD · U : annuler le dernier coup'
+    });
+  }
+  A.boutonsCoin(null);
+  menu();
+  A.boucle(dt => {
+    if (etat === 'jeu') {
+      if (A.vient('gauche')) bouger(-1, 0);
+      else if (A.vient('droite')) bouger(1, 0);
+      else if (A.vient('haut')) bouger(0, -1);
+      else if (A.vient('bas')) bouger(0, 1);
+    }
+    dessiner(dt);
+  });
+  window.__2048 = { get etat() { return etat; }, get score() { return score; }, get tuiles() { return tuiles.filter(t => !t.fusion).map(t => [t.x, t.y, t.v]); }, bouger };
+})();
+</script>
+</body>
+</html>

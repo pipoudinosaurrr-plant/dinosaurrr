@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Air hockey</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; }
+    #jeu[hidden] { display: none; }
+    #toile { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: none; }
+    .noms { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; display: flex; gap: 6px; pointer-events: none; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+    .aide { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); color: var(--tres-doux); font: 500 11px var(--mono); pointer-events: none; transition: opacity .6s; white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <canvas id="toile"></canvas>
+    <div class="noms" id="noms"></div>
+    <div class="aide" id="aide"></div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur, { W, H, BUT_L, R_PALET, R_MAILLET, BUTS } from './multi/jeux/hockey.js';
+
+    const toile = document.getElementById('toile');
+    const g = toile.getContext('2d');
+    let dpr = 1, cw = 0, ch = 0;
+    function taille() {
+      dpr = Math.min(2, devicePixelRatio || 1);
+      cw = innerWidth; ch = innerHeight;
+      toile.width = Math.round(cw * dpr);
+      toile.height = Math.round(ch * dpr);
+    }
+    addEventListener('resize', taille);
+    taille();
+
+    const V_MAILLET = 2600;
+    let vue = null, recue = 0, ctxJeu = null;
+    let mi = 0;                 // mon index (0 = en bas de la table)
+    let retourne = false;       // la table est tournée pour que je sois en bas
+    // maillets que je contrôle (positions prévues tout de suite chez moi)
+    const pilotes = new Map();  // id → { i, x, y, cx, cy }
+    const autres = [{ x: W / 2, y: 90 }, { x: W / 2, y: H - 90 }];
+    let traine = [], eclairs = [], secousse = 0;
+    let dernierEnvoi = new Map();
+
+    /* ---------- repère : table ↔ écran ---------- */
+    const paysage = () => cw > ch * 1.05;
+    function repere() {
+      const haut = 50, bas = 26;
+      if (paysage()) {
+        const s = Math.min((cw - 24) / H, (ch - haut - bas) / W);
+        return { s, ox: (cw - H * s) / 2, oy: haut + (ch - haut - bas - W * s) / 2, p: true };
+      }
+      const s = Math.min((cw - 20) / W, (ch - haut - bas) / H);
+      return { s, ox: (cw - W * s) / 2, oy: haut + (ch - haut - bas - H * s) / 2, p: false };
+    }
+    const persp = (x, y) => (retourne ? [W - x, H - y] : [x, y]);
+    function ecran(R, x, y) {
+      const [px, py] = persp(x, y);
+      // en paysage, mon but (en bas) passe à gauche
+      return R.p ? [R.ox + (H - py) * R.s, R.oy + px * R.s] : [R.ox + px * R.s, R.oy + py * R.s];
+    }
+    function versTable(R, X, Y) {
+      const px = R.p ? (Y - R.oy) / R.s : (X - R.ox) / R.s;
+      const py = R.p ? H - (X - R.ox) / R.s : (Y - R.oy) / R.s;
+      return persp(px, py);
+    }
+    function borner(i, x, y) {
+      const minY = i === 0 ? H / 2 + R_MAILLET : R_MAILLET, maxY = i === 0 ? H - R_MAILLET : H / 2 - R_MAILLET;
+      return [Math.max(R_MAILLET, Math.min(W - R_MAILLET, x)), Math.max(minY, Math.min(maxY, y))];
+    }
+
+    /* ---------- commandes ---------- */
+    function viser(id, X, Y) {
+      const m = pilotes.get(id);
+      if (!m) return;
+      const [x, y] = versTable(repere(), X, Y);
+      [m.cx, m.cy] = borner(m.i, x, y);
+    }
+    const doigts = new Map();   // pointerId → id du joueur
+    function joueurPour(e) {
+      if (!ctxJeu) return null;
+      if (!ctxJeu.deux) return ctxJeu.moi;
+      if (e.pointerType === 'mouse') return 'moi';
+      const [, y] = versTable(repere(), e.clientX, e.clientY);
+      return y > H / 2 ? 'moi' : 'moi2';
+    }
+    toile.addEventListener('pointerdown', e => {
+      const id = joueurPour(e);
+      if (!id) return;
+      doigts.set(e.pointerId, id);
+      viser(id, e.clientX, e.clientY);
+    });
+    toile.addEventListener('pointermove', e => {
+      const id = doigts.get(e.pointerId) || (e.pointerType === 'mouse' ? joueurPour(e) : null);
+      if (id) viser(id, e.clientX, e.clientY);
+    });
+    const lacher = e => { if (e.pointerType !== 'mouse') doigts.delete(e.pointerId); };
+    toile.addEventListener('pointerup', lacher);
+    toile.addEventListener('pointercancel', lacher);
+
+    const clavier = {};
+    addEventListener('keydown', e => { clavier[e.code] = true; if (e.code.startsWith('Arrow')) e.preventDefault(); });
+    addEventListener('keyup', e => { clavier[e.code] = false; });
+    addEventListener('blur', () => { for (const k in clavier) clavier[k] = false; });
+    // déplacement au clavier, dans le sens de l'écran
+    function clavierPour(id, dt, R) {
+      const m = pilotes.get(id);
+      if (!m) return;
+      const fleches = !ctxJeu.deux || id === 'moi2';
+      const lettres = !ctxJeu.deux || id === 'moi';
+      let dx = 0, dy = 0;
+      if ((fleches && clavier.ArrowLeft) || (lettres && clavier.KeyA)) dx--;
+      if ((fleches && clavier.ArrowRight) || (lettres && clavier.KeyD)) dx++;
+      if ((fleches && clavier.ArrowUp) || (lettres && clavier.KeyW)) dy--;
+      if ((fleches && clavier.ArrowDown) || (lettres && clavier.KeyS)) dy++;
+      if (!dx && !dy) return;
+      // écran → table (en tenant compte de la rotation et du retournement)
+      let tx = R.p ? dy : dx, ty = R.p ? -dx : dy;
+      if (retourne) { tx = -tx; ty = -ty; }
+      const n = Math.hypot(tx, ty) || 1, v = 900 * dt;
+      [m.cx, m.cy] = borner(m.i, m.cx + tx / n * v, m.cy + ty / n * v);
+    }
+
+    /* ---------- sons ---------- */
+    let audio = null;
+    const sonActif = () => { try { return JSON.parse(localStorage.getItem('site-son') ?? 'true') !== false; } catch (e) { return true; } };
+    function bip(f1, f2, d, type = 'triangle', v = 0.08, retard = 0) {
+      if (!sonActif()) return;
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        if (audio.state === 'suspended') audio.resume();
+        const t = audio.currentTime + retard;
+        const o = audio.createOscillator(), gn = audio.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(f1, t);
+        if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+        gn.gain.setValueAtTime(v, t);
+        gn.gain.exponentialRampToValueAtTime(0.001, t + d);
+        o.connect(gn).connect(audio.destination);
+        o.start(t); o.stop(t + d + 0.02);
+      } catch (e) { /* pas de son */ }
+    }
+    let dernierSon = 0;
+
+    /* ---------- réception ---------- */
+    function afficher(v, ctx) {
+      const premier = !vue;
+      ctxJeu = ctx;
+      vue = v;
+      recue = performance.now();
+      mi = ctx.deux ? 0 : Math.max(0, v.j.indexOf(ctx.moi));
+      retourne = !ctx.deux && mi === 1;
+      // qui je pilote
+      const ids = ctx.spectateur ? [] : ctx.deux ? ['moi', 'moi2'] : [ctx.moi];
+      for (const id of ids) {
+        const i = v.j.indexOf(id);
+        if (i < 0) continue;
+        if (!pilotes.has(id) || premier) pilotes.set(id, { i, x: v.m[i][0], y: v.m[i][1], cx: v.m[i][0], cy: v.m[i][1] });
+      }
+      for (const id of [...pilotes.keys()]) if (!ids.includes(id)) pilotes.delete(id);
+      if (premier) v.m.forEach((m, i) => { autres[i].x = m[0]; autres[i].y = m[1]; });
+      document.getElementById('noms').innerHTML = v.j.map((id, i) => {
+        const coul = couleurMaillet(i);
+        const moiAussi = !ctx.deux && id === ctx.moi;
+        return `<span class="pastille-joueur"><i style="background:${coul}"></i>${echapper(ctx.nom(id))}${moiAussi ? ' (toi)' : ''} · ${v.s[i]}</span>`;
+      }).join('');
+    }
+    function couleurMaillet(i) {
+      if (!ctxJeu || !vue) return i === 0 ? '#38bdf8' : '#f43f5e';
+      if (ctxJeu.deux) return i === 0 ? '#38bdf8' : '#f43f5e';
+      return i === mi ? '#38bdf8' : '#f43f5e';
+    }
+
+    function evenement(ev) {
+      const t = performance.now();
+      if (ev[0] === 'tape') {
+        if (t - dernierSon > 40) { dernierSon = t; bip(420, 300, 0.07, 'square', 0.05); }
+        const m = vue ? vue.m[ev[1]] : null;
+        const recent = eclairs.some(f => f.type === 'tape' && f.i === ev[1] && f.t < 0.15);
+        if (m && !recent) eclairs.push({ t: 0, x: m[0], y: m[1], type: 'tape', i: ev[1] });
+      }
+      if (ev[0] === 'bord' && t - dernierSon > 60) { dernierSon = t; bip(180, 140, 0.05, 'triangle', 0.05); }
+      if (ev[0] === 'but') {
+        const pourMoi = ctxJeu && (ctxJeu.deux || ev[1] === mi);
+        if (pourMoi) { bip(523, 523, 0.12, 'square', 0.06); bip(659, 659, 0.12, 'square', 0.06, 0.1); bip(784, 784, 0.22, 'square', 0.06, 0.2); }
+        else { bip(300, 120, 0.4, 'sawtooth', 0.05); }
+        eclairs.push({ t: 0, type: 'but', i: ev[1] });
+        secousse = 0.35;
+        traine = [];
+        if (navigator.vibrate && TACTILE) navigator.vibrate(pourMoi ? 30 : 80);
+      }
+    }
+
+    /* ---------- dessin ---------- */
+    function rond(R, x, y, r) { const [a, b] = ecran(R, x, y); g.beginPath(); g.arc(a, b, r * R.s, 0, Math.PI * 2); }
+    function ligne(R, x1, y1, x2, y2) { const [a, b] = ecran(R, x1, y1), [c, d] = ecran(R, x2, y2); g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); }
+    function arc(R, x, y, r, a1, a2) {
+      // arc de cercle dans le repère de la table (on le dessine point par point)
+      g.beginPath();
+      for (let k = 0; k <= 24; k++) {
+        const a = a1 + (a2 - a1) * k / 24;
+        const [px, py] = ecran(R, x + Math.cos(a) * r, y + Math.sin(a) * r);
+        if (k) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+    }
+
+    function dessinerTable(R) {
+      const [x0, y0] = ecran(R, 0, 0), [x1, y1] = ecran(R, W, H);
+      const gx = Math.min(x0, x1), gy = Math.min(y0, y1), gw = Math.abs(x1 - x0), gh = Math.abs(y1 - y0);
+      const bord = 10 * R.s;
+      // cadre
+      g.fillStyle = '#1e293b';
+      g.beginPath(); g.roundRect(gx - bord, gy - bord, gw + bord * 2, gh + bord * 2, 26 * R.s); g.fill();
+      // surface (petits trous d'air)
+      const fond = g.createLinearGradient(gx, gy, gx + gw, gy + gh);
+      fond.addColorStop(0, '#0b1730'); fond.addColorStop(1, '#0a1226');
+      g.fillStyle = fond;
+      g.beginPath(); g.roundRect(gx, gy, gw, gh, 18 * R.s); g.fill();
+      g.save();
+      g.beginPath(); g.roundRect(gx, gy, gw, gh, 18 * R.s); g.clip();
+      g.fillStyle = 'rgba(148,163,184,.10)';
+      const pas = 26 * R.s;
+      if (pas > 6) for (let a = gx + pas / 2; a < gx + gw; a += pas) for (let b = gy + pas / 2; b < gy + gh; b += pas) g.fillRect(a, b, Math.max(1, R.s * 2), Math.max(1, R.s * 2));
+      // lignes
+      g.lineWidth = Math.max(1.5, 3 * R.s);
+      g.strokeStyle = 'rgba(244,63,94,.55)';
+      ligne(R, 0, H / 2, W, H / 2); g.stroke();
+      g.strokeStyle = 'rgba(56,189,248,.35)';
+      rond(R, W / 2, H / 2, 70); g.stroke();
+      rond(R, W / 2, H / 2, 6); g.fillStyle = 'rgba(244,63,94,.6)'; g.fill();
+      // zones de but (demi-cercles)
+      g.strokeStyle = 'rgba(56,189,248,.35)';
+      arc(R, W / 2, 0, 110, 0, Math.PI); g.stroke();
+      arc(R, W / 2, H, 110, Math.PI, Math.PI * 2); g.stroke();
+      g.restore();
+      // buts : une fente sombre dans le cadre, côté extérieur
+      for (const yb of [0, H]) {
+        const [a, b] = ecran(R, W / 2 - BUT_L / 2, yb), [c, d] = ecran(R, W / 2 + BUT_L / 2, yb);
+        g.fillStyle = '#000';
+        if (R.p) {
+          const lx = a, ly = Math.min(b, d), lh = Math.abs(d - b);
+          g.fillRect(lx < gx + gw / 2 ? lx - bord - 1 : lx - 1, ly, bord + 2, lh);
+        } else {
+          const ly = b, lx = Math.min(a, c), lw = Math.abs(c - a);
+          g.fillRect(lx, ly < gy + gh / 2 ? ly - bord - 1 : ly - 1, lw, bord + 2);
+        }
+      }
+      return { gx, gy, gw, gh };
+    }
+
+    function maillet(R, x, y, couleur) {
+      const [a, b] = ecran(R, x, y), r = R_MAILLET * R.s;
+      g.save();
+      g.shadowColor = couleur; g.shadowBlur = 18 * R.s;
+      g.fillStyle = couleur;
+      g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = 'rgba(0,0,0,.28)';
+      g.beginPath(); g.arc(a, b, r * 0.72, 0, Math.PI * 2); g.fill();
+      const poignee = g.createRadialGradient(a - r * 0.15, b - r * 0.18, r * 0.05, a, b, r * 0.45);
+      poignee.addColorStop(0, '#fff'); poignee.addColorStop(0.35, couleur); poignee.addColorStop(1, 'rgba(0,0,0,.35)');
+      g.fillStyle = poignee;
+      g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+
+    function palet(R, x, y, alpha = 1) {
+      const [a, b] = ecran(R, x, y), r = R_PALET * R.s;
+      g.save();
+      g.globalAlpha = alpha;
+      g.shadowColor = 'rgba(250,204,21,.8)'; g.shadowBlur = 16 * R.s;
+      g.fillStyle = '#facc15';
+      g.beginPath(); g.arc(a, b, r, 0, Math.PI * 2); g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = '#ca8a04';
+      g.beginPath(); g.arc(a, b, r * 0.7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fde047';
+      g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+
+    let avant = performance.now();
+    function boucle(maintenant) {
+      requestAnimationFrame(boucle);
+      const dt = Math.min(0.05, (maintenant - avant) / 1000);
+      avant = maintenant;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, cw, ch);
+      if (!vue || !ctxJeu) return;
+      const R = repere();
+
+      // mes maillets : clavier puis déplacement immédiat (même vitesse que le serveur)
+      for (const [id, m] of pilotes) {
+        clavierPour(id, dt, R);
+        const dx = m.cx - m.x, dy = m.cy - m.y, d = Math.hypot(dx, dy), pas = Math.min(d, V_MAILLET * dt);
+        if (d > 0) { m.x += dx / d * pas; m.y += dy / d * pas; }
+        // on envoie la position voulue (pas plus de 30 fois par seconde)
+        const cle = Math.round(m.cx) + ',' + Math.round(m.cy);
+        const env = dernierEnvoi.get(id) || { t: 0, cle: '' };
+        if (!vue.fini && maintenant - env.t > 30 && env.cle !== cle) {
+          dernierEnvoi.set(id, { t: maintenant, cle });
+          const d2 = { t: 'pos', x: Math.round(m.cx), y: Math.round(m.cy) };
+          if (id === ctxJeu.moi) ctxJeu.envoyer(d2); else ctxJeu.envoyerPour(id, d2);
+        }
+      }
+      // maillets des autres : on glisse vers la dernière position reçue
+      const lisse = 1 - Math.exp(-dt * 22);
+      vue.m.forEach((m, i) => { autres[i].x += (m[0] - autres[i].x) * lisse; autres[i].y += (m[1] - autres[i].y) * lisse; });
+      const positions = vue.m.map((m, i) => {
+        const id = vue.j[i];
+        const p = pilotes.get(id);
+        return p ? [p.x, p.y] : [autres[i].x, autres[i].y];
+      });
+
+      // palet : on prolonge sa trajectoire depuis la dernière image reçue
+      const ecoule = (maintenant - recue) / 1000;
+      const pause = Math.max(0, vue.pause - ecoule * 1000);
+      let px = vue.p[0], py = vue.p[1];
+      if (!vue.fini && vue.pause === 0) {
+        const tt = Math.min(0.1, ecoule);
+        px += vue.v[0] * tt; py += vue.v[1] * tt;
+        if (px < R_PALET) px = 2 * R_PALET - px;
+        if (px > W - R_PALET) px = 2 * (W - R_PALET) - px;
+        if (Math.abs(px - W / 2) > BUT_L / 2) py = Math.max(R_PALET, Math.min(H - R_PALET, py));
+        // pas de palet dessiné « dans » un maillet
+        for (const [mx, my] of positions) {
+          const dx = px - mx, dy = py - my, d = Math.hypot(dx, dy), min = R_PALET + R_MAILLET;
+          if (d < min && d > 0) { px = mx + dx / d * min; py = my + dy / d * min; }
+        }
+      }
+
+      g.save();
+      if (secousse > 0) {
+        secousse = Math.max(0, secousse - dt);
+        const f = secousse * 18;
+        g.translate((Math.random() - 0.5) * f, (Math.random() - 0.5) * f);
+      }
+      dessinerTable(R);
+
+      // scores en grand, chacun dans sa moitié
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `800 ${Math.round(R.s * 120)}px "JetBrains Mono", monospace`;
+      g.fillStyle = 'rgba(255,255,255,.06)';
+      const [sbx, sby] = ecran(R, W / 2, retourne ? H * 0.25 : H * 0.75), [shx, shy] = ecran(R, W / 2, retourne ? H * 0.75 : H * 0.25);
+      g.fillText(vue.s[0], sbx, sby);
+      g.fillText(vue.s[1], shx, shy);
+
+      // traînée du palet
+      if (!vue.fini && pause === 0) {
+        traine.push([px, py]);
+        if (traine.length > 9) traine.shift();
+        traine.forEach(([x, y], k) => palet(R, x, y, (k + 1) / traine.length * 0.18));
+      } else traine = [];
+
+      // maillets puis palet
+      positions.forEach(([x, y], i) => maillet(R, x, y, couleurMaillet(i)));
+      if (!vue.fini) palet(R, px, py);
+
+      // cercles quand on tape, « BUT ! » quand on marque
+      eclairs = eclairs.filter(f => (f.t += dt) < (f.type === 'but' ? 1.3 : 0.4));
+      for (const f of eclairs) {
+        if (f.type === 'tape') {
+          const a = 1 - f.t / 0.4;
+          const [mx, my] = positions[f.i] || [f.x, f.y];
+          const [ex, ey] = ecran(R, mx, my);
+          g.strokeStyle = `rgba(255,255,255,${a * 0.5})`;
+          g.lineWidth = 2;
+          g.beginPath(); g.arc(ex, ey, (R_MAILLET + f.t * 120) * R.s, 0, Math.PI * 2); g.stroke();
+        } else {
+          const a = Math.min(1, (1.3 - f.t) / 0.4);
+          const [cx, cy] = ecran(R, W / 2, H / 2);
+          g.globalAlpha = a;
+          g.fillStyle = couleurMaillet(f.i);
+          g.font = `800 ${Math.round(R.s * (70 + Math.min(0.2, f.t) * 80))}px "JetBrains Mono", monospace`;
+          g.fillText('BUT !', cx, cy);
+          g.globalAlpha = 1;
+        }
+      }
+
+      // décompte avant le service
+      if (pause > 0 && !vue.fini && !eclairs.some(f => f.type === 'but')) {
+        const [cx, cy] = ecran(R, W / 2, H / 2);
+        g.fillStyle = 'rgba(255,255,255,.85)';
+        g.font = `800 ${Math.round(R.s * 64)}px "JetBrains Mono", monospace`;
+        g.fillText(pause > 1000 ? 'PRÊT ?' : 'GO', cx, cy - 2);
+      }
+      g.restore();
+      g.textAlign = 'start'; g.textBaseline = 'alphabetic';
+    }
+    requestAnimationFrame(boucle);
+    window.__hockey = { get vue() { return vue; }, get moi() { return ctxJeu && ctxJeu.moi; }, repere, ecran };
+
+    demarrerJeu({
+      id: 'hockey',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Air hockey',
+      intro: `Le palet glisse sur un coussin d’air : frappe-le avec ton maillet pour l’envoyer dans le but d’en face. Premier à ${BUTS} buts. Contre l’ordinateur, à 2 sur le même écran, ou en ligne.`,
+      texteSolo: 'Jouer contre l’ordinateur',
+      deuxJoueurs: true,
+      nomJoueur1: 'Bleu', nomJoueur2: 'Rouge',
+      regles: [['Bouger', 'La souris (ou les flèches / ZQSD).'], ['À 2', 'Bleu : souris ou ZQSD. Rouge : les flèches.'], ['Gagner', `Premier à ${BUTS} buts.`]],
+      reglesTactile: [['Bouger', 'Pose le doigt et glisse : ton maillet suit.'], ['À 2', 'Chacun joue dans sa moitié de table.'], ['Gagner', `Premier à ${BUTS} buts.`]],
+      debut(ctx) {
+        vue = null;
+        pilotes.clear();
+        doigts.clear();
+        dernierEnvoi = new Map();
+        eclairs = []; traine = [];
+        const aide = document.getElementById('aide');
+        aide.textContent = ctx.deux
+          ? (TACTILE ? 'Chacun pose le doigt dans sa moitié de table' : 'Bleu : souris ou ZQSD · Rouge : flèches')
+          : (TACTILE ? 'Glisse le doigt : ton maillet (bleu) suit' : 'Bouge la souris : ton maillet (bleu) suit');
+        aide.style.opacity = 1;
+        setTimeout(() => { aide.style.opacity = 0; }, 5000);
+      },
+      afficher,
+      evenement
+    });
+  </script>
+</body>
+</html>

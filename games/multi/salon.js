@@ -55,6 +55,7 @@ export function demarrerJeu(cfg) {
             <button class="btn grand" data-a="rejoindre">Rejoindre</button>
           </div>
           ${moteur.bots ? `<button class="btn grand" data-a="solo">${echapper(cfg.texteSolo || 'Jouer contre l’ordinateur')}</button>` : ''}
+          ${cfg.deuxJoueurs ? `<button class="btn grand" data-a="deux">À 2 sur cet écran</button>` : ''}
         </div>
         <p class="message" hidden></p>
         <div class="parties-ouvertes" hidden><span class="etiquette">Parties ouvertes</span><ul></ul></div>
@@ -156,6 +157,13 @@ export function demarrerJeu(cfg) {
     get moi() { return moi; },
     get equipe() { return equipe; },
     get solo() { return !!local; },
+    get deux() { return !!(local && local.deux); },
+    // à 2 sur le même écran : le 2e joueur joue avec cette fonction
+    envoyerPour(id, d) {
+      if (!local) return;
+      const change = moteur.action(local.e, id, d, Date.now());
+      publierLocal(change && !moteur.tempsReel);
+    },
     get spectateur() { return spectateur; },
     nom: i => (equipe.get(i) || {}).nom || '?',
     couleur: i => (equipe.get(i) || {}).couleur || '#fff',
@@ -179,14 +187,18 @@ export function demarrerJeu(cfg) {
 
   /* ---------- Solo ---------- */
 
-  function lancerSolo() {
+  let dernierMode = 'solo';
+  function lancerSolo(deux = false) {
     message('');
     arreterLocal();
+    dernierMode = deux ? 'deux' : 'solo';
     const n = cfg.soloBots ?? (moteur.max === 2 ? 1 : 3);
-    const liste = [{ id: 'moi', nom: pseudo(), couleur: COULEURS[0] }, ...Array.from({ length: n }, (_, i) => ({ id: 'bot' + i, nom: NOMS_BOTS[i], couleur: COULEURS[(i + 1) % COULEURS.length], bot: true }))];
+    const liste = deux
+      ? [{ id: 'moi', nom: cfg.nomJoueur1 || 'Joueur 1', couleur: COULEURS[0] }, { id: 'moi2', nom: cfg.nomJoueur2 || 'Joueur 2', couleur: COULEURS[2] }]
+      : [{ id: 'moi', nom: pseudo(), couleur: COULEURS[0] }, ...Array.from({ length: n }, (_, i) => ({ id: 'bot' + i, nom: NOMS_BOTS[i], couleur: COULEURS[(i + 1) % COULEURS.length], bot: true }))];
     moi = 'moi';
     enLigne = false;
-    local = { e: moteur.creer(liste, Date.now()), dernier: Date.now(), annonce: false };
+    local = { e: moteur.creer(liste, Date.now()), dernier: Date.now(), annonce: false, deux };
     commencer(liste);
     publierLocal(true);
     local.boucle = setInterval(ticLocal, moteur.tic || 200);
@@ -425,7 +437,9 @@ export function demarrerJeu(cfg) {
         connecter(code);
         break;
       }
-      case 'solo': case 'rejouer': lancerSolo(); break;
+      case 'solo': lancerSolo(); break;
+      case 'deux': lancerSolo(true); break;
+      case 'rejouer': lancerSolo(dernierMode === 'deux'); break;
       case 'menu': retourAccueil(''); break;
       case 'quitter': quitter(); break;
       case 'lancer': if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'lance' })); break;

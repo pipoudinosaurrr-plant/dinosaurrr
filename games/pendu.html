@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pendu</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    body { display: flex; justify-content: center; min-height: 100%; padding: 14px 12px 24px; -webkit-user-select: none; user-select: none; }
+    main { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+    .tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .tete h1 { margin: 0; font-size: 26px; }
+    .stats { display: flex; gap: 8px; }
+    .stat { padding: 6px 10px; border: 1px solid var(--bord2); border-radius: 10px; font: 600 11px var(--mono); color: var(--doux); }
+    .stat b { color: #fff; font-size: 13px; }
+    canvas { width: 100%; aspect-ratio: 16 / 7; border: 1px solid var(--bord2); border-radius: 14px; background: #0b1220; image-rendering: pixelated; }
+    .categorie { text-align: center; color: var(--doux); font: 600 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .mot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; min-height: 52px; }
+    .mot .groupe { display: flex; gap: 5px; margin: 0 8px; }
+    .lettre { display: grid; place-items: end center; width: 30px; height: 42px; border-bottom: 3px solid #3f3f46; font: 800 26px var(--mono); color: #fff; }
+    .lettre.trouvee { border-color: var(--accent); animation: apparait .3s; }
+    .lettre.ratee { color: #f87171; border-color: #7f1d1d; }
+    .lettre.signe { border-color: transparent; color: var(--doux); }
+    @keyframes apparait { from { transform: translateY(-8px); opacity: 0; } }
+    .clavier { display: grid; gap: 6px; }
+    .rang { display: flex; justify-content: center; gap: 5px; }
+    .rang button { flex: 1; max-width: 46px; height: 46px; padding: 0; border: 1px solid var(--bord2); border-radius: 9px; background: var(--panneau2); color: #fff; font: 700 17px var(--mono); cursor: pointer; }
+    .rang button:hover:not(:disabled) { background: var(--panneau3); border-color: var(--bord3); }
+    .rang button.bon { background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.5); color: #86efac; }
+    .rang button.mauvais { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color: #fca5a5; opacity: .6; }
+    .rang button:disabled { cursor: default; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .message { min-height: 22px; text-align: center; font-weight: 700; }
+    .message.gagne { color: #4ade80; } .message.perdu { color: #f87171; }
+    .voile { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.7); }
+    .voile[hidden] { display: none; }
+    .carte { width: min(380px, 100%); padding: 22px; border: 1px solid var(--bord2); border-radius: 16px; background: #0b0b0b; }
+    .carte h2 { margin: 0 0 6px; }
+    .carte p { color: var(--doux); }
+    .carte input { width: 100%; height: 44px; margin: 6px 0 10px; padding: 0 12px; border: 1px solid var(--bord2); border-radius: 10px; background: #111; color: #fff; font: 16px var(--police); }
+    .carte .actions { justify-content: flex-end; }
+    .erreur { color: #f87171; font-size: 13px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="tete">
+      <h1>Pendu</h1>
+      <div class="stats"><span class="stat">SÉRIE <b id="serie">0</b></span><span class="stat">RECORD <b id="record">0</b></span><span class="stat">GAGNÉS <b id="gagnes">0</b></span></div>
+    </div>
+    <canvas id="scene" width="320" height="140" aria-label="Le T-Rex approche à chaque erreur"></canvas>
+    <div class="categorie" id="categorie"></div>
+    <div class="mot" id="mot" aria-live="polite"></div>
+    <div class="message" id="message"></div>
+    <div class="clavier" id="clavier"></div>
+    <div class="actions">
+      <button class="btn primaire" id="nouveau">Nouveau mot</button>
+      <button class="btn" id="deux">Mode à 2 : choisir le mot</button>
+      <button class="btn" id="indice">Indice (−1 vie)</button>
+    </div>
+  </main>
+
+  <div class="voile" id="voile" hidden>
+    <form class="carte" id="form-deux" autocomplete="off">
+      <h2>Mode à 2</h2>
+      <p>Le joueur 1 écrit un mot en cachette, puis le joueur 2 essaie de le deviner.</p>
+      <label for="mot-secret">Mot secret</label>
+      <input type="password" id="mot-secret" maxlength="24" spellcheck="false" autocapitalize="off">
+      <label for="cat-secret">Indice (facultatif)</label>
+      <input type="text" id="cat-secret" maxlength="24" placeholder="ex. un animal">
+      <div class="erreur" id="erreur-deux"></div>
+      <div class="actions"><button type="button" class="btn" id="annuler-deux">Annuler</button><button type="submit" class="btn primaire">C’est parti</button></div>
+    </form>
+  </div>
+
+  <script src="arcade.js"></script>
+<script>
+(async () => {
+  'use strict';
+  const A = window.Arcade;
+  const $ = id => document.getElementById(id);
+  const MAX = 7;
+  const base = c => c.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
+  const estLettre = c => /\p{L}/u.test(c);
+
+  // les mots : games/pendu-mots.json (modifiable dans Pages CMS)
+  let MOTS = [];
+  try {
+    const r = await fetch('pendu-mots.json', { cache: 'no-cache' });
+    MOTS = (await r.json()).filter(m => m && m.mot && String(m.mot).trim().length >= 2);
+  } catch (e) { /* liste de secours ci-dessous */ }
+  if (!MOTS.length) MOTS = ['tyrannosaure', 'ordinateur', 'chocolat', 'manette', 'volcan', 'girafe'].map(mot => ({ mot, categorie: 'Divers' }));
+
+  let mot = '', categorie = '', proposees = new Set(), erreurs = 0, fini = false, deuxJoueurs = false, recents = [];
+  let anim = 0, croc = 0, joie = 0;
+
+  /* ---------- Clavier à l'écran (AZERTY) ---------- */
+  const RANGS = ['AZERTYUIOP', 'QSDFGHJKLM', 'WXCVBN'];
+  $('clavier').innerHTML = RANGS.map(r => `<div class="rang">${[...r].map(l => `<button data-l="${l}">${l}</button>`).join('')}</div>`).join('');
+  $('clavier').addEventListener('click', e => { const b = e.target.closest('[data-l]'); if (b) proposer(b.dataset.l); });
+  addEventListener('keydown', e => {
+    if (!$('voile').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Enter' && fini) { nouveauMot(); return; }
+    if (e.key.length === 1 && /^[A-Z]$/.test(base(e.key))) proposer(base(e.key));
+  });
+
+  const stats = () => A.stock.lire('pendu-stats', { serie: 0, record: 0, gagnes: 0 });
+  function majStats() { const s = stats(); $('serie').textContent = s.serie; $('record').textContent = s.record; $('gagnes').textContent = s.gagnes; }
+
+  function nouveauMot() {
+    deuxJoueurs = false;
+    let choix;
+    for (let i = 0; i < 20; i++) { choix = MOTS[Math.floor(Math.random() * MOTS.length)]; if (!recents.includes(choix.mot)) break; }
+    recents = [choix.mot, ...recents].slice(0, 25);
+    commencer(String(choix.mot).trim(), choix.categorie || '');
+  }
+  function commencer(m, cat) {
+    mot = m; categorie = cat;
+    proposees = new Set(); erreurs = 0; fini = false; croc = 0; joie = 0;
+    $('message').textContent = ''; $('message').className = 'message';
+    $('indice').disabled = false;
+    document.querySelectorAll('[data-l]').forEach(b => { b.disabled = false; b.className = ''; });
+    afficherMot();
+  }
+  const lettresDuMot = () => new Set([...mot].filter(estLettre).map(base));
+  const trouve = () => [...lettresDuMot()].every(l => proposees.has(l));
+
+  function proposer(l) {
+    if (fini || proposees.has(l)) return;
+    proposees.add(l);
+    const bouton = document.querySelector(`[data-l="${l}"]`);
+    const bon = lettresDuMot().has(l);
+    if (bouton) { bouton.disabled = true; bouton.classList.add(bon ? 'bon' : 'mauvais'); }
+    if (bon) A.son('piece'); else { erreurs++; A.son('touche'); }
+    afficherMot();
+    if (trouve()) finir(true);
+    else if (erreurs >= MAX) finir(false);
+  }
+
+  function indice() {
+    if (fini || erreurs >= MAX - 1) return;
+    const manquantes = [...lettresDuMot()].filter(l => !proposees.has(l));
+    if (!manquantes.length) return;
+    erreurs++;
+    proposer(manquantes[Math.floor(Math.random() * manquantes.length)]);
+  }
+
+  function finir(gagne) {
+    fini = true;
+    $('indice').disabled = true;
+    document.querySelectorAll('[data-l]').forEach(b => { b.disabled = true; });
+    if (!deuxJoueurs) {
+      const s = stats();
+      if (gagne) { s.serie++; s.gagnes++; s.record = Math.max(s.record, s.serie); } else s.serie = 0;
+      A.stock.ecrire('pendu-stats', s);
+      majStats();
+    }
+    $('message').className = 'message ' + (gagne ? 'gagne' : 'perdu');
+    $('message').textContent = gagne ? `Bravo ! ${erreurs === 0 ? 'Sans aucune erreur !' : ''}` : `Croqué ! Le mot était « ${mot.toUpperCase()} »`;
+    if (gagne) { joie = 1; A.son('gagne'); } else { croc = 0.001; A.son('perdu'); }
+    afficherMot(!gagne);
+  }
+
+  function afficherMot(reveler) {
+    $('categorie').textContent = categorie ? (deuxJoueurs ? 'Indice : ' : '') + categorie : '';
+    const groupes = mot.split(' ');
+    $('mot').innerHTML = groupes.map(g => `<div class="groupe">${[...g].map(c => {
+      if (!estLettre(c)) return `<span class="lettre signe">${c}</span>`;
+      const ok = proposees.has(base(c));
+      if (ok) return `<span class="lettre trouvee">${c.toUpperCase()}</span>`;
+      return `<span class="lettre ${reveler ? 'ratee' : ''}">${reveler ? c.toUpperCase() : ''}</span>`;
+    }).join('')}</div>`).join('');
+  }
+
+  /* ---------- La scène : le T-Rex approche ---------- */
+  const scene = $('scene'), g = scene.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const REX = A.sprite([
+    '..........KKKKKKKK..',
+    '.........KKKKKKKKKK.',
+    '.........KKWKKKKKKK.',
+    '.........KKKKKKKKKK.',
+    '.........KKKKKVVVVV.',
+    '.........KKKKKKKK...',
+    '..K.....KKKKK.......',
+    '..K....KKKKKKKKK....',
+    '..KK..KKKKKKKK.K....',
+    '..KKKKKKKKKKKK......',
+    '...KKKKKKKKKKK......',
+    '....KKKKKKKKK.......',
+    '.....KKKKKKK........',
+    '.....KK...KK........',
+    '.....K.....K........',
+    '.....KK....KK.......'], { K: '#a16207', W: '#fef08a', V: '#fff' }, 4);
+  const REX_GUEULE = A.sprite([
+    '..........KKKKKKKK..',
+    '.........KKKKKKKKKK.',
+    '.........KKWKKKKKKK.',
+    '.........KKKKKV.V.V.',
+    '.........KKKK.......',
+    '.........KKKK.V.V...',
+    '..K.....KKKKKKKK....',
+    '..K....KKKKKKKKK....',
+    '..KK..KKKKKKKK.K....',
+    '..KKKKKKKKKKKK......',
+    '...KKKKKKKKKKK......',
+    '....KKKKKKKKK.......',
+    '.....KKKKKKK........',
+    '.....KK...KK........',
+    '.....K.....K........',
+    '.....KK....KK.......'], { K: '#a16207', W: '#fef08a', V: '#fff' }, 4);
+  const PETIT = A.miroir(A.sprite([
+    '....GGGG',
+    '...GGWKG',
+    '...GGGGG',
+    'G..GGG..',
+    'GGGGGGG.',
+    '.GGGGG..',
+    '..G.G...'], { G: '#22c55e', W: '#fff', K: '#111' }, 4));
+
+  function dessinerScene(dt) {
+    anim += dt;
+    const W = scene.width, H = scene.height;
+    g.fillStyle = '#0b1220'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#1e293b';
+    for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(i * 80 - 20, 110); g.lineTo(i * 80 + 30, 60 + (i % 2) * 15); g.lineTo(i * 80 + 80, 110); g.fill(); }
+    g.fillStyle = '#fde68a'; for (let i = 0; i < 12; i++) g.fillRect((i * 53) % W, (i * 29) % 50 + 6, 2, 2);
+    g.fillStyle = '#3f2a14'; g.fillRect(0, 110, W, H - 110);
+    g.fillStyle = '#4d7c0f'; g.fillRect(0, 108, W, 4);
+    // le petit dino à droite (il tremble quand le T-Rex est proche)
+    const peur = erreurs >= 5 && !fini ? Math.sin(anim * 40) * 1.5 : 0;
+    const sautJoie = joie > 0 ? Math.abs(Math.sin(anim * 8)) * 18 : 0;
+    if (!(croc > 0.35)) g.drawImage(PETIT, 262 + peur, 108 - PETIT.height - sautJoie);
+    // le T-Rex avance d'un pas à chaque erreur
+    const cible = fini && joie > 0 ? -120 : -60 + Math.min(erreurs, MAX) * 36;
+    rexX += (cible - rexX) * Math.min(1, dt * 4);
+    if (croc > 0) croc += dt;
+    const img = (erreurs >= MAX - 2 && Math.floor(anim * 4) % 2) || croc > 0 ? REX_GUEULE : REX;
+    g.drawImage(img, Math.round(rexX), 108 - REX.height + (Math.floor(anim * 6) % 2 && Math.abs(cible - rexX) > 2 ? -2 : 0));
+    if (croc > 0.3 && croc < 1.5) {
+      g.fillStyle = '#ef4444'; g.font = '900 22px monospace'; g.textAlign = 'center';
+      g.fillText('CROC !', 230, 40);
+    }
+    // vies
+    for (let i = 0; i < MAX; i++) { g.fillStyle = i < MAX - erreurs ? '#22c55e' : '#3f3f46'; g.fillRect(10 + i * 12, 10, 8, 8); }
+    requestAnimationFrame(t => { const n = t / 1000; dessinerScene(Math.min(0.05, n - (dessinerScene.d || n))); dessinerScene.d = n; });
+  }
+  let rexX = -80;
+
+  /* ---------- Mode à 2 ---------- */
+  $('deux').addEventListener('click', () => { $('voile').hidden = false; $('mot-secret').value = ''; $('cat-secret').value = ''; $('erreur-deux').textContent = ''; setTimeout(() => $('mot-secret').focus(), 50); });
+  $('annuler-deux').addEventListener('click', () => { $('voile').hidden = true; });
+  $('form-deux').addEventListener('submit', e => {
+    e.preventDefault();
+    const m = $('mot-secret').value.trim().replace(/\s+/g, ' ');
+    if ([...m].filter(estLettre).length < 2 || !/^[\p{L}\s'’-]+$/u.test(m)) { $('erreur-deux').textContent = 'Seulement des lettres (au moins 2), des espaces ou des tirets.'; return; }
+    $('voile').hidden = true;
+    commencer(m, $('cat-secret').value.trim());
+    deuxJoueurs = true;
+    afficherMot();
+  });
+  $('nouveau').addEventListener('click', nouveauMot);
+  $('indice').addEventListener('click', indice);
+
+  majStats();
+  nouveauMot();
+  dessinerScene(0);
+  window.__pendu = { get mot() { return mot; }, get erreurs() { return erreurs; }, get fini() { return fini; }, proposer };
+})();
+</script>
+</body>
+</html>

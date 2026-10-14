@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Solitaire</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; background: #006b1e; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Solitaire"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const CW = 71, CH = 96, ESP = 81, MX = 12, TOP = 12, TAB_Y = 128;
+  const W = MX * 2 + ESP * 6 + CW, H = 548, BARRE = 30;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const POLICE = 'Tahoma, Verdana, "Segoe UI", sans-serif';
+  const COULEURS = ['♠', '♥', '♦', '♣'];
+  const ROUGE = c => c === 1 || c === 2;
+  const VALEURS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'V', 'D', 'R'];
+
+  /* ==========================================================
+     Les cartes (dessinées une fois, en double résolution)
+     ========================================================== */
+  const R = 2;
+  function toileCarte() { const c = document.createElement('canvas'); c.width = CW * R; c.height = CH * R; const g = c.getContext('2d'); g.scale(R, R); return [c, g]; }
+  function bordCarte(g, fond) {
+    g.fillStyle = fond; g.beginPath(); g.roundRect(0.5, 0.5, CW - 1, CH - 1, 4); g.fill();
+    g.strokeStyle = '#555'; g.lineWidth = 1; g.stroke();
+  }
+  const PIPS = {
+    1: [[0.5, 0.5]], 2: [[0.5, 0.2], [0.5, 0.8]], 3: [[0.5, 0.2], [0.5, 0.5], [0.5, 0.8]],
+    4: [[0.3, 0.2], [0.7, 0.2], [0.3, 0.8], [0.7, 0.8]], 5: [[0.3, 0.2], [0.7, 0.2], [0.5, 0.5], [0.3, 0.8], [0.7, 0.8]],
+    6: [[0.3, 0.2], [0.7, 0.2], [0.3, 0.5], [0.7, 0.5], [0.3, 0.8], [0.7, 0.8]],
+    7: [[0.3, 0.2], [0.7, 0.2], [0.5, 0.35], [0.3, 0.5], [0.7, 0.5], [0.3, 0.8], [0.7, 0.8]],
+    8: [[0.3, 0.2], [0.7, 0.2], [0.5, 0.35], [0.3, 0.5], [0.7, 0.5], [0.5, 0.65], [0.3, 0.8], [0.7, 0.8]],
+    9: [[0.3, 0.18], [0.7, 0.18], [0.3, 0.39], [0.7, 0.39], [0.5, 0.5], [0.3, 0.61], [0.7, 0.61], [0.3, 0.82], [0.7, 0.82]],
+    10: [[0.3, 0.18], [0.7, 0.18], [0.5, 0.29], [0.3, 0.39], [0.7, 0.39], [0.3, 0.61], [0.7, 0.61], [0.5, 0.71], [0.3, 0.82], [0.7, 0.82]]
+  };
+  const IMAGES = {};
+  function dessinerCartes() {
+    for (let c = 0; c < 4; c++) for (let v = 1; v <= 13; v++) {
+      const [can, g] = toileCarte();
+      bordCarte(g, '#fff');
+      const coul = ROUGE(c) ? '#d40000' : '#000';
+      const s = COULEURS[c] + '︎';
+      g.fillStyle = coul; g.textAlign = 'center'; g.textBaseline = 'middle';
+      // coins
+      g.font = `bold 13px ${POLICE}`; g.fillText(VALEURS[v], 9, 10);
+      g.font = `12px ${POLICE}`; g.fillText(s, 9, 22);
+      g.save(); g.translate(CW, CH); g.rotate(Math.PI);
+      g.font = `bold 13px ${POLICE}`; g.fillText(VALEURS[v], 9, 10);
+      g.font = `12px ${POLICE}`; g.fillText(s, 9, 22);
+      g.restore();
+      if (v <= 10) {
+        g.font = `${v === 1 ? 34 : 15}px ${POLICE}`;
+        for (const [px, py] of PIPS[v]) {
+          const x = 14 + px * (CW - 28), y = 10 + py * (CH - 20);
+          if (py > 0.55) { g.save(); g.translate(x, y); g.rotate(Math.PI); g.fillText(s, 0, 0); g.restore(); }
+          else g.fillText(s, x, y);
+        }
+      } else {
+        // figures : cadre coloré, grande lettre et un petit dino couronné
+        g.fillStyle = ROUGE(c) ? '#fde2e2' : '#e0e7ff';
+        g.fillRect(17, 14, CW - 34, CH - 28);
+        g.strokeStyle = coul; g.lineWidth = 1; g.strokeRect(17.5, 14.5, CW - 35, CH - 29);
+        g.fillStyle = '#facc15'; g.beginPath(); g.moveTo(26, 34); g.lineTo(29, 26); g.lineTo(33, 31); g.lineTo(36, 24); g.lineTo(39, 31); g.lineTo(43, 26); g.lineTo(46, 34); g.fill();
+        g.fillStyle = v === 11 ? '#16a34a' : v === 12 ? '#9333ea' : '#ea580c';
+        g.fillRect(28, 36, 16, 12); g.fillRect(40, 40, 8, 6); g.fillRect(26, 48, 14, 16); g.fillRect(22, 58, 6, 4);
+        g.fillStyle = '#fff'; g.fillRect(38, 38, 3, 3); g.fillStyle = '#000'; g.fillRect(39, 39, 2, 2);
+        g.fillStyle = coul; g.font = `bold 15px ${POLICE}`; g.fillText(VALEURS[v] + s, CW / 2, 74);
+      }
+      IMAGES[c * 13 + v - 1] = can;
+    }
+    // le dos : bleu XP avec un motif et un dino
+    const [can, g] = toileCarte();
+    bordCarte(g, '#fff');
+    const grad = g.createLinearGradient(0, 0, CW, CH);
+    grad.addColorStop(0, '#1d4ed8'); grad.addColorStop(1, '#1e3a8a');
+    g.fillStyle = grad; g.beginPath(); g.roundRect(4, 4, CW - 8, CH - 8, 3); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 1;
+    for (let i = -CH; i < CW + CH; i += 7) { g.beginPath(); g.moveTo(i, 4); g.lineTo(i + CH, CH - 4); g.stroke(); g.beginPath(); g.moveTo(i + CH, 4); g.lineTo(i, CH - 4); g.stroke(); }
+    g.fillStyle = '#4ade80'; g.fillRect(28, 38, 14, 10); g.fillRect(38, 42, 8, 5); g.fillRect(25, 48, 13, 14); g.fillRect(20, 56, 6, 4); g.fillRect(28, 62, 3, 6); g.fillRect(34, 62, 3, 6);
+    g.fillStyle = '#fff'; g.fillRect(37, 40, 2, 2);
+    IMAGES.dos = can;
+  }
+
+  /* ==========================================================
+     Le jeu
+     ========================================================== */
+  let pioche, defausse, fondations, colonnes, score, temps, coups, tirage, historique, etat = 'jeu', passes, glisse = null, auto = null, cascade = null;
+  tirage = Number(A.stock.lire('solitaire-tirage', 1)) === 3 ? 3 : 1;
+
+  const carte = id => ({ id, c: Math.floor(id / 13), v: id % 13 + 1, visible: false });
+  function distribuer() {
+    const jeu = [...Array(52).keys()].map(carte);
+    for (let i = jeu.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [jeu[i], jeu[j]] = [jeu[j], jeu[i]]; }
+    colonnes = Array.from({ length: 7 }, () => []);
+    for (let i = 0; i < 7; i++) for (let j = i; j < 7; j++) colonnes[j].push(jeu.pop());
+    for (const col of colonnes) col[col.length - 1].visible = true;
+    pioche = jeu; defausse = []; fondations = [[], [], [], []];
+    score = 0; temps = 0; coups = 0; historique = []; passes = 0; etat = 'jeu'; auto = null; cascade = null; victoireAffichee = false;
+  }
+  function sauver() {
+    historique.push(JSON.stringify({ pioche, defausse, fondations, colonnes, score, coups, passes }));
+    if (historique.length > 200) historique.shift();
+  }
+  function annuler() {
+    if (!historique.length || etat !== 'jeu') return;
+    const s = JSON.parse(historique.pop());
+    ({ pioche, defausse, fondations, colonnes, score, coups, passes } = s);
+    A.son('clic');
+  }
+
+  // positions
+  const xCol = i => MX + i * ESP;
+  const DEC_CACHE = 5, DEC_VISIBLE = 18;
+  function decalages(col) {
+    // on resserre les cartes si la colonne est trop longue
+    let dv = DEC_VISIBLE;
+    const nv = col.filter(c => c.visible).length, nc = col.length - nv;
+    const place = H - BARRE - 8 - TAB_Y - CH - nc * DEC_CACHE;
+    if (nv > 1 && (nv - 1) * dv > place) dv = Math.max(8, place / (nv - 1));
+    const ys = []; let y = TAB_Y;
+    for (const c of col) { ys.push(y); y += c.visible ? dv : DEC_CACHE; }
+    return ys;
+  }
+  const xDefausse = i => xCol(1) + (tirage === 3 ? Math.min(2, Math.max(0, i - Math.max(0, defausse.length - 3))) * 14 : 0);
+
+  // règles
+  function peutFondation(c, f) {
+    const pile = fondations[f];
+    if (!pile.length) return c.v === 1;
+    const haut = pile[pile.length - 1];
+    return haut.c === c.c && c.v === haut.v + 1;
+  }
+  function peutColonne(c, i) {
+    const col = colonnes[i];
+    if (!col.length) return c.v === 13;
+    const haut = col[col.length - 1];
+    return haut.visible && ROUGE(haut.c) !== ROUGE(c.c) && c.v === haut.v - 1;
+  }
+
+  function piocher() {
+    sauver();
+    if (!pioche.length) {
+      if (!defausse.length) { historique.pop(); return; }
+      pioche = defausse.reverse().map(c => ({ ...c, visible: false }));
+      defausse = [];
+      passes++;
+      score = Math.max(0, score - (tirage === 1 ? 100 : (passes > 3 ? 20 : 0)));
+      A.son('tourne');
+      return;
+    }
+    for (let i = 0; i < tirage && pioche.length; i++) { const c = pioche.pop(); c.visible = true; defausse.push(c); }
+    coups++;
+    A.son('pose');
+  }
+
+  function retournerSiBesoin(col) {
+    if (col.length && !col[col.length - 1].visible) { col[col.length - 1].visible = true; score += 5; }
+  }
+
+  // déplacer « cartes » (venant de « source ») vers une destination
+  function deplacer(source, cartes, dest) {
+    sauver();
+    const de = source.type, vers = dest.type;
+    if (de === 'defausse') defausse.pop();
+    else if (de === 'fondation') fondations[source.i].pop();
+    else colonnes[source.i].splice(source.k);
+    if (vers === 'fondation') fondations[dest.i].push(cartes[0]);
+    else colonnes[dest.i].push(...cartes);
+    if (de === 'colonne') retournerSiBesoin(colonnes[source.i]);
+    if (vers === 'fondation') score += 10;
+    if (de === 'defausse' && vers === 'colonne') score += 5;
+    if (de === 'fondation' && vers === 'colonne') score = Math.max(0, score - 15);
+    coups++;
+    A.son(vers === 'fondation' ? 'piece' : 'pose');
+    verifierFin();
+  }
+
+  // envoyer une carte sur une fondation (double-clic ou fin automatique)
+  function versFondation(source, c) {
+    for (let f = 0; f < 4; f++) if (peutFondation(c, f)) { deplacer(source, [c], { type: 'fondation', i: f }); return true; }
+    return false;
+  }
+
+  function toutVisible() { return !pioche.length && !defausse.length && colonnes.every(col => col.every(c => c.visible)); }
+  function verifierFin() {
+    if (fondations.every(f => f.length === 13)) gagner();
+  }
+
+  function etapeAuto() {
+    // la plus petite carte disponible part sur les fondations
+    let meilleure = null;
+    colonnes.forEach((col, i) => { if (col.length) { const c = col[col.length - 1]; if (!meilleure || c.v < meilleure.c.v) meilleure = { c, source: { type: 'colonne', i, k: col.length - 1 } }; } });
+    if (defausse.length) { const c = defausse[defausse.length - 1]; if (!meilleure || c.v < meilleure.c.v) meilleure = { c, source: { type: 'defausse' } }; }
+    if (!meilleure || !versFondation(meilleure.source, meilleure.c)) auto = null;
+  }
+
+  function gagner() {
+    etat = 'gagne';
+    auto = null;
+    let bonus = temps > 30 ? Math.round(700000 / temps) : 0;
+    score += bonus;
+    const st = A.stock.lire('solitaire-stats', { gagnees: 0, meilleurTemps: null, meilleurScore: 0 });
+    st.gagnees++; st.meilleurScore = Math.max(st.meilleurScore, score);
+    if (st.meilleurTemps === null || temps < st.meilleurTemps) st.meilleurTemps = temps;
+    A.stock.ecrire('solitaire-stats', st);
+    A.son('gagne');
+    // les cartes rebondissent, comme dans Windows
+    cascade = { pile: 3, cartes: [], fini: false, t: 0, bonus };
+    // le résultat s'affiche vite, les cartes continuent de rebondir derrière
+    setTimeout(afficherVictoire, 3500);
+  }
+  let victoireAffichee = false;
+  function afficherVictoire() {
+    if (victoireAffichee || !cascade) return;
+    victoireAffichee = true;
+    const c = cascade;
+    A.panneau({
+      pastille: 'Solitaire', titre: '🎉 Gagné !',
+      lignes: [['Score', A.format(score) + (c.bonus ? ` (bonus temps ${A.format(c.bonus)})` : '')], ['Temps', Math.floor(temps) + ' s'], ['Coups', String(coups)], ['Parties gagnées', String(A.stock.lire('solitaire-stats', {}).gagnees || 1)]],
+      boutons: [{ texte: 'Nouvelle partie', primaire: true, action: nouvellePartie }]
+    });
+  }
+
+  function majCascade(dt) {
+    const c = cascade;
+    c.t += dt;
+    if (!c.courante || c.courante.x < -CW || c.courante.x > W + CW) {
+      // prochaine carte : on prend les fondations à tour de rôle
+      let n = 0;
+      while (n < 4 && !fondations[c.pile].length) { c.pile = (c.pile + 3) % 4; n++; }
+      if (!fondations[c.pile].length) {
+        if (!c.fini) { c.fini = true; afficherVictoire(); }
+        return;
+      }
+      const carteC = fondations[c.pile].pop();
+      c.courante = { carte: carteC, x: xCol(3 + c.pile), y: TOP, vx: (Math.random() < 0.5 ? -1 : 1) * A.hasard(260, 520), vy: A.hasard(-350, 0) };
+      c.pile = (c.pile + 3) % 4;
+    }
+    const k = c.courante;
+    k.vy += 1400 * dt; k.x += k.vx * dt; k.y += k.vy * dt;
+    if (k.y > H - BARRE - CH) { k.y = H - BARRE - CH; k.vy = -k.vy * 0.78; }
+  }
+
+  /* ==========================================================
+     Souris et doigt
+     ========================================================== */
+  function trouver(p) {
+    // ce qu'il y a sous le pointeur (de haut en bas)
+    if (p.y >= TOP && p.y <= TOP + CH) {
+      if (p.x >= xCol(0) && p.x <= xCol(0) + CW) return { type: 'pioche' };
+      if (defausse.length) {
+        const x = xDefausse(defausse.length - 1);
+        if (p.x >= x && p.x <= x + CW) return { type: 'defausse', cartes: [defausse[defausse.length - 1]], x, y: TOP };
+      }
+      for (let f = 0; f < 4; f++) if (p.x >= xCol(3 + f) && p.x <= xCol(3 + f) + CW) {
+        const pile = fondations[f];
+        return pile.length ? { type: 'fondation', i: f, cartes: [pile[pile.length - 1]], x: xCol(3 + f), y: TOP } : { type: 'fondation-vide', i: f };
+      }
+    }
+    for (let i = 0; i < 7; i++) {
+      if (p.x < xCol(i) || p.x > xCol(i) + CW) continue;
+      const col = colonnes[i], ys = decalages(col);
+      for (let k = col.length - 1; k >= 0; k--) {
+        if (p.y >= ys[k] && p.y <= ys[k] + CH) {
+          if (!col[k].visible) return k === col.length - 1 ? { type: 'cachee', i } : null;
+          return { type: 'colonne', i, k, cartes: col.slice(k), x: xCol(i), y: ys[k] };
+        }
+      }
+    }
+    return null;
+  }
+
+  function cible(gx, gy) {
+    // la pile la plus recouverte par les cartes qu'on lâche
+    let meilleure = null, recouvre = 0;
+    const essayer = (x, y, h, dest) => {
+      const ox = Math.max(0, Math.min(gx + CW, x + CW) - Math.max(gx, x));
+      const oy = Math.max(0, Math.min(gy + CH, y + h) - Math.max(gy, y));
+      const a = ox * oy;
+      if (a > recouvre) { recouvre = a; meilleure = dest; }
+    };
+    for (let f = 0; f < 4; f++) essayer(xCol(3 + f), TOP, CH, { type: 'fondation', i: f });
+    for (let i = 0; i < 7; i++) {
+      const ys = decalages(colonnes[i]);
+      const y = colonnes[i].length ? ys[ys.length - 1] : TAB_Y;
+      essayer(xCol(i), TAB_Y, (y - TAB_Y) + CH, { type: 'colonne', i });
+    }
+    return meilleure;
+  }
+
+  let dernierClic = { t: 0, id: -1 };
+  T.canvas.addEventListener('pointerdown', e => {
+    if (etat !== 'jeu' || auto) return;
+    const p = T.point(e);
+    if (p.y > H - BARRE) return clicBarre(p);
+    const t = trouver(p);
+    if (!t) return;
+    if (t.type === 'pioche') { piocher(); return; }
+    if (t.type === 'cachee') { sauver(); colonnes[t.i][colonnes[t.i].length - 1].visible = true; score += 5; A.son('tourne'); return; }
+    if (!t.cartes) return;
+    // double-clic : direction les fondations
+    const maintenant = performance.now();
+    if (dernierClic.id === t.cartes[0].id && maintenant - dernierClic.t < 380 && t.cartes.length === 1) {
+      versFondation(t.type === 'colonne' ? { type: 'colonne', i: t.i, k: t.k } : t, t.cartes[0]);
+      dernierClic = { t: 0, id: -1 };
+      return;
+    }
+    dernierClic = { t: maintenant, id: t.cartes[0].id };
+    glisse = { ...t, dx: p.x - t.x, dy: p.y - t.y, gx: t.x, gy: t.y, bouge: false, depart: p };
+    try { T.canvas.setPointerCapture(e.pointerId); } catch (err) { /* rien */ }
+  });
+  T.canvas.addEventListener('pointermove', e => {
+    if (!glisse) return;
+    const p = T.point(e);
+    if (Math.hypot(p.x - glisse.depart.x, p.y - glisse.depart.y) > 4) glisse.bouge = true;
+    glisse.gx = p.x - glisse.dx; glisse.gy = p.y - glisse.dy;
+  });
+  const lacher = () => {
+    if (!glisse) return;
+    const g = glisse;
+    glisse = null;
+    if (!g.bouge) {
+      // simple clic sur une carte : sur téléphone, on l'envoie au meilleur endroit
+      if (A.TACTILE) coupMalin(g);
+      return;
+    }
+    const dest = cible(g.gx, g.gy);
+    if (!dest) return;
+    const c = g.cartes[0];
+    const source = g.type === 'colonne' ? { type: 'colonne', i: g.i, k: g.k } : g.type === 'fondation' ? { type: 'fondation', i: g.i } : { type: 'defausse' };
+    if (dest.type === 'fondation' && g.cartes.length === 1 && peutFondation(c, dest.i) && !(g.type === 'fondation' && g.i === dest.i)) deplacer(source, g.cartes, dest);
+    else if (dest.type === 'colonne' && !(g.type === 'colonne' && g.i === dest.i) && peutColonne(c, dest.i)) deplacer(source, g.cartes, dest);
+  };
+  T.canvas.addEventListener('pointerup', lacher);
+  T.canvas.addEventListener('pointercancel', () => { glisse = null; });
+
+  function coupMalin(g) {
+    const c = g.cartes[0];
+    const source = g.type === 'colonne' ? { type: 'colonne', i: g.i, k: g.k } : g.type === 'fondation' ? { type: 'fondation', i: g.i } : { type: 'defausse' };
+    if (g.cartes.length === 1 && g.type !== 'fondation' && versFondation(source, c)) return;
+    for (let i = 0; i < 7; i++) {
+      if (g.type === 'colonne' && g.i === i) continue;
+      if (peutColonne(c, i) && !(c.v === 13 && g.type === 'colonne' && g.k === 0)) { deplacer(source, g.cartes, { type: 'colonne', i }); return; }
+    }
+  }
+
+  // barre du bas : boutons dessinés
+  const BOUTONS = [
+    { texte: 'Nouvelle partie', x: 6, w: 112, faire: () => nouvellePartie() },
+    { texte: 'Annuler', x: 122, w: 64, faire: () => annuler() },
+    { texte: 'Options', x: 190, w: 62, faire: () => options() },
+    { texte: 'Terminer', x: 256, w: 66, faire: () => { if (toutVisible()) auto = 0.0001; }, visible: () => toutVisible() && etat === 'jeu' }
+  ];
+  function clicBarre(p) {
+    for (const b of BOUTONS) if ((!b.visible || b.visible()) && p.x >= b.x && p.x <= b.x + b.w) { A.son('clic'); b.faire(); }
+  }
+  addEventListener('keydown', e => {
+    if (A.panneauOuvert) return;
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { e.preventDefault(); annuler(); }
+    if (e.code === 'F2') { e.preventDefault(); nouvellePartie(); }
+    if (e.code === 'Space' && etat === 'jeu') { e.preventDefault(); piocher(); }
+  });
+
+  /* ==========================================================
+     Dessin
+     ========================================================== */
+  function emplacement(x, y, texte) {
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(0,0,0,.12)';
+    ctx.beginPath(); ctx.roundRect(x + 0.5, y + 0.5, CW - 1, CH - 1, 4); ctx.fill(); ctx.stroke();
+    if (texte) { ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.font = `28px ${POLICE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(texte, x + CW / 2, y + CH / 2); }
+  }
+  const dessinerCarte = (c, x, y) => ctx.drawImage(c.visible ? IMAGES[c.id] : IMAGES.dos, x, y, CW, CH);
+
+  function dessiner() {
+    if (cascade && cascade.courante) {
+      // pendant la cascade, on n'efface pas : les cartes laissent une traînée
+      const k = cascade.courante;
+      ctx.drawImage(IMAGES[k.carte.id], k.x, k.y, CW, CH);
+      dessinerBarre();
+      return;
+    }
+    T.effacer('#00651c');
+    const g = ctx.createRadialGradient(W / 2, H / 2, 50, W / 2, H / 2, W);
+    g.addColorStop(0, '#0a8a33'); g.addColorStop(1, '#005c19');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // pioche
+    if (pioche.length) {
+      for (let i = 0; i < Math.min(3, Math.ceil(pioche.length / 8)); i++) ctx.drawImage(IMAGES.dos, xCol(0) + i * 2, TOP + i * 1, CW, CH);
+    } else emplacement(xCol(0), TOP, defausse.length ? '↻' : '✕');
+    // défausse (3 cartes en éventail en tirage par 3)
+    const visibles = defausse.slice(-(tirage === 3 ? 3 : 1));
+    const debut = defausse.length - visibles.length;
+    visibles.forEach((c, j) => {
+      if (glisse && glisse.bouge && glisse.type === 'defausse' && debut + j === defausse.length - 1) return;
+      dessinerCarte(c, xDefausse(debut + j), TOP);
+    });
+    // fondations
+    for (let f = 0; f < 4; f++) {
+      const pile = fondations[f];
+      emplacement(xCol(3 + f), TOP, 'A');
+      const n = pile.length - (glisse && glisse.bouge && glisse.type === 'fondation' && glisse.i === f ? 1 : 0);
+      if (n > 0) dessinerCarte(pile[n - 1], xCol(3 + f), TOP);
+    }
+    // colonnes
+    for (let i = 0; i < 7; i++) {
+      const col = colonnes[i], ys = decalages(col);
+      if (!col.length) emplacement(xCol(i), TAB_Y, 'R');
+      col.forEach((c, k) => {
+        if (glisse && glisse.bouge && glisse.type === 'colonne' && glisse.i === i && k >= glisse.k) return;
+        dessinerCarte(c, xCol(i), ys[k]);
+      });
+    }
+    // cartes qu'on déplace
+    if (glisse && glisse.bouge) {
+      ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+      glisse.cartes.forEach((c, j) => dessinerCarte(c, glisse.gx, glisse.gy + j * DEC_VISIBLE));
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    }
+    dessinerBarre();
+  }
+
+  function dessinerBarre() {
+    const y = H - BARRE;
+    const g = ctx.createLinearGradient(0, y, 0, H);
+    g.addColorStop(0, '#f1efe2'); g.addColorStop(1, '#dcd8c4');
+    ctx.fillStyle = g; ctx.fillRect(0, y, W, BARRE);
+    ctx.fillStyle = '#b5b1a0'; ctx.fillRect(0, y, W, 1);
+    ctx.font = `11px ${POLICE}`; ctx.textBaseline = 'middle';
+    for (const b of BOUTONS) {
+      if (b.visible && !b.visible()) continue;
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#003c74';
+      ctx.beginPath(); ctx.roundRect(b.x + 0.5, y + 4.5, b.w, BARRE - 9, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.fillText(b.texte, b.x + b.w / 2, y + BARRE / 2);
+    }
+    ctx.textAlign = 'right'; ctx.fillStyle = '#000';
+    ctx.fillText(`Score : ${score}   Temps : ${Math.floor(temps)}   Tirage : ${tirage}`, W - 8, y + BARRE / 2);
+  }
+
+  /* ==========================================================
+     Menus
+     ========================================================== */
+  function nouvellePartie() { A.fermerPanneau(); distribuer(); T.effacer('#00651c'); }
+  function options() {
+    const st = A.stock.lire('solitaire-stats', { gagnees: 0, meilleurTemps: null, meilleurScore: 0 });
+    A.panneau({
+      pastille: 'Options', titre: 'Solitaire',
+      texte: 'Range toutes les cartes sur les 4 piles en haut à droite, de l’As au Roi. Dans les colonnes, alterne rouge et noir en descendant.',
+      choix: [1, 3].map(n => ({ texte: `Tirer ${n} carte${n > 1 ? 's' : ''}`, sous: n === 1 ? 'Plus facile' : 'Classique', actif: tirage === n, action: () => { tirage = n; A.stock.ecrire('solitaire-tirage', n); } })),
+      lignes: [['Parties gagnées', String(st.gagnees)], ['Meilleur score', A.format(st.meilleurScore)], ['Meilleur temps', st.meilleurTemps ? Math.floor(st.meilleurTemps) + ' s' : '–']],
+      boutons: [{ texte: 'Nouvelle partie', primaire: true, action: nouvellePartie }, { texte: 'Reprendre', action: () => A.fermerPanneau() }],
+      aide: A.TACTILE ? 'Touche une carte pour l’envoyer au bon endroit, ou fais-la glisser.' : 'Glisse les cartes · double-clic : vers les piles du haut · Espace : piocher · Ctrl+Z : annuler · F2 : nouvelle partie'
+    });
+  }
+
+  dessinerCartes();
+  distribuer();
+  A.boutonsCoin(null);
+  A.boucle(dt => {
+    if (etat === 'jeu' && !A.panneauOuvert && (coups > 0 || historique.length)) temps += dt;
+    if (auto !== null && auto !== undefined && etat === 'jeu') { auto += dt; if (auto > 0.09) { auto = 0.0001; etapeAuto(); } }
+    if (cascade) majCascade(dt);
+    dessiner();
+  });
+  window.__solitaire = { get etat() { return etat; }, get fondations() { return fondations.map(f => f.length); }, get colonnes() { return colonnes; }, get score() { return score; },
+    // pour les tests : une partie presque finie
+    presqueFini() {
+      const toutes = [...Array(52).keys()].map(id => ({ ...carte(id), visible: true }));
+      fondations = [0, 1, 2, 3].map(c => toutes.filter(x => x.c === c && x.v <= 11));
+      colonnes = [[], [], [], [], [], [], []];
+      [0, 1, 2, 3].forEach(c => { colonnes[c].push(toutes.find(x => x.c === c && x.v === 13), toutes.find(x => x.c === c && x.v === 12)); });
+      pioche = []; defausse = []; etat = 'jeu'; temps = 40;
+    } };
+})();
+</script>
+</body>
+</html>

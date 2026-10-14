@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dino Run</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Dino Run"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const W = 800, H = 300, SOL = 250;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H, pixel: true });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  /* ---------- Sprites (2 px par pixel) ---------- */
+  const k = '#535353';
+  const DC = { X: k, W: '#fff' };
+  const sp = (l, c = DC) => A.sprite(l, c, 2);
+  const DINO_HAUT = [
+    '..........XXXXXXXX',
+    '.........XXWXXXXXXX',
+    '.........XXXXXXXXXX',
+    '.........XXXXXXXXXX',
+    '.........XXXXX.....',
+    '.........XXXXXXXX..',
+    'X.......XXXXX......',
+    'X.....XXXXXXX......',
+    'XX...XXXXXXXXXX....',
+    'XXX.XXXXXXXXX.X....',
+    'XXXXXXXXXXXXX......',
+    '.XXXXXXXXXXXX......',
+    '..XXXXXXXXXX.......',
+    '...XXXXXXXX........'];
+  const JAMBES = [['....XXX.XX.........', '....XX...X.........', '....X....XX........'], ['....XX..XXX........', '....X...X..........', '....XX.............'], ['....XXX.XXX........', '....X....X.........', '....XX...XX........']];
+  const DINO = JAMBES.map(j => sp([...DINO_HAUT, ...j]));
+  const DINO_BAS = [
+    ['..................XXXXXXXX', 'X.......XXXXXXXXXXXWXXXXXX', 'XXX..XXXXXXXXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXXXXXXXXXXXXX', '.XXXXXXXXXXXXXXXXXXXX.....', '..XXXXXXXXXXXXXXXXXXXXXX..', '...XXXXXXXXXX.XX..........', '....XXX.XX................', '....XX...X................', '....X....XX...............'],
+    ['..................XXXXXXXX', 'X.......XXXXXXXXXXXWXXXXXX', 'XXX..XXXXXXXXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXXXXXXXXXXXXX', '.XXXXXXXXXXXXXXXXXXXX.....', '..XXXXXXXXXXXXXXXXXXXXXX..', '...XXXXXXXXXX.XX..........', '....XX..XXX...............', '....X...X.................', '....XX....................']
+  ].map(l => sp(l));
+  const DINO_MORT = sp([...DINO_HAUT.map((l, i) => i === 1 ? '.........XXWXXXXXXX'.replace('W', 'O') : l), ...JAMBES[0]], { X: k, W: '#fff', O: '#fff' });
+  const CACTUS = [
+    sp(['....XX....', '....XX....', '.X..XX....', '.X..XX..X.', '.X..XX..X.', '.XXXXX..X.', '....XXXXX.', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....']),
+    sp(['.....XXX.....', '.....XXX.....', '..X..XXX.....', '.XX..XXX..X..', '.XX..XXX.XX..', '.XX..XXX.XX..', '.XX..XXX.XX..', '.XXXXXXX.XX..', '..XXXXXXXXX..', '.....XXXXX...', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....'])
+  ];
+  const PTERO = [
+    sp(['....X..............', '...XX..............', '..XXX..XX..........', '.XXXXXXXXX.........', 'XXXXXXXXXXXXXXXX...', '......XXXXXXXXXXXXX', '.......XXXXXXXXX...', '........XXXXXX.....', '.........XXX.......', '.........XX........', '.........X.........']),
+    sp(['....X..............', '...XX..............', '..XXX..............', '.XXXXXXXXX.........', 'XXXXXXXXXXXXXXXX...', '......XXXXXXXXXXXXX', '.......XXXXXX......', '......XXX..........', '.....XX............', '....X..............', '...................'])
+  ];
+  const NUAGE = sp(['......XXXXX.....', '....XX.....XX...', '..XX.........XXX', 'XX...............', 'XXXXXXXXXXXXXXXXX'], { X: '#c9c9c9' });
+  const ETOILE = sp(['..Y..', '.YYY.', 'YYYYY', '.YYY.', 'Y...Y'], { Y: '#facc15' });
+
+  /* ---------- État ---------- */
+  let etat = 'menu', dino, obstacles, nuages, bonus, sol, vitesse, distance, score, record, prochain, nuit, nuitT, invincible, finT, flashScore;
+  record = A.record('dinorun') || 0;
+
+  function nouvellePartie() {
+    dino = { y: SOL, vy: 0, bas: false, anim: 0 };
+    obstacles = []; nuages = []; bonus = [];
+    for (let i = 0; i < 4; i++) nuages.push({ x: Math.random() * W, y: 40 + Math.random() * 90 });
+    sol = 0; vitesse = 360; distance = 0; score = 0; prochain = 1.2; nuit = 0; nuitT = 0; invincible = 0; flashScore = 0;
+  }
+
+  function ajouterObstacle() {
+    const s = score;
+    if (s > 300 && Math.random() < 0.28) {
+      const hauteurs = [SOL - 22, SOL - 52, SOL - 82];
+      obstacles.push({ type: 'ptero', x: W + 20, y: hauteurs[Math.floor(Math.random() * 3)], w: 36, h: 18, anim: 0 });
+    } else {
+      const grand = Math.random() < 0.45;
+      const n = 1 + Math.floor(Math.random() * (s > 500 ? 3 : s > 150 ? 2 : 1));
+      const img = CACTUS[grand ? 1 : 0];
+      for (let i = 0; i < n; i++) obstacles.push({ type: 'cactus', img, x: W + 20 + i * (img.width - 4), y: SOL - img.height, w: img.width - 8, h: img.height - 2 });
+    }
+    // de temps en temps une étoile = invincible quelques secondes
+    if (s > 200 && Math.random() < 0.06) bonus.push({ x: W + 220, y: SOL - 90 - Math.random() * 40 });
+    // écart minimum qui grandit avec la vitesse (toujours sautable)
+    prochain = Math.max(0.55, 0.9 + Math.random() * 1.1 - vitesse / 2000);
+  }
+
+  function maj(dt) {
+    const k = A.touches;
+    // saut et position baissée
+    const auSol = dino.y >= SOL;
+    if ((A.vient('action') || A.vient('haut')) && auSol) { dino.vy = -780; A.son('saut'); }
+    if (!(k.action || k.haut) && dino.vy < -320) dino.vy = -320;   // saut court si on lâche
+    dino.bas = k.bas && auSol;
+    dino.vy += (k.bas && !auSol ? 5200 : 2600) * dt;
+    dino.y = Math.min(SOL, dino.y + dino.vy * dt);
+    if (dino.y >= SOL) dino.vy = 0;
+    dino.anim += dt * vitesse / 40;
+
+    vitesse = Math.min(1100, vitesse + dt * 9);
+    distance += vitesse * dt;
+    const avant = Math.floor(score / 100);
+    score = Math.floor(distance / 40);
+    if (Math.floor(score / 100) > avant && score > 0) { A.son('piece'); flashScore = 0.8; }
+    // jour / nuit tous les 700 points
+    if (score > 0 && score % 700 < 1 && nuitT <= 0) nuitT = 0.01;
+    const cible = Math.floor(score / 700) % 2;
+    nuit += (cible - nuit) * Math.min(1, dt * 1.5);
+
+    sol = (sol + vitesse * dt) % 1200;
+    prochain -= dt;
+    if (prochain <= 0) ajouterObstacle();
+    for (const o of obstacles) { o.x -= (vitesse + (o.type === 'ptero' ? 60 : 0)) * dt; o.anim = (o.anim || 0) + dt * 6; }
+    obstacles = obstacles.filter(o => o.x > -80);
+    for (const n of nuages) { n.x -= vitesse * 0.15 * dt; if (n.x < -40) { n.x = W + Math.random() * 200; n.y = 40 + Math.random() * 90; } }
+    for (const b of bonus) b.x -= vitesse * dt;
+    bonus = bonus.filter(b => b.x > -20);
+    invincible = Math.max(0, invincible - dt);
+    flashScore = Math.max(0, flashScore - dt);
+
+    // collisions (boîte un peu plus petite que le dessin : plus juste)
+    const boite = dino.bas ? { x: 52, y: dino.y - 34, w: 48, h: 30 } : { x: 54, y: dino.y - 58, w: 26, h: 54 };
+    for (const b of bonus) {
+      if (b.x < boite.x + boite.w && b.x + 10 > boite.x && b.y < boite.y + boite.h && b.y + 10 > boite.y) { b.pris = true; invincible = 5; A.son('bonus'); }
+    }
+    bonus = bonus.filter(b => !b.pris);
+    if (invincible > 0) return;
+    for (const o of obstacles) {
+      const ox = o.x + 4, oy = o.y + 4;
+      if (ox < boite.x + boite.w && ox + o.w > boite.x && oy < boite.y + boite.h && oy + o.h - 4 > boite.y) return perdre();
+    }
+  }
+
+  function perdre() {
+    etat = 'fin';
+    A.son('perdu');
+    const r = A.record('dinorun', score);
+    record = r.record;
+    finT = 0.5;
+    setTimeout(() => A.panneau({
+      pastille: 'Game over',
+      titre: r.nouveau ? '🏅 Nouveau record !' : 'Aïe, un cactus !',
+      lignes: [['Score', String(score).padStart(5, '0')], ['Record', String(record).padStart(5, '0')]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }, { texte: 'Menu', action: menu }]
+    }), 450);
+  }
+
+  /* ---------- Dessin ---------- */
+  function couleur(jour, nuitC) { return nuit > 0.5 ? nuitC : jour; }
+  function dessiner(t) {
+    T.effacer(nuit > 0.5 ? '#111' : '#f7f7f7');
+    ctx.fillStyle = `rgb(${Math.round(247 - nuit * 230)},${Math.round(247 - nuit * 230)},${Math.round(247 - nuit * 225)})`;
+    ctx.fillRect(0, 0, W, H);
+    if (nuit > 0.3) {
+      ctx.globalAlpha = (nuit - 0.3) / 0.7;
+      ctx.fillStyle = '#e5e5e5'; ctx.beginPath(); ctx.arc(640, 60, 16, 0, 7); ctx.fill();
+      ctx.fillStyle = '#171717'; ctx.beginPath(); ctx.arc(648, 55, 14, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 14; i++) ctx.fillRect((i * 137 + 40) % W, (i * 47) % 140 + 10, 2, 2);
+      ctx.globalAlpha = 1;
+    }
+    for (const n of nuages) ctx.drawImage(NUAGE, Math.round(n.x), Math.round(n.y));
+    // sol
+    const coulSol = nuit > 0.5 ? '#bdbdbd' : '#535353';
+    ctx.fillStyle = coulSol;
+    ctx.fillRect(0, SOL - 2, W, 2);
+    for (let i = 0; i < 40; i++) {
+      const x = ((i * 97 - sol) % W + W) % W;
+      ctx.fillRect(x, SOL + 4 + (i * 7) % 12, 2 + (i % 3) * 2, 2);
+    }
+    if (!dino) return;
+    for (const b of bonus) ctx.drawImage(ETOILE, Math.round(b.x), Math.round(b.y + Math.sin(t * 6) * 3));
+    for (const o of obstacles) {
+      const img = o.type === 'ptero' ? PTERO[Math.floor(o.anim) % 2] : o.img;
+      if (nuit > 0.5) ctx.filter = 'invert(1)';
+      ctx.drawImage(img, Math.round(o.x), Math.round(o.y));
+      ctx.filter = 'none';
+    }
+    // le dino
+    if (nuit > 0.5) ctx.filter = 'invert(1)';
+    let img;
+    if (etat === 'fin') img = DINO_MORT;
+    else if (dino.bas) img = DINO_BAS[Math.floor(dino.anim) % 2];
+    else if (dino.y < SOL) img = DINO[0];
+    else img = etat === 'menu' ? DINO[0] : DINO[1 + Math.floor(dino.anim) % 2];
+    if (!(invincible > 0 && invincible < 1.5 && Math.floor(t * 12) % 2)) {
+      if (invincible > 0) { ctx.shadowColor = '#facc15'; ctx.shadowBlur = 14; }
+      ctx.drawImage(img, 44, Math.round(dino.y - img.height));
+      ctx.shadowBlur = 0;
+    }
+    ctx.filter = 'none';
+    // score
+    ctx.font = `700 16px ${MONO}`; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillStyle = nuit > 0.5 ? '#bdbdbd' : '#535353';
+    const visible = !(flashScore > 0 && Math.floor(flashScore * 8) % 2);
+    const droite = W - 12 - 96 / T.echelle;
+    ctx.fillText((visible ? String(score).padStart(5, '0') : ''), droite, 14);
+    ctx.globalAlpha = 0.6;
+    ctx.fillText('HI ' + String(Math.max(record, score)).padStart(5, '0'), droite - 80, 14);
+    ctx.globalAlpha = 1;
+    if (invincible > 0) { ctx.textAlign = 'left'; ctx.fillStyle = '#ca8a04'; ctx.fillText('★ ' + Math.ceil(invincible) + ' s', 12, 14); }
+  }
+
+  /* ---------- Menus ---------- */
+  function lancer() { A.fermerPanneau(); nouvellePartie(); etat = 'jeu'; manette.montrer(true); A.oublier(); }
+  function menu() {
+    etat = 'menu';
+    manette.montrer(false);
+    nouvellePartie();
+    A.panneau({
+      pastille: 'Course sans fin',
+      titre: 'Dino Run',
+      texte: 'Saute par-dessus les cactus, baisse-toi sous les ptérodactyles. L’étoile te rend invincible 5 secondes. Ça accélère tout le temps !',
+      lignes: [['Record', String(A.record('dinorun') || 0).padStart(5, '0')]],
+      boutons: [{ texte: 'Courir', primaire: true, action: lancer }],
+      aide: A.TACTILE ? 'Touche l’écran pour sauter (reste appuyé = plus haut) · bouton ▼ pour te baisser' : 'Espace ou ↑ sauter (reste appuyé = plus haut) · ↓ se baisser · P pause'
+    });
+  }
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Score', String(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancer }] });
+  }
+  A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
+
+  // sur téléphone : toucher n'importe où = sauter
+  T.canvas.addEventListener('pointerdown', e => {
+    if (etat !== 'jeu' || e.pointerType === 'mouse' && e.button !== 0) return;
+    A.touches.action = true; Arcade.__tap = true;
+    if (dino.y >= SOL) { dino.vy = -780; A.son('saut'); }
+  });
+  addEventListener('pointerup', () => { if (Arcade.__tap) { A.touches.action = false; Arcade.__tap = false; } });
+  const manette = A.manette([{ nom: 'bas', texte: '▼', classe: 'large', style: 'right:16px;bottom:calc(16px + env(safe-area-inset-bottom))' }]);
+  A.boutonsCoin(pause);
+  A.conseillerPaysage();
+
+  menu();
+  A.boucle((dt, t) => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if (etat === 'jeu') maj(dt);
+    dessiner(t);
+  });
+  window.__dinorun = { get etat() { return etat; }, get score() { return score; }, get obstacles() { return obstacles; }, get dino() { return dino; } };
+})();
+</script>
+</body>
+</html>

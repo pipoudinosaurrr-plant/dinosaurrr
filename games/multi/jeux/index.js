@@ -7,5 +7,7 @@ import tron from './tron.js';
 import course from './course.js';
 import quiz from './quiz.js';
 import dessin from './dessin.js';
+import echecs from './echecs.js';
+import hockey from './hockey.js';
 
-export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin };
+export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey };

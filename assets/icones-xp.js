@@ -101,6 +101,58 @@
     <circle cx="16" cy="18" r="2" fill="#fff"/><path d="M14 17l-5-4" stroke="#fff" stroke-width=".8" opacity=".4"/>
     <rect x="9" y="24" width="14" height="3" rx="1.5" fill="#e5e5e5"/><rect x="11" y="25" width="10" height="1" fill="#22c55e"/></svg>`;
 
+  // Dino Run : le T-Rex qui saute un cactus
+  D.dinorun = `<svg viewBox="0 0 32 32"><defs>${lin('drc', '#ffffff', '#e5e5e5')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#drc)" stroke="#525252"/>
+    <path d="M3 24.5h26" stroke="#737373" stroke-width="1"/><path d="M6 26.5h3M14 27h2M22 26.5h4" stroke="#a3a3a3" stroke-width=".8"/>
+    <g fill="#535353"><rect x="9" y="7" width="8" height="5"/><rect x="10" y="12" width="4" height="1"/><rect x="5" y="12" width="7" height="5"/><rect x="3.5" y="11" width="1.5" height="3"/>
+      <rect x="12" y="13.5" width="2" height="1"/><rect x="6" y="17" width="2" height="3"/><rect x="9" y="17" width="2" height="2"/></g>
+    <rect x="11" y="8" width="1.2" height="1.2" fill="#fff"/>
+    <g fill="#16a34a" stroke="#14532d" stroke-width=".5"><rect x="21.5" y="13" width="3" height="11.5" rx="1"/><path d="M19 16.5h2.5v2h-1.5a1.5 1.5 0 0 1-1.5-1.5v-3h.5z"/><path d="M27 15h-2.5v2h1a1.5 1.5 0 0 0 1.5-1.5V13h0z"/></g></svg>`;
+  // Dino Flap : ptérodactyle entre deux tuyaux
+  D.flap = `<svg viewBox="0 0 32 32"><defs>${lin('flc', '#38bdf8', '#bae6fd')}${lin('flt', '#86efac', '#15803d', 1, 0)}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#flc)" stroke="#0c4a6e"/>
+    <g fill="url(#flt)" stroke="#14532d" stroke-width=".7"><rect x="19" y="3" width="7" height="8"/><rect x="18" y="10" width="9" height="3"/><rect x="19" y="22" width="7" height="7"/><rect x="18" y="19.5" width="9" height="3"/></g>
+    <path d="M3 27h26v2H3z" fill="#facc15"/>
+    <path d="M5 16.5l4-1.5 3 1 2.5-.5-1.5 2-4 1z" fill="#f97316" stroke="#7c2d12" stroke-width=".6" stroke-linejoin="round"/>
+    <path d="M8 15.5l1-4.5 3.5 4.5z" fill="#fb923c" stroke="#7c2d12" stroke-width=".6" stroke-linejoin="round"/>
+    <circle cx="12.6" cy="16" r=".6" fill="#000"/><path d="M14.5 16l2.2.4-2 .8" fill="#fde047"/></svg>`;
+  // 2048 : quatre tuiles
+  D.tuiles = `<svg viewBox="0 0 32 32"><rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="#bbada0" stroke="#776e65"/>
+    <rect x="4.5" y="4.5" width="11" height="11" rx="1.6" fill="#eee4da"/><rect x="16.5" y="4.5" width="11" height="11" rx="1.6" fill="#f2b179"/>
+    <rect x="4.5" y="16.5" width="11" height="11" rx="1.6" fill="#f67c5f"/><rect x="16.5" y="16.5" width="11" height="11" rx="1.6" fill="#edc22e"/>
+    <g font-family="Arial, sans-serif" font-weight="700" font-size="8" text-anchor="middle"><text x="10" y="13" fill="#776e65">2</text><text x="22" y="13" fill="#fff">8</text><text x="10" y="25" fill="#fff">4</text></g>
+    <text x="22" y="24.3" font-family="Arial, sans-serif" font-weight="700" font-size="5" text-anchor="middle" fill="#fff">2048</text></svg>`;
+  // Pendu : potence en bois et lettres à trouver
+  D.pendu = `<svg viewBox="0 0 32 32"><defs>${lin('pec', '#fefce8', '#fde68a')}${lin('peb', '#b45309', '#78350f', 1, 0)}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#pec)" stroke="#92400e"/>
+    <path d="M5 24.5h12" stroke="#78350f" stroke-width="2" stroke-linecap="round"/>
+    <rect x="7.5" y="5" width="2.4" height="19.5" fill="url(#peb)"/><rect x="7.5" y="5" width="13" height="2.4" fill="url(#peb)"/>
+    <path d="M9.9 10.5l3.5-3.1" stroke="#78350f" stroke-width="1.4"/><path d="M19 7.4v3.6" stroke="#a16207" stroke-width="1"/>
+    <circle cx="19" cy="13" r="2.2" fill="#22c55e" stroke="#14532d" stroke-width=".7"/><path d="M19 15.2v4.5M17 17h4M19 19.7l-1.6 2.6M19 19.7l1.6 2.6" stroke="#14532d" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M20 27.5h2.5M23.5 27.5H26M17 27.5h2" stroke="#1e3a8a" stroke-width="1.2"/><text x="24.7" y="26.3" font-family="Arial, sans-serif" font-weight="700" font-size="5" text-anchor="middle" fill="#1e3a8a">A</text></svg>`;
+  // Solitaire : deux cartes sur le tapis vert
+  D.cartes = `<svg viewBox="0 0 32 32"><defs>${lin('cac', '#16a34a', '#14532d')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#cac)" stroke="#052e16"/>
+    <g transform="rotate(-14 12 17)"><rect x="5" y="8" width="12" height="17" rx="1.6" fill="#1d4ed8" stroke="#1e3a8a"/><rect x="6.5" y="9.5" width="9" height="14" rx="1" fill="none" stroke="#93c5fd" stroke-width=".7" stroke-dasharray="1 1"/></g>
+    <rect x="13" y="6.5" width="13" height="18" rx="1.6" fill="#fff" stroke="#525252"/>
+    <path d="M19.5 11.5c-2.6 2.4-3.6 3.4-3.6 4.6a1.7 1.7 0 0 0 3 1.1l-.8 2.3h2.8l-.8-2.3a1.7 1.7 0 0 0 3-1.1c0-1.2-1-2.2-3.6-4.6z" fill="#111"/>
+    <text x="15.5" y="10.8" font-family="Arial, sans-serif" font-weight="700" font-size="4.2" fill="#111">A</text><text x="23.5" y="23" font-family="Arial, sans-serif" font-weight="700" font-size="4.2" fill="#111" text-anchor="middle" transform="rotate(180 23.5 21.6)">A</text></svg>`;
+  // Échecs : une tour sur l'échiquier
+  D.echecs = `<svg viewBox="0 0 32 32"><defs>${lin('ecp', '#ffffff', '#cbd5e1')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="3" fill="#f0d9b5" stroke="#5b3a1c"/>
+    <g fill="#b58863"><rect x="9.25" y="3" width="6.75" height="6.6"/><rect x="22.75" y="3" width="6.25" height="6.6"/><rect x="3" y="9.6" width="6.25" height="6.6"/><rect x="16" y="9.6" width="6.75" height="6.6"/><rect x="9.25" y="16.2" width="6.75" height="6.6"/><rect x="22.75" y="16.2" width="6.25" height="6.6"/><rect x="3" y="22.8" width="6.25" height="6.2"/><rect x="16" y="22.8" width="6.75" height="6.2"/></g>
+    <path d="M10 27h12v-2.5l-1.5-1.5-.8-8 1.8-1.5V9.5h-2.6v2h-2.1v-2h-1.6v2h-2.1v-2H10.5v4l1.8 1.5-.8 8L10 24.5z" fill="url(#ecp)" stroke="#111" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M12.8 15h6.4" stroke="#111" stroke-width=".8"/></svg>`;
+  // Air hockey : maillet, palet et ligne du milieu
+  D.hockey = `<svg viewBox="0 0 32 32"><defs>${lin('hoc', '#1e3a8a', '#0b1730')}${rad('hom', '#fecdd3', '#f43f5e', '#9f1239')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="url(#hoc)" stroke="#0f172a"/>
+    <path d="M12 2.5h8v1.5h-8zM12 28h8v1.5h-8z" fill="#000"/>
+    <path d="M3 16h26" stroke="#f43f5e" stroke-width="1" opacity=".8"/><circle cx="16" cy="16" r="4.5" fill="none" stroke="#38bdf8" stroke-width=".8" opacity=".7"/>
+    <circle cx="20" cy="9.5" r="3" fill="#facc15" stroke="#a16207" stroke-width=".7"/><circle cx="20" cy="9.5" r="1.4" fill="#ca8a04"/>
+    <circle cx="13" cy="22" r="5" fill="url(#hom)" stroke="#881337" stroke-width=".8"/><circle cx="13" cy="22" r="2.2" fill="#fb7185" stroke="#881337" stroke-width=".6"/>
+    <path d="M17.5 12.5l-2.5 3" stroke="#fff" stroke-width=".7" opacity=".5"/></svg>`;
+
   // Data Clicker : une puce
   D.processeur = `<svg viewBox="0 0 32 32"><defs>${lin('k', '#555', '#141414')}${lin('v', '#7af08f', '#15803d')}</defs>
     <g stroke="#d4a82a" stroke-width="1.7"><path d="M11 3v5M16 3v5M21 3v5M11 24v5M16 24v5M21 24v5M3 11h5M3 16h5M3 21h5M24 11h5M24 16h5M24 21h5"/></g>

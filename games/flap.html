@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dino Flap</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Dino Flap"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const W = 360, H = 640, SOL = 560;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H, pixel: true });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  const PC = { G: '#22c55e', D: '#15803d', W: '#fff', K: '#111', O: '#f97316', Y: '#fde047' };
+  const PTERO = [
+    A.sprite(['.....GGGG...', 'GG..GGGWKG..', 'GGGGGGGGGOOO', '.GGGGGGGGOO.', '..GDDDDGG...', '...DDDD.....', '....D.......'], PC, 3),
+    A.sprite(['.....GGGG...', '....GGGWKG..', 'GGGGGGGGGOOO', 'GGGGGGGGGOO.', '..GGGGGGG...', '...........', '...........'], PC, 3),
+    A.sprite(['..DD.GGGG...', '.DDDGGGWKG..', '.DGGGGGGGOOO', '..GGGGGGGOO.', '..GGGGGGG...', '...........', '...........'], PC, 3)
+  ];
+  const ECART = 150, LARGEUR_TUBE = 64, VITESSE = 150, GRAVITE = 1500, IMPULSION = -440;
+
+  let etat = 'menu', oiseau, tubes, score, record, solX, prochain, anim, flash, finT;
+  record = A.record('flap') || 0;
+
+  function nouvellePartie() {
+    oiseau = { x: 100, y: 300, vy: 0, angle: 0 };
+    tubes = []; score = 0; solX = 0; prochain = 1.4; anim = 0; flash = 0; finT = 0;
+  }
+
+  function battre() {
+    if (etat === 'pret') { etat = 'jeu'; }
+    if (etat !== 'jeu') return;
+    oiseau.vy = IMPULSION;
+    A.son('saut');
+  }
+
+  function maj(dt) {
+    anim += dt;
+    if (etat === 'pret') { oiseau.y = 300 + Math.sin(anim * 5) * 8; solX = (solX + VITESSE * dt) % 24; return; }
+    oiseau.vy = Math.min(700, oiseau.vy + GRAVITE * dt);
+    oiseau.y += oiseau.vy * dt;
+    oiseau.angle = Math.max(-0.45, Math.min(1.3, oiseau.vy / 600));
+    if (etat === 'jeu') {
+      solX = (solX + VITESSE * dt) % 24;
+      prochain -= dt;
+      if (prochain <= 0) {
+        const haut = 90 + Math.random() * (SOL - ECART - 180);
+        tubes.push({ x: W + 10, haut, passe: false });
+        prochain = 1.45;
+      }
+      for (const t of tubes) {
+        t.x -= VITESSE * dt;
+        if (!t.passe && t.x + LARGEUR_TUBE < oiseau.x) { t.passe = true; score++; A.son('piece'); }
+      }
+      tubes = tubes.filter(t => t.x > -LARGEUR_TUBE - 10);
+      // collisions (cercle un peu plus petit que le dessin)
+      const r = 13;
+      if (oiseau.y + r > SOL) { oiseau.y = SOL - r; return perdre(); }
+      if (oiseau.y < -40) oiseau.y = -40;
+      for (const t of tubes) {
+        if (oiseau.x + r > t.x && oiseau.x - r < t.x + LARGEUR_TUBE) {
+          if (oiseau.y - r < t.haut || oiseau.y + r > t.haut + ECART) return perdre();
+        }
+      }
+    } else if (etat === 'fin') {
+      if (oiseau.y > SOL - 13) { oiseau.y = SOL - 13; oiseau.vy = 0; }
+    }
+    flash = Math.max(0, flash - dt);
+  }
+
+  function medaille(s) { return s >= 60 ? ['Platine', '#e5e7eb'] : s >= 40 ? ['Or', '#facc15'] : s >= 20 ? ['Argent', '#cbd5e1'] : s >= 10 ? ['Bronze', '#d97706'] : null; }
+
+  function perdre() {
+    etat = 'fin';
+    flash = 0.3;
+    A.son('touche');
+    setTimeout(() => A.son('perdu'), 250);
+    const r = A.record('flap', score);
+    record = r.record;
+    const m = medaille(score);
+    setTimeout(() => A.panneau({
+      pastille: 'Game over',
+      titre: r.nouveau ? '🏅 Nouveau record !' : 'Boum !',
+      texte: m ? `Médaille <b style="color:${m[1]}">${m[0]}</b>` : 'Passe 10 tuyaux pour gagner une médaille.',
+      lignes: [['Score', String(score)], ['Record', String(record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }, { texte: 'Menu', action: menu }]
+    }), 800);
+  }
+
+  /* ---------- Dessin ---------- */
+  function tube(x, y, h, enHaut) {
+    const g = ctx.createLinearGradient(x, 0, x + LARGEUR_TUBE, 0);
+    g.addColorStop(0, '#15803d'); g.addColorStop(0.35, '#4ade80'); g.addColorStop(1, '#166534');
+    ctx.fillStyle = g;
+    ctx.fillRect(x + 4, y, LARGEUR_TUBE - 8, h);
+    ctx.fillStyle = '#052e16'; ctx.fillRect(x + 4, y, 2, h); ctx.fillRect(x + LARGEUR_TUBE - 6, y, 2, h);
+    // le bord du tuyau
+    const by = enHaut ? y + h - 26 : y;
+    ctx.fillStyle = g; ctx.fillRect(x, by, LARGEUR_TUBE, 26);
+    ctx.strokeStyle = '#052e16'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, by + 1, LARGEUR_TUBE - 2, 24);
+  }
+  function dessiner(t) {
+    T.effacer('#000');
+    const g = ctx.createLinearGradient(0, 0, 0, SOL);
+    g.addColorStop(0, '#38bdf8'); g.addColorStop(1, '#bae6fd');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // volcans et palmiers au loin
+    ctx.fillStyle = '#86efac';
+    for (let i = 0; i < 6; i++) { const x = ((i * 90 - solX * 2 - t * 8) % (W + 120) + W + 120) % (W + 120) - 60; ctx.beginPath(); ctx.moveTo(x, SOL); ctx.lineTo(x + 50, SOL - 70 - (i % 3) * 20); ctx.lineTo(x + 100, SOL); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (let i = 0; i < 4; i++) { const x = ((i * 110 - t * 12) % (W + 80) + W + 80) % (W + 80) - 40; ctx.fillRect(x, 80 + i * 40, 46, 10); ctx.fillRect(x + 10, 72 + i * 40, 24, 8); }
+    if (!oiseau) return;
+    for (const tb of tubes) {
+      tube(tb.x, 0, tb.haut, true);
+      tube(tb.x, tb.haut + ECART, SOL - tb.haut - ECART, false);
+    }
+    // sol
+    ctx.fillStyle = '#ded895'; ctx.fillRect(0, SOL, W, H - SOL);
+    ctx.fillStyle = '#65a30d'; ctx.fillRect(0, SOL, W, 14);
+    ctx.fillStyle = '#4d7c0f';
+    for (let x = -solX; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, SOL + 14); ctx.lineTo(x + 12, SOL); ctx.lineTo(x + 24, SOL + 14); ctx.fill(); }
+    // le ptérodactyle
+    const img = PTERO[etat === 'fin' ? 0 : Math.floor(anim * 10) % 3];
+    ctx.save();
+    ctx.translate(oiseau.x, oiseau.y);
+    ctx.rotate(etat === 'pret' ? 0 : oiseau.angle);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    ctx.restore();
+    // score
+    if (etat !== 'menu') {
+      ctx.font = `900 48px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillText(String(score), W / 2 + 3, 63);
+      ctx.fillStyle = '#fff'; ctx.fillText(String(score), W / 2, 60);
+    }
+    if (etat === 'pret') {
+      ctx.font = `800 18px ${MONO}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+      ctx.fillText(A.TACTILE ? 'Touche pour voler' : 'Espace ou clic pour voler', W / 2, 380);
+    }
+    if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 2})`; ctx.fillRect(0, 0, W, H); }
+  }
+
+  /* ---------- Menus ---------- */
+  function lancer() { A.fermerPanneau(); nouvellePartie(); etat = 'pret'; A.oublier(); }
+  function menu() {
+    etat = 'menu';
+    nouvellePartie();
+    A.panneau({
+      pastille: 'Un seul bouton',
+      titre: 'Dino Flap',
+      texte: 'Fais voler le ptérodactyle entre les tuyaux. Chaque appui le fait remonter. Médailles à 10, 20, 40 et 60 !',
+      lignes: [['Record', String(A.record('flap') || 0)]],
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancer }],
+      aide: A.TACTILE ? 'Touche l’écran pour battre des ailes.' : 'Espace, ↑ ou clic pour battre des ailes · P pause'
+    });
+  }
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Score', String(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancer }] });
+  }
+  A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
+  T.canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; battre(); });
+  A.boutonsCoin(pause);
+
+  menu();
+  A.boucle((dt, t) => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if ((A.vient('action') || A.vient('haut')) && !A.panneauOuvert) battre();
+    if (etat === 'jeu' || etat === 'pret' || etat === 'fin') maj(dt);
+    dessiner(t);
+  });
+  window.__flap = { get etat() { return etat; }, get score() { return score; }, get oiseau() { return oiseau; }, get tubes() { return tubes; }, battre };
+})();
+</script>
+</body>
+</html>

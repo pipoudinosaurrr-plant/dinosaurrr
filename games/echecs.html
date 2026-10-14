@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Échecs</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; gap: 18px; padding: 54px 12px 14px; }
+    #jeu[hidden] { display: none; }
+    .colonne-plateau { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+    .joueur-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: var(--taille); min-height: 30px; }
+    .joueur-ligne .pastille-joueur.actif { border-color: rgba(250,204,21,.7); }
+    .prises { font-size: 18px; line-height: 1; color: #a1a1aa; letter-spacing: -2px; min-height: 18px; }
+    .zone-plateau { --taille: min(94vw, calc(100vh - 170px), 600px); }
+    .plateau { position: relative; display: grid; grid-template-columns: repeat(8, 1fr); width: var(--taille); height: var(--taille); border: 2px solid #3f3f46; border-radius: 6px; overflow: hidden; box-shadow: 0 30px 60px -30px #000; }
+    .case { position: relative; display: grid; place-items: center; padding: 0; border: 0; cursor: pointer; font-size: calc(var(--taille) / 8 * .78); line-height: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", "Arial Unicode MS", sans-serif; font-variant-emoji: text; }
+    .case.claire { background: #e9e3d0; } .case.foncee { background: #6d8a4f; }
+    .case.dernier.claire { background: #f3e58a; } .case.dernier.foncee { background: #b6b84a; }
+    .case.choisie { box-shadow: inset 0 0 0 4px #facc15; }
+    .case.echec { background: radial-gradient(circle, #ef4444 0%, #b91c1c 45%, transparent 75%) !important; }
+    .case .cible { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(0,0,0,.28); pointer-events: none; }
+    .case .cible.prise { width: 92%; height: 92%; background: none; border: 5px solid rgba(0,0,0,.28); }
+    .piece { pointer-events: none; transform: translateY(2%); }
+    .piece.blanc { color: #fff; -webkit-text-stroke: 1.5px #1a1a1a; text-shadow: 0 2px 2px rgba(0,0,0,.35); }
+    .piece.noir { color: #1a1a1a; -webkit-text-stroke: .5px #000; text-shadow: 0 1px 1px rgba(255,255,255,.25); }
+    .coord { position: absolute; font: 700 10px var(--mono); opacity: .7; pointer-events: none; }
+    .coord.l { left: 3px; top: 2px; } .coord.c { right: 3px; bottom: 1px; }
+    .claire .coord { color: #6d8a4f; } .foncee .coord { color: #e9e3d0; }
+    .panneau-cote { display: flex; flex-direction: column; gap: 10px; width: 210px; max-height: var(--taille); }
+    .statut { min-height: 40px; color: var(--doux); font-size: 14px; line-height: 1.4; }
+    .statut b { color: #fff; }
+    .liste-coups { flex: 1; min-height: 80px; overflow-y: auto; padding: 8px; border: 1px solid var(--bord2); border-radius: 10px; background: rgba(255,255,255,.02); font: 13px/1.7 var(--mono); color: #d4d4d8; }
+    .liste-coups span.n { color: #6b6b6b; display: inline-block; width: 30px; }
+    .liste-coups div { display: grid; grid-template-columns: 30px 1fr 1fr; }
+    .promo { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(0,0,0,.55); }
+    .promo[hidden] { display: none; }
+    .promo div { display: flex; gap: 6px; padding: 10px; border-radius: 12px; background: #18181b; border: 1px solid #3f3f46; }
+    .promo button { width: calc(var(--taille) / 8); height: calc(var(--taille) / 8); border: 0; border-radius: 8px; background: #e9e3d0; font-size: calc(var(--taille) / 8 * .75); cursor: pointer; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; }
+    .niveaux { display: flex; gap: 6px; margin-top: 8px; }
+    .niveaux button { flex: 1; height: 34px; border: 1px solid var(--bord2); border-radius: 9px; background: transparent; color: var(--doux); font: 600 12.5px var(--police); cursor: pointer; }
+    .niveaux button.actif { border-color: var(--accent); color: #fff; background: rgba(34,197,94,.12); }
+    @media (max-width: 760px) {
+      #jeu { flex-direction: column; gap: 8px; padding-top: 50px; }
+      .zone-plateau { --taille: min(96vw, calc(100vh - 250px), 600px); }
+      .panneau-cote { width: var(--taille); flex-direction: column; }
+      .liste-coups { max-height: 64px; min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="jeu" hidden>
+    <div class="colonne-plateau zone-plateau">
+      <div class="joueur-ligne" id="ligne-haut"></div>
+      <div class="plateau" id="plateau">
+        <div class="promo" id="promo" hidden><div id="choix-promo"></div></div>
+      </div>
+      <div class="joueur-ligne" id="ligne-bas"></div>
+    </div>
+    <div class="panneau-cote">
+      <div class="statut" id="statut"></div>
+      <div class="liste-coups" id="liste"></div>
+      <button class="btn" id="abandon">Abandonner</button>
+    </div>
+  </div>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur from './multi/jeux/echecs.js';
+
+    const GLYPHES = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
+    const glyphe = p => GLYPHES[p.toUpperCase()] + '︎';
+    const plateau = document.getElementById('plateau');
+    const cases = [];
+    for (let i = 0; i < 64; i++) {
+      const b = document.createElement('button');
+      b.className = 'case';
+      plateau.append(b);
+      cases.push(b);
+    }
+
+    let vue = null, ctxJeu = null, choisie = -1, retourne = false, attentePromo = null;
+    const monIndex = () => (vue && ctxJeu ? vue.j.indexOf(ctxJeu.moi) : -1);
+    // qui peut jouer depuis cet écran ?
+    const puisJouer = () => vue && !vue.fini && (ctxJeu.deux || vue.tour === monIndex());
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const mi = monIndex();
+      retourne = !ctx.deux && mi === 1;   // les noirs voient leurs pièces en bas
+      if (v.fini || !puisJouer()) choisie = -1;
+      dessiner();
+      const ligne = (i, el) => {
+        const id = v.j[i];
+        const nom = ctx.nom(id) + (ctx.deux ? '' : id === ctx.moi ? ' (toi)' : '');
+        el.innerHTML = `<span class="pastille-joueur${!v.fini && v.tour === i ? ' actif' : ''}"><span style="font-size:16px">${i === 0 ? '♔' : '♚'}︎</span>${echapper(nom)}</span>
+          <span class="prises">${[...(v.prises[i] || '')].map(p => glyphe(p)).join('')}</span>`;
+      };
+      const bas = retourne ? 1 : 0;
+      ligne(bas, document.getElementById('ligne-bas'));
+      ligne(1 - bas, document.getElementById('ligne-haut'));
+
+      let s;
+      const nomTour = ctx.nom(v.j[v.tour]);
+      if (v.fini) {
+        const raisons = { mat: 'Échec et mat !', pat: 'Pat : match nul.', '50 coups': 'Nulle : 50 coups sans prise ni pion.', 'répétition': 'Nulle : même position 3 fois.', 'matériel': 'Nulle : plus assez de pièces pour mater.', abandon: 'Abandon.', 'départ': 'L’adversaire est parti.' };
+        s = `<b>${raisons[v.raison] || 'Partie finie.'}</b><br>` + (v.gagnant === -1 ? 'Égalité.' : (ctx.deux ? `${echapper(ctx.nom(v.j[v.gagnant]))} gagne !` : v.gagnant === mi ? 'Tu as gagné !' : `${echapper(ctx.nom(v.j[v.gagnant]))} a gagné.`));
+      } else if (ctx.deux) s = `<b>Aux ${v.tour === 0 ? 'blancs' : 'noirs'}</b> (${echapper(nomTour)})${v.echec ? ' — <b style="color:#f87171">Échec !</b>' : ''}`;
+      else if (v.tour === mi) s = `<b>À toi</b> (${mi === 0 ? 'blancs' : 'noirs'}).${v.echec ? ' <b style="color:#f87171">Ton roi est en échec !</b>' : ''}`;
+      else s = `${echapper(nomTour)} réfléchit…`;
+      document.getElementById('statut').innerHTML = s;
+
+      const liste = document.getElementById('liste');
+      let html = '';
+      for (let k = 0; k < v.san.length; k += 2) html += `<div><span class="n">${k / 2 + 1}.</span><span>${v.san[k]}</span><span>${v.san[k + 1] || ''}</span></div>`;
+      liste.innerHTML = html;
+      liste.scrollTop = liste.scrollHeight;
+      document.getElementById('abandon').disabled = v.fini || (!ctx.deux && mi < 0);
+    }
+
+    function dessiner() {
+      if (!vue) return;
+      const cibles = choisie >= 0 ? vue.coups.filter(m => m[0] === choisie) : [];
+      const roi = vue.echec ? vue.b.indexOf(vue.tour === 0 ? 'K' : 'k') : -1;
+      for (let k = 0; k < 64; k++) {
+        const i = retourne ? 63 - k : k;
+        const c = cases[k];
+        const r = i >> 3, col = i & 7;
+        c.dataset.i = i;
+        c.className = 'case ' + ((r + col) % 2 ? 'foncee' : 'claire') +
+          (vue.dernier && vue.dernier.includes(i) ? ' dernier' : '') + (i === choisie ? ' choisie' : '') + (i === roi ? ' echec' : '');
+        const p = vue.b[i];
+        const cible = cibles.find(m => m[1] === i);
+        c.innerHTML = (p !== '.' ? `<span class="piece ${p === p.toUpperCase() ? 'blanc' : 'noir'}">${glyphe(p)}</span>` : '') +
+          (cible ? `<span class="cible${p !== '.' ? ' prise' : ''}"></span>` : '') +
+          ((retourne ? col === 7 : col === 0) ? `<span class="coord l">${8 - r}</span>` : '') +
+          ((retourne ? r === 0 : r === 7) ? `<span class="coord c">${'abcdefgh'[col]}</span>` : '');
+      }
+    }
+
+    function envoyer(d) {
+      if (!vue) return;
+      const id = vue.j[vue.tour];
+      if (ctxJeu.deux && id !== ctxJeu.moi) ctxJeu.envoyerPour(id, d);
+      else ctxJeu.envoyer(d);
+    }
+
+    plateau.addEventListener('click', e => {
+      const b = e.target.closest('.case');
+      if (!b || !puisJouer() || attentePromo) return;
+      const i = Number(b.dataset.i);
+      const p = vue.b[i];
+      const aMoi = p !== '.' && ((p === p.toUpperCase()) === (vue.tour === 0));
+      if (choisie >= 0) {
+        const coups = vue.coups.filter(m => m[0] === choisie && m[1] === i);
+        if (coups.length) {
+          if (coups[0][2]) { demanderPromo(choisie, i); return; }
+          envoyer({ t: 'coup', de: choisie, a: i });
+          choisie = -1;
+          return;
+        }
+      }
+      choisie = aMoi && vue.coups.some(m => m[0] === i) ? (choisie === i ? -1 : i) : -1;
+      dessiner();
+    });
+
+    function demanderPromo(de, a) {
+      attentePromo = { de, a };
+      const blanc = vue.tour === 0;
+      document.getElementById('choix-promo').innerHTML = 'QRBN'.split('').map(q => `<button data-q="${q}" style="color:${blanc ? '#fff' : '#111'};-webkit-text-stroke:${blanc ? '1.5px #111' : '0'}">${glyphe(q)}</button>`).join('');
+      document.getElementById('promo').hidden = false;
+    }
+    document.getElementById('choix-promo').addEventListener('click', e => {
+      const b = e.target.closest('[data-q]');
+      if (!b || !attentePromo) return;
+      envoyer({ t: 'coup', de: attentePromo.de, a: attentePromo.a, promo: b.dataset.q });
+      attentePromo = null; choisie = -1;
+      document.getElementById('promo').hidden = true;
+    });
+    document.getElementById('abandon').addEventListener('click', () => {
+      if (!vue || vue.fini) return;
+      if (!confirm('Abandonner la partie ?')) return;
+      const id = ctxJeu.deux ? vue.j[vue.tour] : ctxJeu.moi;
+      if (ctxJeu.deux && id !== ctxJeu.moi) ctxJeu.envoyerPour(id, { t: 'abandon' }); else ctxJeu.envoyer({ t: 'abandon' });
+    });
+
+    window.__echecs = { get vue() { return vue; } };
+
+    // petits sons
+    let audio = null;
+    function bip(f, d = 0.06, v = 0.06) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(v, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + d);
+        o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + d + 0.02);
+      } catch (e) { /* rien */ }
+    }
+    function evenement(ev) {
+      if (ev[0] === 'coup') bip(ev[1] ? 660 : 320);
+      if (ev[0] === 'prise') { bip(220, 0.1, 0.08); if (ev[1]) setTimeout(() => bip(660), 90); }
+      if (ev[0] === 'fin') { bip(523, 0.15); setTimeout(() => bip(392, 0.25), 150); }
+    }
+
+    // niveau de l'ordinateur (mode solo)
+    globalThis.ECHECS_NIVEAU = Number(localStorage.getItem('echecs-niveau')) || 2;
+
+    demarrerJeu({
+      id: 'echecs',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Échecs',
+      intro: 'Le grand classique : contre l’ordinateur (3 niveaux), à 2 sur le même écran, ou en ligne contre un pote.',
+      texteSolo: 'Jouer contre l’ordinateur',
+      deuxJoueurs: true,
+      nomJoueur1: 'Blancs', nomJoueur2: 'Noirs',
+      regles: [['Jouer', `${TACTILE ? 'Touche' : 'Clique'} une pièce, puis une case verte.`], ['Gagner', 'Mettre le roi adverse échec et mat.'], ['Règles', 'Roque, prise en passant, promotion : tout y est.']],
+      debut() { choisie = -1; attentePromo = null; document.getElementById('promo').hidden = true; },
+      afficher,
+      evenement
+    });
+
+    // choix du niveau sous le bouton « contre l'ordinateur »
+    const solo = document.querySelector('[data-a="solo"]');
+    if (solo) {
+      const niv = document.createElement('div');
+      niv.className = 'niveaux';
+      const noms = ['Facile', 'Moyen', 'Difficile'];
+      const maj = () => niv.querySelectorAll('button').forEach((b, k) => b.classList.toggle('actif', k + 1 === globalThis.ECHECS_NIVEAU));
+      niv.innerHTML = noms.map((n, k) => `<button type="button" data-n="${k + 1}">${n}</button>`).join('');
+      niv.addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (!b) return; globalThis.ECHECS_NIVEAU = Number(b.dataset.n); try { localStorage.setItem('echecs-niveau', b.dataset.n); } catch (err) { /* rien */ } maj(); });
+      solo.after(niv);
+      maj();
+    }
+  </script>
+</body>
+</html>
