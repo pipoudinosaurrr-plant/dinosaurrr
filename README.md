@@ -158,7 +158,7 @@ Ensuite, chaque modification envoyée sur GitHub met aussi le serveur à jour to
 - **Inviter des potes** : crée une partie, puis « Copier le lien ». Le lien ressemble à `dinosaurrr.com/#jeu/cercle/K7QF`.
 - **Gratuit** : l'offre gratuite de Cloudflare permet 100 000 requêtes par jour, largement assez pour des dizaines de parties par jour.
 - **Pas de chat** : exprès. Les parties sont privées (code à 4 caractères) et on ne voit que les pseudos. Dans Dessine et devine, les mots proposés ne sont jamais montrés aux autres.
-- **Tous les jeux à plusieurs** passent par le même serveur : une fois l'étape 7 faite, ils marchent tous en ligne.
+- **Tous les jeux à plusieurs** passent par le même serveur : une fois l'étape 8 faite, ils marchent tous en ligne.
 
 ## Si quelque chose ne marche pas
 
@@ -167,7 +167,7 @@ Ensuite, chaque modification envoyée sur GitHub met aussi le serveur à jour to
 - **Le domaine ne s'affiche pas** : les changements DNS peuvent prendre jusqu'à 24 h. Vérifie qu'il ne reste pas d'ancien A/AAAA.
 - **« Enforce HTTPS » est grisé** : c'est normal au début, GitHub prépare le certificat. Réessaie plus tard.
 - **Les mails n'arrivent pas** : vérifie que seuls les MX d'Apple sont présents.
-- **Le Cercle dit « Serveur hors ligne »** : vérifie l'étape 7 (le domaine `multi.dinosaurrr.com` doit être ajouté au Worker). Dans Cloudflare, l'onglet **Deployments** du Worker montre si le dernier envoi a marché.
+- **Le Cercle dit « Serveur hors ligne »** : vérifie l'étape 8 (le domaine `multi.dinosaurrr.com` doit être ajouté au Worker). Dans Cloudflare, l'onglet **Deployments** du Worker montre si le dernier envoi a marché.
 
 ---
 
