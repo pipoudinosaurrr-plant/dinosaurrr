@@ -1,11 +1,7 @@
 {
-  "theme": "bleu",
+  "theme": "noir",
   "accent": "bleu",
-  "photo": "",
   "demarrerTexte": "démarrer",
-  "demarrerImage": "",
-  "fondsPerso": [],
-  "iconesBureau": [],
   "tailleTexte": "normal",
   "pixelisation": "normal",
   "mobileTheme": "noir",
