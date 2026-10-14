@@ -38,7 +38,7 @@
     addEventListener('resize', taille);
     taille();
 
-    const V_MAILLET = 2600;
+    const V_MAILLET = 1800;
     let vue = null, recue = 0, ctxJeu = null;
     let mi = 0;                 // mon index (0 = en bas de la table)
     let retourne = false;       // la table est tournée pour que je sois en bas
@@ -177,8 +177,10 @@
       return i === mi ? '#38bdf8' : '#f43f5e';
     }
 
+    const journal = [];
     function evenement(ev) {
       const t = performance.now();
+      journal.push(ev); if (journal.length > 200) journal.shift();
       if (ev[0] === 'tape') {
         if (t - dernierSon > 40) { dernierSon = t; bip(420, 300, 0.07, 'square', 0.05); }
         const m = vue ? vue.m[ev[1]] : null;
@@ -395,7 +397,7 @@
       g.textAlign = 'start'; g.textBaseline = 'alphabetic';
     }
     requestAnimationFrame(boucle);
-    window.__hockey = { get vue() { return vue; }, get moi() { return ctxJeu && ctxJeu.moi; }, repere, ecran };
+    window.__hockey = { journal, get vue() { return vue; }, get moi() { return ctxJeu && ctxJeu.moi; }, repere, ecran };
 
     demarrerJeu({
       id: 'hockey',

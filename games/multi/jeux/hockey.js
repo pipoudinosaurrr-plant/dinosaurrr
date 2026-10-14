@@ -3,10 +3,10 @@
 import { copieJoueurs, indexDe, classer } from './outils.js';
 
 export const W = 500, H = 860;
-export const BUT_L = 170;          // largeur des buts
+export const BUT_L = 200;          // largeur des buts
 export const R_PALET = 22, R_MAILLET = 34;
 export const BUTS = 7;
-const V_MAILLET = 2600, V_MAX = 1700, FROTTEMENT = 0.35, REBOND = 0.9;
+const V_MAILLET = 1800, V_MAX = 1200, FROTTEMENT = 0.45, REBOND = 0.85;
 
 function servir(e, cote, t) {
   // le palet repart dans le camp de celui qui vient d'encaisser
@@ -150,47 +150,55 @@ export default {
     if (e.fini || i < 0) return null;
     const ia = e.ia[i];
     if (t < ia.prochain) return null;
-    ia.prochain = t + 45 + Math.random() * 40;
+    ia.prochain = t + 130 + Math.random() * 90;     // temps de réaction
     const p = e.p, m = e.m[i];
-    const monCamp = i === 0 ? p.y > H / 2 : p.y < H / 2;
-    const butY = i === 0 ? H - 60 : 60;
+    const sens = i === 0 ? 1 : -1;                   // +1 : mon but est en bas
+    const ligne = i === 0 ? H - 70 : 70;             // ma ligne de défense
+    const versMoi = sens * p.vy;                     // > 0 : le palet vient vers mon but
+    const monCamp = sens * (p.y - H / 2) > 0;
+    const derriere = sens * (p.y - m.y) > -6;        // palet entre moi et mon but
+    const contact = R_PALET + R_MAILLET;
     let x, y;
-    if (monCamp && t >= e.pause) {
-      // direction du but adverse (un peu au hasard pour varier les tirs)
-      if (!ia.visee || t > ia.viseeT) { ia.visee = W / 2 + (Math.random() - 0.5) * 110; ia.viseeT = t + 900; }
-      const gx = ia.visee, gy = i === 0 ? -60 : H + 60;
-      let dx = gx - p.x, dy = gy - p.y;
+
+    if (t < e.pause) {
+      x = W / 2; y = ligne;
+    } else if (derriere) {
+      // le palet est passé derrière moi : je recule par le côté, sans le toucher
+      const cote = m.x >= p.x ? 1 : -1;
+      x = p.x + cote * (contact + 45);
+      if (x < R_MAILLET || x > W - R_MAILLET) x = p.x - cote * (contact + 45);
+      y = p.y + sens * 40;
+    } else if (versMoi > 80) {
+      // interception : où le palet arrivera sur ma ligne (en comptant les rebonds)
+      const temps = Math.max(0, (ligne - p.y) / p.vy);
+      const L = W - 2 * R_PALET;
+      let tx = ((p.x + p.vx * temps - R_PALET) % (2 * L) + 2 * L) % (2 * L);
+      tx = R_PALET + (tx > L ? 2 * L - tx : tx);
+      // le bot se trompe un peu (sinon il arrête tout)
+      if (!ia.erreurT || t > ia.erreurT) { ia.erreur = (Math.random() - 0.5) * 150; ia.erreurT = t + 700; }
+      x = Math.max(W / 2 - BUT_L / 2 - 25, Math.min(W / 2 + BUT_L / 2 + 25, tx + ia.erreur));
+      y = ligne;
+    } else if (monCamp) {
+      // attaque : je vise le but d'en face (un peu au hasard pour varier)
+      if (!ia.visee || t > ia.viseeT) { ia.visee = W / 2 + (Math.random() - 0.5) * (BUT_L - 60); ia.viseeT = t + 900; }
+      const gy = i === 0 ? -60 : H + 60;
+      let dx = ia.visee - p.x, dy = gy - p.y;
       const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-      const devant = (p.x - m.x) * dx + (p.y - m.y) * dy;
-      if (devant > 8) {
-        // le palet est entre moi et le but : on frappe à travers
-        x = p.x + dx * 110; y = p.y + dy * 110;
-      } else {
-        // on se replace derrière le palet en le contournant
-        const cote = (p.x - m.x) * dy - (p.y - m.y) * dx > 0 ? 1 : -1;
-        x = p.x - dx * 62 + dy * cote * 46;
-        y = p.y - dy * 62 - dx * cote * 46;
-        const [bx, by] = borner(i, x, y);
-        if (Math.hypot(bx - x, by - y) > 25) {
-          // impossible de passer derrière (palet contre mon bord) : on le frappe
-          // depuis le centre de ma moitié pour qu'il rebondisse vers l'avant
-          const cx = W / 2, cy = i === 0 ? H * 0.72 : H * 0.28;
-          const ex = p.x - cx, ey = p.y - cy, de = Math.hypot(ex, ey) || 1;
-          // on frappe un coup sec puis on recule pour le laisser ressortir
-          const proche = Math.hypot(p.x - m.x, p.y - m.y) < R_PALET + R_MAILLET + 30;
-          if (proche && !(t < ia.recul)) ia.recul = t + 160 + 380;
-          const frappe = ia.recul && t < ia.recul - 380;
-          const loin = ia.recul && t < ia.recul && !frappe;
-          const k = frappe ? -60 : loin ? 130 : 70;
-          x = p.x - ex / de * k; y = p.y - ey / de * k;
-        }
-      }
+      const pret = (p.x - m.x) * dx + (p.y - m.y) * dy > contact * 0.6;
+      if (pret) { x = p.x + dx * 100; y = p.y + dy * 100; }       // on frappe à travers
+      else { x = p.x - dx * (contact + 12); y = p.y - dy * (contact + 12); }   // on se place derrière
+      const [bx, by] = borner(i, x, y);
+      if (Math.abs(by - y) > 20) {
+        // palet collé à mon bord du fond : je le pousse vers le côté le plus proche
+        const vers = p.x < W / 2 ? -1 : 1;
+        x = p.x - vers * (pret ? -60 : contact + 10); y = p.y;
+      } else { x = bx; y = by; }
     } else {
-      // défense : entre le palet et le but
-      x = W / 2 + (p.x - W / 2) * 0.55;
-      y = butY + (i === 0 ? -1 : 1) * 30;
+      // le palet est chez l'autre : je garde mon but
+      x = W / 2 + (p.x - W / 2) * 0.45;
+      y = ligne;
     }
-    x += (Math.random() - 0.5) * 24;
+    x += (Math.random() - 0.5) * 16;
     return { t: 'pos', x, y };
   },
 
