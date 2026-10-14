@@ -1,17 +1,19 @@
 [
   {
     "commande": "pizza",
-    "reponse": "Le dino adore la pizza.\nSurtout la 4 fromages.",
-    "ouvrir": ""
+    "reponse": "sans ananas",
+    "couleur": "jaune",
+    "ouvrir": "https://www.tiktok.com/@gastronogeekofficiel/video/7243749904772844827"
   },
   {
     "commande": "pipou",
-    "reponse": "C'est moi ! Bienvenue sur dinosaurrr.",
-    "ouvrir": ""
+    "reponse": "Pipou_dinosaurrr\nprononciation : Paypou Daynosaor",
+    "couleur": "rouge",
+    "ouvrir": "le cercle"
   },
   {
     "commande": "gg",
-    "reponse": "Bien joué ! Tiens, une partie de Pong pour fêter ça.",
+    "reponse": "bro se croit en 2010.",
     "ouvrir": "pong"
   }
 ]
