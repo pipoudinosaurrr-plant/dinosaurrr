@@ -1201,6 +1201,14 @@ body.mode-bureau .squelette { border-radius: 0; background: linear-gradient(90de
 .bulle .fermer-bulle { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 14px; height: 14px; padding: 0; border: 1px solid #c8c8b4; border-radius: 2px; background: #ffffe1; cursor: default; }
 .bulle .fermer-bulle svg path { stroke: #444; }
 .bulle .fermer-bulle:hover { border-color: #e5a01a; background: #fff6c7; }
+.bulle-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 7px; }
+.bulle-actions .btn { min-width: 70px; }
+.bulle-lien { padding: 0; border: 0; background: none; color: #0033cc; font: inherit; text-decoration: underline; cursor: pointer; }
+.bulle-lien:hover { color: #3366ff; }
+.zone-notif .notif-enligne { position: relative; display: flex; align-items: center; gap: 2px; }
+.zone-notif .notif-enligne[hidden] { display: none; }
+.zone-notif .notif-enligne span { color: #fff; font: bold calc(10px * var(--t, 1)) var(--xp); text-shadow: 1px 1px #0a3b80; }
+.zone-notif .notif-enligne.seul img, .zone-notif .notif-enligne.seul svg { filter: grayscale(1) brightness(1.15); opacity: .8; }
 
 /* ---------- Arrêter l'ordinateur ---------- */
 
@@ -1559,3 +1567,30 @@ body.mode-mobile { overflow-x: hidden; background: #000; }
 }
 .m-compte { color: var(--texte-3); font: 12px var(--mono); }
 .m-section-tete:has(.m-compte) { flex-wrap: wrap; gap: 4px 12px; }
+
+/* notification « Untel lance une partie » (téléphone) */
+.m-notif-partie {
+  position: fixed;
+  left: 12px; right: 12px;
+  top: calc(10px + env(safe-area-inset-top));
+  z-index: 9500;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 16px;
+  background: rgba(24, 24, 27, .96);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .45);
+  color: #fafafa;
+  animation: m-notif-entree .35s cubic-bezier(.2, .9, .3, 1.2);
+}
+.m-notif-partie .texte { flex: 1; min-width: 0; font-size: 13px; line-height: 1.35; }
+.m-notif-partie .texte b { display: block; font-size: 14px; }
+.m-notif-partie .texte span { color: #a1a1aa; }
+.m-notif-partie .btn { flex: none; }
+.m-notif-partie .fermer { flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .08); color: #a1a1aa; font-size: 16px; }
+@keyframes m-notif-entree { from { opacity: 0; transform: translateY(-20px); } }
+.m-enligne { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 600; }
+.m-enligne[hidden] { display: none; }
+.m-enligne i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.m-enligne.vide { color: #a1a1aa; }
+.m-enligne.vide i { background: #52525b; box-shadow: none; }

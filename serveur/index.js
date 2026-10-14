@@ -37,6 +37,13 @@ export default {
       });
     }
 
+    // présence : qui est sur le site + annonces des nouvelles parties
+    if (url.pathname === '/presence') {
+      if (requete.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket attendu', { status: 426 });
+      if (!origineAutorisee(requete.headers.get('Origin'))) return new Response('Origine refusée', { status: 403 });
+      return env.PRESENCE.get(env.PRESENCE.idFromName('site')).fetch(requete);
+    }
+
     const cercle = url.pathname.match(/^\/cercle\/([A-Z0-9]{4})$/);
     const autre = url.pathname.match(/^\/jeu\/([a-z0-9]+)\/([A-Z0-9]{4})$/);
     if (!cercle && !(autre && JEUX[autre[1]])) return new Response('Introuvable', { status: 404 });
@@ -552,4 +559,86 @@ export class Table extends DurableObject {
     if (this.boucle) clearInterval(this.boucle);
     this.boucle = null;
   }
+}
+
+/* ---------- Présence : les visiteurs du site ----------
+   Un seul objet pour tout le site. Chaque onglet ouvert s'y connecte.
+   - il compte les personnes en ligne et prévient tout le monde quand ça change
+   - quand quelqu'un crée une partie, il prévient tous les autres
+   ------------------------------------------------------- */
+
+const JEUX_ANNONCABLES = new Set(['cercle', ...Object.keys(JEUX)]);
+const PAUSE_ANNONCE = 20000;  // une annonce toutes les 20 s maximum par personne
+
+export class Presence extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.infos = new WeakMap();
+    this.minuterie = null;
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+  }
+
+  async fetch() {
+    const paire = new WebSocketPair();
+    const [client, serveur] = Object.values(paire);
+    this.ctx.acceptWebSocket(serveur);
+    this.ecrireInfo(serveur, { id: idAleatoire(), derniereAnnonce: 0 });
+    this.envoyer(serveur, { t: 'compte', n: this.ouverts().length });
+    this.prevoirCompte();
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  lireInfo(ws) {
+    let info = this.infos.get(ws);
+    if (!info) { info = ws.deserializeAttachment() || {}; this.infos.set(ws, info); }
+    return info;
+  }
+
+  ecrireInfo(ws, info) { this.infos.set(ws, info); ws.serializeAttachment(info); }
+
+  ouverts(sauf) {
+    return this.ctx.getWebSockets().filter(ws => ws !== sauf && ws.readyState === 1);
+  }
+
+  envoyer(ws, msg) { try { ws.send(JSON.stringify(msg)); } catch (e) { /* fermée */ } }
+
+  // on regroupe les changements (plein d'arrivées d'un coup = un seul message)
+  prevoirCompte(sauf) {
+    if (this.minuterie) return;
+    this.minuterie = setTimeout(() => {
+      this.minuterie = null;
+      const liste = this.ouverts(sauf);
+      const texte = JSON.stringify({ t: 'compte', n: liste.length });
+      for (const ws of liste) { try { ws.send(texte); } catch (e) { /* fermée */ } }
+    }, 400);
+  }
+
+  async webSocketMessage(ws, brut) {
+    if (typeof brut !== 'string' || brut.length > 300) return;
+    let msg;
+    try { msg = JSON.parse(brut); } catch (e) { return; }
+    if (!msg || typeof msg !== 'object') return;
+    const info = this.lireInfo(ws);
+
+    if (msg.t === 'annonce') {
+      const jeu = String(msg.jeu || '');
+      const code = String(msg.code || '');
+      if (!JEUX_ANNONCABLES.has(jeu) || !/^[A-Z0-9]{4}$/.test(code)) return;
+      const maintenant = Date.now();
+      if (maintenant - (info.derniereAnnonce || 0) < PAUSE_ANNONCE) return;
+      info.derniereAnnonce = maintenant;
+      this.ecrireInfo(ws, info);
+      const annonce = JSON.stringify({ t: 'partie', jeu, code, nom: nettoyerNom(msg.nom) });
+      const autres = this.ouverts(ws);
+      for (const autre of autres) { try { autre.send(annonce); } catch (e) { /* fermée */ } }
+      this.envoyer(ws, { t: 'annonce-ok', n: autres.length });
+    }
+  }
+
+  async webSocketClose(ws, code) {
+    try { ws.close(code === 1005 || code === 1006 ? 1000 : code, 'au revoir'); } catch (e) { /* déjà fermée */ }
+    this.prevoirCompte(ws);
+  }
+
+  async webSocketError(ws) { await this.webSocketClose(ws, 1011); }
 }

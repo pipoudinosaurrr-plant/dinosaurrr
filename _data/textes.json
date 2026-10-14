@@ -20,5 +20,7 @@
   "executerIntrouvable": "{nom} ne trouve pas « {commande} ». Vérifiez que le nom est correct, puis réessayez.",
   "coffreIncorrect": "CODE INCORRECT.",
   "coffreOuvert": "ACCÈS AUTORISÉ. Le coffre est ouvert !",
-  "coffreBloque": "Trop d'essais : le coffre se verrouille pendant 30 secondes."
+  "coffreBloque": "Trop d'essais : le coffre se verrouille pendant 30 secondes.",
+  "partieTitre": "{joueur} lance une partie",
+  "partieTexte": "{jeu} · code {code}. Viens jouer avec {joueur} !"
 }

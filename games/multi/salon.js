@@ -7,6 +7,8 @@
    En solo, le moteur tourne dans le navigateur ; en ligne, sur le serveur.
    ========================================================== */
 
+import { suivrePresence, annoncerPartie, texteEnLigne } from './presence.js';
+
 export const COULEURS = ['#22c55e', '#3b82f6', '#f97316', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
 const NOMS_BOTS = ['Atlas', 'Nova', 'Orion', 'Echo', 'Volt', 'Nyx', 'Zéro', 'Pixel'];
 const LETTRES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -57,6 +59,7 @@ export function demarrerJeu(cfg) {
         <p class="message" hidden></p>
         ${regles.length ? `<div class="regles">${regles.map(([b, s]) => `<div class="regle"><b>${echapper(b)}</b><span>${echapper(s)}</span></div>`).join('')}</div>` : ''}
         <div class="serveur"><i></i><span>Vérification du serveur…</span></div>
+        <div class="enligne" hidden><i></i><span></span></div>
       </div>
     </section>
 
@@ -75,6 +78,7 @@ export function demarrerJeu(cfg) {
           </div>
         </div>
         <div class="compteur">Connexion…</div>
+        <div class="enligne" hidden><i></i><span></span></div>
         <ul class="joueurs"></ul>
         <div class="zone-hote" hidden>
           ${moteur.bots ? `<div class="ligne" style="margin-top:12px"><button class="btn" data-a="moins-bot">− Bot</button><button class="btn" data-a="plus-bot">+ Bot</button></div>` : ''}
@@ -143,6 +147,7 @@ export function demarrerJeu(cfg) {
   let local = null;
   let enLigne = false;
   let spectateur = false;
+  let annonceEnAttente = null;
 
   const ctx = {
     get moi() { return moi; },
@@ -249,7 +254,7 @@ export function demarrerJeu(cfg) {
     }
   }
 
-  function connecter(code) {
+  function connecter(code, nouvelle = false) {
     message('');
     arreterLocal();
     quitte = false;
@@ -264,6 +269,7 @@ export function demarrerJeu(cfg) {
     montrer('salon');
     try { history.replaceState(null, '', '#' + code); } catch (e) { /* rien */ }
 
+    annonceEnAttente = nouvelle ? code : null;
     try { ws = new WebSocket(urlTable(code)); } catch (e) { return retourAccueil('Impossible de joindre le serveur.'); }
     const ceWs = ws;
     ceWs.onopen = () => {
@@ -286,7 +292,15 @@ export function demarrerJeu(cfg) {
 
   function recevoir(m) {
     switch (m.t) {
-      case 'bienvenue': moi = m.id; break;
+      case 'bienvenue':
+        moi = m.id;
+        if (annonceEnAttente === codeSalle) {
+          annonceEnAttente = null;
+          annoncerPartie(cfg.idSite || id, codeSalle, m.nom).then(n => {
+            if (n > 0) toast(n === 1 ? '1 personne en ligne a été prévenue' : `${n} personnes en ligne ont été prévenues`, 3200);
+          });
+        }
+        break;
       case 'salle':
         salle = m;
         if (m.phase === 'salon' && ecran !== 'salon' && (ecran === 'fin' || !enLigne)) { enLigne = false; montrer('salon'); }
@@ -395,7 +409,7 @@ export function demarrerJeu(cfg) {
     const b = e.target.closest('[data-a]');
     if (!b || b.disabled) return;
     switch (b.dataset.a) {
-      case 'creer': connecter(nouveauCode()); break;
+      case 'creer': connecter(nouveauCode(), true); break;
       case 'rejoindre': {
         const code = codeSaisi.value.trim().toUpperCase();
         if (!/^[A-Z0-9]{4}$/.test(code)) { message('Le code fait 4 caractères (ex : K7QF).'); return; }
@@ -426,7 +440,10 @@ export function demarrerJeu(cfg) {
   champPseudo.addEventListener('change', pseudo);
 
   function lireInvitation() {
-    const code = location.hash.slice(1).toUpperCase();
+    const brut = location.hash.slice(1).toUpperCase().match(/^([A-Z0-9]{4})(!?)$/);
+    const code = brut ? brut[1] : '';
+    // « CODE! » : on vient d'une notification, on rejoint tout de suite
+    if (brut && brut[2] && ecran === 'accueil' && SERVEUR) { setTimeout(() => { if (ecran === 'accueil') connecter(code); }, 0); return; }
     if (/^[A-Z0-9]{4}$/.test(code) && ecran === 'accueil') {
       codeSaisi.value = code;
       const r = $('[data-a="rejoindre"]');
@@ -440,5 +457,13 @@ export function demarrerJeu(cfg) {
 
   montrer('accueil');
   verifierServeur();
+  suivrePresence(n => {
+    const texte = texteEnLigne(n);
+    for (const el of document.querySelectorAll('.enligne')) {
+      el.hidden = !texte;
+      el.classList.toggle('vide', n !== null && n <= 1);
+      el.querySelector('span').textContent = texte;
+    }
+  });
   return ctx;
 }

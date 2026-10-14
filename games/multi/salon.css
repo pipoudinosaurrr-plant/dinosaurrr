@@ -55,6 +55,13 @@ body {
 .serveur i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #525252; }
 .serveur.ok i { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
 .serveur.ko i { background: #ef4444; }
+.enligne { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--accent); font: 600 11px var(--mono); }
+.enligne[hidden] { display: none; }
+.enligne i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pouls-enligne 1.6s ease-in-out infinite; }
+.enligne.vide { color: var(--tres-doux); }
+.enligne.vide i { background: #525252; box-shadow: none; animation: none; }
+[data-ecran="salon"] .enligne { justify-content: center; margin: -4px 0 10px; }
+@keyframes pouls-enligne { 50% { opacity: .35; } }
 
 .entete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .code-zone { margin: 18px 0 14px; padding: 16px; border: 1px solid var(--bord); border-radius: 14px; background: #050505; text-align: center; }

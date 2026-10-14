@@ -311,6 +311,7 @@
         <div class="taches" role="toolbar" aria-label="Fenêtres ouvertes"></div>
         <div class="zone-notif">
           <button class="notif-contact" title="Contact : ${echapper(adresseMail())}" aria-label="Contact">${xp('mail', 16)}</button>
+          <button class="notif-enligne" hidden title="Personnes en ligne" aria-label="Personnes en ligne">${xp('joueurs', 16)}<span></span></button>
           <span class="icone-notif" title="Connecté à Internet">${xp('reseau', 16)}</span>
           <span class="icone-notif" title="Volume">${xp('volume', 16)}</span>
           <span class="horloge">--:--</span>
@@ -1151,14 +1152,75 @@
     }
 
     let minuterieBulle = null;
-    function bulle(titre, texte, duree = 8000) {
+    // options : { icone, boutons: [{ texte, faire, lien }] }
+    function bulle(titre, texte, duree = 8000, options = {}) {
       const b = $('.bulle');
-      b.innerHTML = `<button class="fermer-bulle" aria-label="Fermer">${GLYPHE.petit}</button><strong>${xp('info', 16)}${echapper(titre)}</strong><p>${echapper(texte)}</p>`;
+      const boutons = options.boutons || [];
+      b.innerHTML = `<button class="fermer-bulle" aria-label="Fermer">${GLYPHE.petit}</button><strong>${xp(options.icone || 'info', 16)}${echapper(titre)}</strong><p>${echapper(texte)}</p>`
+        + (boutons.length ? `<div class="bulle-actions">${boutons.map((x, i) => `<button data-i="${i}" class="${x.lien ? 'bulle-lien' : 'btn'}">${echapper(x.texte)}</button>`).join('')}</div>` : '');
       b.hidden = false;
       son('ding');
       $('.fermer-bulle', b).addEventListener('click', () => { b.hidden = true; });
+      $$('.bulle-actions button', b).forEach(btn => btn.addEventListener('click', () => {
+        b.hidden = true;
+        clearTimeout(minuterieBulle);
+        const x = boutons[Number(btn.dataset.i)];
+        if (x && x.faire) x.faire();
+      }));
       clearTimeout(minuterieBulle);
       minuterieBulle = setTimeout(() => { b.hidden = true; }, duree);
+    }
+
+    /* ----- Qui est en ligne + « Untel a créé une partie » (assets/presence.js) ----- */
+
+    const notifsParties = () => stockage.lire('site-notifs-parties', 'oui') !== 'non';
+    let enLigne = null;
+
+    function brancherPresence() {
+      const P = window.DinoPresence;
+      const icone = $('.notif-enligne');
+      if (!P || !P.actif) return;
+      const texteCompte = () => {
+        const autres = Math.max(0, (enLigne || 1) - 1);
+        return autres === 0 ? 'Personne d’autre sur le site' : autres === 1 ? '1 autre personne sur le site' : `${autres} autres personnes sur le site`;
+      };
+      P.ecouter(m => {
+        if (m.t === 'compte') {
+          enLigne = m.n;
+          icone.hidden = m.n === null;
+          const autres = Math.max(0, (m.n || 1) - 1);
+          $('span', icone).textContent = autres > 0 ? autres : '';
+          icone.classList.toggle('seul', autres === 0);
+          icone.title = texteCompte() + (notifsParties() ? '' : ' · notifications coupées');
+        }
+        if (m.t === 'partie' && notifsParties()) {
+          const jeu = JEUX.find(j => j.id === m.jeu);
+          if (!jeu) return;
+          bulle(
+            txt('partieTitre', '{joueur} lance une partie', { joueur: m.nom, jeu: jeu.titre }),
+            txt('partieTexte', '{jeu} · code {code}. Viens jouer avec {joueur} !', { joueur: m.nom, jeu: jeu.titre, code: m.code }),
+            20000,
+            {
+              icone: jeu.icone,
+              boutons: [
+                { texte: 'Rejoindre', faire: () => ouvrirApp('jeu-' + jeu.id, { param: m.code + '!' }) },
+                { texte: 'Ne plus me prévenir', lien: true, faire: () => { stockage.ecrire('site-notifs-parties', 'non'); bulle('Notifications coupées', 'Clique sur les deux bonshommes en bas à droite pour les remettre.', 5000, { icone: 'joueurs' }); } }
+              ]
+            });
+        }
+      });
+      icone.addEventListener('click', () => {
+        const actives = notifsParties();
+        bulle(texteCompte(), actives ? 'Tu es prévenu quand quelqu’un crée une partie en ligne.' : 'Les notifications de nouvelles parties sont coupées.', 8000, {
+          icone: 'joueurs',
+          boutons: [
+            actives
+              ? { texte: 'Couper les notifications', lien: true, faire: () => { stockage.ecrire('site-notifs-parties', 'non'); icone.title = texteCompte() + ' · notifications coupées'; } }
+              : { texte: 'Me prévenir', faire: () => { stockage.ecrire('site-notifs-parties', 'oui'); icone.title = texteCompte(); } },
+            { texte: 'Jouer', lien: !actives, faire: () => ouvrirApp('jeux') }
+          ]
+        });
+      });
     }
 
     function horloge() {
@@ -1264,6 +1326,7 @@
     horloge();
     setInterval(horloge, 10000);
     if (extras) extras.demarrer();
+    brancherPresence();
 
     btnDemarrer.addEventListener('click', e => { e.stopPropagation(); basculerMenu(); });
     $('.notif-contact').addEventListener('click', () => ouvrirApp('contact'));
@@ -1399,6 +1462,7 @@
       vues.jeux.innerHTML = `
         <h1 class="m-titre-vue">Jeux</h1>
         <p class="m-sous-titre">${JEUX.length} mini-jeux codés à la main.</p>
+        <p class="m-sous-titre" style="margin-top:-6px"><span class="m-enligne" hidden><i></i><span></span></span></p>
         <div class="m-section-tete"><h2>À plusieurs</h2><span class="m-compte">${JEUX.filter(j => j.multi).length} jeux · en ligne</span></div>
         <div class="m-grille-jeux">${JEUX.filter(j => j.multi).map(htmlCarteJeu).join('')}</div>
         <div class="m-section-tete" style="margin-top:28px"><h2>En solo</h2><span class="m-compte">${JEUX.filter(j => !j.multi).length} jeux</span></div>
@@ -1422,10 +1486,60 @@
             <button class="btn" data-a="copier-mail">${svg('copier', 16)}Copier</button>
           </div>
         </div>
+        <div class="m-carte">
+          <h3>Jeux en ligne</h3>
+          <p class="bio" style="margin:0 0 12px"><span class="m-enligne" hidden><i></i><span></span></span></p>
+          <div class="actions">
+            <button class="btn m-bascule-notifs">${stockage.lire('site-notifs-parties', 'oui') === 'non' ? 'Me prévenir des nouvelles parties' : 'Couper les notifications de parties'}</button>
+          </div>
+        </div>
         <p class="m-pied">Sur ordinateur, le site s'ouvre en mode bureau.</p>`;
+      $('.m-bascule-notifs', vues.moi).addEventListener('click', () => {
+        const coupees = stockage.lire('site-notifs-parties', 'oui') === 'non';
+        stockage.ecrire('site-notifs-parties', coupees ? 'oui' : 'non');
+        toast(coupees ? 'Notifications activées' : 'Notifications coupées');
+        vueMoi();
+        majEnLigne();
+      });
     }
 
-    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); }
+    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); }
+
+    /* ----- Qui est en ligne + « Untel a créé une partie » (assets/presence.js) ----- */
+
+    let enLigneM = null;
+    function majEnLigne() {
+      const autres = enLigneM === null ? null : Math.max(0, enLigneM - 1);
+      const texte = autres === null ? '' : autres === 0 ? 'Personne d’autre en ligne pour l’instant' : autres === 1 ? '1 autre personne en ligne sur le site' : `${autres} autres personnes en ligne sur le site`;
+      $$('.m-enligne').forEach(el => {
+        el.hidden = !texte;
+        el.classList.toggle('vide', autres === 0);
+        $('span', el).textContent = texte;
+      });
+    }
+
+    function notifPartie(m) {
+      const jeu = JEUX.find(j => j.id === m.jeu);
+      if (!jeu || stockage.lire('site-notifs-parties', 'oui') === 'non') return;
+      $$('.m-notif-partie').forEach(x => x.remove());
+      const n = creer(`
+        <div class="m-notif-partie" role="status">
+          <div class="texte"><b>${echapper(txt('partieTitre', '{joueur} lance une partie', { joueur: m.nom, jeu: jeu.titre }))}</b><span>${echapper(txt('partieTexte', '{jeu} · code {code}. Viens jouer avec {joueur} !', { joueur: m.nom, jeu: jeu.titre, code: m.code }))}</span></div>
+          <button class="btn btn-primaire petit">Rejoindre</button>
+          <button class="fermer" aria-label="Fermer">✕</button>
+        </div>`);
+      document.body.append(n);
+      const fin = setTimeout(() => n.remove(), 20000);
+      $('.btn', n).addEventListener('click', () => { clearTimeout(fin); n.remove(); ouvrirJeu(jeu.id + '/' + m.code + '!', true); });
+      $('.fermer', n).addEventListener('click', () => { clearTimeout(fin); n.remove(); });
+    }
+
+    if (window.DinoPresence && window.DinoPresence.actif) {
+      window.DinoPresence.ecouter(m => {
+        if (m.t === 'compte') { enLigneM = m.n; majEnLigne(); }
+        if (m.t === 'partie') notifPartie(m);
+      });
+    }
 
     function changerOnglet(nom, sansHash) {
       if (!vues[nom]) nom = 'accueil';

@@ -170,6 +170,10 @@
     <g stroke="#2f8f3f" stroke-width="1.3"><path d="M14.5 15h9M14.5 18.5h9M14.5 22h6"/></g></svg>`;
 
   // Zone de notification
+  // deux bonshommes (comme les contacts en ligne de MSN Messenger)
+  D.joueurs = `<svg viewBox="0 0 32 32"><defs>${rad('jv', '#c9f7b8', '#3fbf3a', '#13660f')}${rad('jb', '#c6e4ff', '#3b8fe6', '#0f4a99')}</defs>
+    <circle cx="21" cy="9.5" r="4.5" fill="url(#jb)" stroke="#0b3570"/><path d="M13.5 24.5c0-6 3.4-9.5 7.5-9.5s7.5 3.5 7.5 9.5z" fill="url(#jb)" stroke="#0b3570" stroke-linejoin="round"/>
+    <circle cx="11" cy="12" r="5" fill="url(#jv)" stroke="#0c4a09"/><path d="M2.5 28.5c0-6.5 3.8-10.5 8.5-10.5s8.5 4 8.5 10.5z" fill="url(#jv)" stroke="#0c4a09" stroke-linejoin="round"/></svg>`;
   D.volume = `<svg viewBox="0 0 32 32"><defs>${lin('hp', '#e6e6e6', '#8a8a8a')}</defs>
     <path d="M5.5 12.5h5l7-6v19l-7-6h-5z" fill="url(#hp)" stroke="#333" stroke-linejoin="round"/>
     <path d="M21 11.5a6 6 0 0 1 0 9M24 8.5a10 10 0 0 1 0 15" fill="none" stroke="#d9d9d9" stroke-width="2" stroke-linecap="round"/></svg>`;

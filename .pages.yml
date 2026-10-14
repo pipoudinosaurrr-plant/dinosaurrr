@@ -555,3 +555,11 @@ content:
       - name: coffreBloque
         label: "Coffre : trop d'essais"
         type: string
+      - name: partieTitre
+        label: "Notification « nouvelle partie » : titre"
+        type: string
+        description: "{joueur} = qui a créé la partie, {jeu} = le nom du jeu"
+      - name: partieTexte
+        label: "Notification « nouvelle partie » : texte"
+        type: string
+        description: "{joueur}, {jeu} et {code} = le code de la partie"

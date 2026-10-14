@@ -59,6 +59,14 @@
     .serveur i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #525252; }
     .serveur.ok i { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
     .serveur.ko i { background: #ef4444; }
+    .enligne { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--accent); font: 600 11px var(--mono); }
+    .enligne[hidden] { display: none; }
+    .enligne i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pouls-enligne 1.6s ease-in-out infinite; }
+    .enligne.vide { color: var(--tres-doux); }
+    .enligne.vide i { background: #525252; box-shadow: none; animation: none; }
+    #salon .enligne, [data-ecran="salon"] .enligne { justify-content: center; margin: -4px 0 10px; }
+    @keyframes pouls-enligne { 50% { opacity: .35; } }
+    .petit-toast { position: fixed; left: 50%; bottom: 24px; z-index: 50; transform: translateX(-50%); padding: 9px 14px; border-radius: 10px; background: rgba(20,20,20,.92); color: #fff; font: 600 12px var(--mono); }
 
     /* salon */
     .entete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -209,6 +217,7 @@
       </div>
 
       <div class="serveur" id="serveur"><i></i><span>Vérification du serveur…</span></div>
+      <div class="enligne" hidden><i></i><span></span></div>
     </div>
   </section>
 
@@ -228,6 +237,7 @@
         </div>
       </div>
       <div class="compteur" id="compteur">Connexion…</div>
+      <div class="enligne" hidden><i></i><span></span></div>
       <ul class="joueurs" id="joueurs"></ul>
       <div id="hote-zone" hidden>
         <div class="ligne" style="margin-top:12px">
@@ -258,6 +268,7 @@
   <script src="../assets/config.js"></script>
   <script type="module">
     import * as M from './cercle/moteur.js';
+    import { suivrePresence, annoncerPartie, texteEnLigne } from './multi/presence.js';
 
     const $ = id => document.getElementById(id);
     const toile = $('toile');
@@ -299,6 +310,14 @@
     let equipe = new Map();
     let spectateur = false;
     let ws = null, codeSalle = '', salle = null, quitte = false, minuteriePing = null;
+    let annonceEnAttente = null;
+    function petitToast(texte) {
+      const t = document.createElement('div');
+      t.className = 'petit-toast';
+      t.textContent = texte;
+      document.body.append(t);
+      setTimeout(() => t.remove(), 3200);
+    }
     let tampon = [];
     let serveurOk = false;
 
@@ -426,7 +445,8 @@
       return Array.from(o, x => LETTRES[x % LETTRES.length]).join('');
     }
 
-    function connecter(code) {
+    function connecter(code, nouvelle = false) {
+      annonceEnAttente = nouvelle ? code : null;
       message('');
       quitte = false;
       codeSalle = code;
@@ -475,6 +495,12 @@
       switch (m.t) {
         case 'bienvenue':
           moi = m.id;
+          if (annonceEnAttente === codeSalle) {
+            annonceEnAttente = null;
+            annoncerPartie('cercle', codeSalle, m.nom).then(n => {
+              if (n > 0) petitToast(n === 1 ? '1 personne en ligne a été prévenue' : `${n} personnes en ligne ont été prévenues`);
+            });
+          }
           break;
         case 'salle':
           salle = m;
@@ -665,7 +691,7 @@
 
     /* ---------- Boutons ---------- */
 
-    $('creer').addEventListener('click', () => connecter(nouveauCode()));
+    $('creer').addEventListener('click', () => connecter(nouveauCode(), true));
     $('rejoindre').addEventListener('click', () => {
       const code = $('code-saisi').value.trim().toUpperCase();
       if (!/^[A-Z0-9]{4}$/.test(code)) { message('Le code fait 4 caractères (ex : K7QF).'); return; }
@@ -697,7 +723,10 @@
 
     // lien d'invitation : games/cercle.html#K7QF
     function lireInvitation() {
-      const code = location.hash.slice(1).toUpperCase();
+      const brut = location.hash.slice(1).toUpperCase().match(/^([A-Z0-9]{4})(!?)$/);
+      const code = brut ? brut[1] : '';
+      // « CODE! » : on vient d'une notification, on rejoint tout de suite
+      if (brut && brut[2] && ecran === 'accueil' && SERVEUR) { setTimeout(() => { if (ecran === 'accueil') connecter(code); }, 0); return; }
       if (/^[A-Z0-9]{4}$/.test(code) && ecran === 'accueil') {
         $('code-saisi').value = code;
         $('rejoindre').textContent = 'Rejoindre ' + code;
@@ -1056,6 +1085,14 @@
 
     requestAnimationFrame(boucle);
     verifierServeur();
+    suivrePresence(n => {
+      const texte = texteEnLigne(n);
+      for (const el of document.querySelectorAll('.enligne')) {
+        el.hidden = !texte;
+        el.classList.toggle('vide', n !== null && n <= 1);
+        el.querySelector('span').textContent = texte;
+      }
+    });
   </script>
 </body>
 </html>
