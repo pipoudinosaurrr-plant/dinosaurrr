@@ -1,0 +1,492 @@
+[
+  {
+    "question": "Quel studio a créé Minecraft ?",
+    "bonne": "Mojang",
+    "mauvaise1": "Ubisoft",
+    "mauvaise2": "Valve",
+    "mauvaise3": "Epic Games"
+  },
+  {
+    "question": "Comment s’appelle le frère de Mario ?",
+    "bonne": "Luigi",
+    "mauvaise1": "Wario",
+    "mauvaise2": "Toad",
+    "mauvaise3": "Yoshi"
+  },
+  {
+    "question": "Dans Zelda, comment s’appelle le héros ?",
+    "bonne": "Link",
+    "mauvaise1": "Zelda",
+    "mauvaise2": "Ganon",
+    "mauvaise3": "Navi"
+  },
+  {
+    "question": "Quelle entreprise fabrique la PlayStation ?",
+    "bonne": "Sony",
+    "mauvaise1": "Nintendo",
+    "mauvaise2": "Microsoft",
+    "mauvaise3": "Sega"
+  },
+  {
+    "question": "De quelle couleur est Sonic ?",
+    "bonne": "Bleu",
+    "mauvaise1": "Rouge",
+    "mauvaise2": "Vert",
+    "mauvaise3": "Jaune"
+  },
+  {
+    "question": "Quel studio développe Fortnite ?",
+    "bonne": "Epic Games",
+    "mauvaise1": "Riot Games",
+    "mauvaise2": "Rockstar",
+    "mauvaise3": "Blizzard"
+  },
+  {
+    "question": "Quel studio a créé la série GTA ?",
+    "bonne": "Rockstar Games",
+    "mauvaise1": "Ubisoft",
+    "mauvaise2": "EA",
+    "mauvaise3": "Bethesda"
+  },
+  {
+    "question": "Dans quel pays Tetris a-t-il été inventé ?",
+    "bonne": "En Union soviétique",
+    "mauvaise1": "Au Japon",
+    "mauvaise2": "Aux États-Unis",
+    "mauvaise3": "En France"
+  },
+  {
+    "question": "Quel Pokémon est le numéro 25 du Pokédex ?",
+    "bonne": "Pikachu",
+    "mauvaise1": "Évoli",
+    "mauvaise2": "Salamèche",
+    "mauvaise3": "Bulbizarre"
+  },
+  {
+    "question": "Quel est le type de Salamèche ?",
+    "bonne": "Feu",
+    "mauvaise1": "Eau",
+    "mauvaise2": "Plante",
+    "mauvaise3": "Électrik"
+  },
+  {
+    "question": "Dans Minecraft, quel monstre explose ?",
+    "bonne": "Le Creeper",
+    "mauvaise1": "Le Zombie",
+    "mauvaise2": "L’Enderman",
+    "mauvaise3": "Le Squelette"
+  },
+  {
+    "question": "Quelle console portable Nintendo est sortie en 1989 ?",
+    "bonne": "La Game Boy",
+    "mauvaise1": "La DS",
+    "mauvaise2": "La Switch",
+    "mauvaise3": "La 3DS"
+  },
+  {
+    "question": "Qui est l’ennemi principal de Mario ?",
+    "bonne": "Bowser",
+    "mauvaise1": "Ganondorf",
+    "mauvaise2": "Eggman",
+    "mauvaise3": "Kirby"
+  },
+  {
+    "question": "Quelle entreprise fabrique la Xbox ?",
+    "bonne": "Microsoft",
+    "mauvaise1": "Sony",
+    "mauvaise2": "Nintendo",
+    "mauvaise3": "Apple"
+  },
+  {
+    "question": "Dans Pac-Man, que mange Pac-Man ?",
+    "bonne": "Des pac-gommes",
+    "mauvaise1": "Des pièces",
+    "mauvaise2": "Des étoiles",
+    "mauvaise3": "Des champignons"
+  },
+  {
+    "question": "Quel studio français a créé Rayman ?",
+    "bonne": "Ubisoft",
+    "mauvaise1": "Quantic Dream",
+    "mauvaise2": "Ankama",
+    "mauvaise3": "Dontnod"
+  },
+  {
+    "question": "Dans Among Us, comment s’appellent les traîtres ?",
+    "bonne": "Les imposteurs",
+    "mauvaise1": "Les espions",
+    "mauvaise2": "Les loups",
+    "mauvaise3": "Les pirates"
+  },
+  {
+    "question": "En quelle année est sortie la Nintendo Switch ?",
+    "bonne": "2017",
+    "mauvaise1": "2014",
+    "mauvaise2": "2019",
+    "mauvaise3": "2012"
+  },
+  {
+    "question": "Quel jeu se joue sur la « Faille de l’invocateur » ?",
+    "bonne": "League of Legends",
+    "mauvaise1": "Valorant",
+    "mauvaise2": "Overwatch",
+    "mauvaise3": "Rocket League"
+  },
+  {
+    "question": "Dans Rocket League, on joue au foot avec…",
+    "bonne": "Des voitures",
+    "mauvaise1": "Des robots",
+    "mauvaise2": "Des chevaux",
+    "mauvaise3": "Des avions"
+  },
+  {
+    "question": "Que veut dire « HTML » ?",
+    "bonne": "HyperText Markup Language",
+    "mauvaise1": "High Tech Modern Language",
+    "mauvaise2": "Home Tool Making Language",
+    "mauvaise3": "Hyper Transfer Main Link"
+  },
+  {
+    "question": "Qui a inventé le World Wide Web ?",
+    "bonne": "Tim Berners-Lee",
+    "mauvaise1": "Bill Gates",
+    "mauvaise2": "Steve Jobs",
+    "mauvaise3": "Mark Zuckerberg"
+  },
+  {
+    "question": "Combien vaut 101 en binaire ?",
+    "bonne": "5",
+    "mauvaise1": "3",
+    "mauvaise2": "6",
+    "mauvaise3": "101"
+  },
+  {
+    "question": "En quelle année est sorti le premier iPhone ?",
+    "bonne": "2007",
+    "mauvaise1": "2004",
+    "mauvaise2": "2010",
+    "mauvaise3": "2001"
+  },
+  {
+    "question": "Que veut dire « CPU » ?",
+    "bonne": "Processeur central",
+    "mauvaise1": "Carte graphique",
+    "mauvaise2": "Mémoire vive",
+    "mauvaise3": "Disque dur"
+  },
+  {
+    "question": "Quel symbole sépare le nom et le domaine d’une adresse mail ?",
+    "bonne": "@",
+    "mauvaise1": "#",
+    "mauvaise2": "&",
+    "mauvaise3": "%"
+  },
+  {
+    "question": "Qui a fondé Microsoft avec Paul Allen ?",
+    "bonne": "Bill Gates",
+    "mauvaise1": "Steve Jobs",
+    "mauvaise2": "Elon Musk",
+    "mauvaise3": "Larry Page"
+  },
+  {
+    "question": "Combien de bits dans un octet ?",
+    "bonne": "8",
+    "mauvaise1": "4",
+    "mauvaise2": "10",
+    "mauvaise3": "16"
+  },
+  {
+    "question": "Quel langage sert à mettre en forme une page web ?",
+    "bonne": "CSS",
+    "mauvaise1": "SQL",
+    "mauvaise2": "C++",
+    "mauvaise3": "PHP"
+  },
+  {
+    "question": "Quelle entreprise développe Android ?",
+    "bonne": "Google",
+    "mauvaise1": "Apple",
+    "mauvaise2": "Samsung",
+    "mauvaise3": "Nokia"
+  },
+  {
+    "question": "Que signifie « Wi-Fi » dans la pratique ?",
+    "bonne": "Une connexion sans fil",
+    "mauvaise1": "Un câble réseau",
+    "mauvaise2": "Un antivirus",
+    "mauvaise3": "Un navigateur"
+  },
+  {
+    "question": "Quel est le logo de Firefox ?",
+    "bonne": "Un renard",
+    "mauvaise1": "Un chat",
+    "mauvaise2": "Un loup",
+    "mauvaise3": "Un oiseau"
+  },
+  {
+    "question": "Quelle est la plus grande planète du système solaire ?",
+    "bonne": "Jupiter",
+    "mauvaise1": "Saturne",
+    "mauvaise2": "Neptune",
+    "mauvaise3": "La Terre"
+  },
+  {
+    "question": "Quelle planète surnomme-t-on la planète rouge ?",
+    "bonne": "Mars",
+    "mauvaise1": "Vénus",
+    "mauvaise2": "Mercure",
+    "mauvaise3": "Jupiter"
+  },
+  {
+    "question": "Quelle est la formule chimique de l’eau ?",
+    "bonne": "H₂O",
+    "mauvaise1": "CO₂",
+    "mauvaise2": "O₂",
+    "mauvaise3": "NaCl"
+  },
+  {
+    "question": "À quelle température l’eau bout-elle (au niveau de la mer) ?",
+    "bonne": "100 °C",
+    "mauvaise1": "90 °C",
+    "mauvaise2": "120 °C",
+    "mauvaise3": "80 °C"
+  },
+  {
+    "question": "Combien d’os a un humain adulte ?",
+    "bonne": "206",
+    "mauvaise1": "150",
+    "mauvaise2": "300",
+    "mauvaise3": "412"
+  },
+  {
+    "question": "Quel gaz les plantes absorbent-elles pour faire la photosynthèse ?",
+    "bonne": "Le dioxyde de carbone",
+    "mauvaise1": "L’oxygène",
+    "mauvaise2": "L’azote",
+    "mauvaise3": "L’hélium"
+  },
+  {
+    "question": "Quelle est l’étoile la plus proche de la Terre ?",
+    "bonne": "Le Soleil",
+    "mauvaise1": "Proxima du Centaure",
+    "mauvaise2": "Sirius",
+    "mauvaise3": "L’étoile polaire"
+  },
+  {
+    "question": "Combien de pattes a une araignée ?",
+    "bonne": "8",
+    "mauvaise1": "6",
+    "mauvaise2": "10",
+    "mauvaise3": "12"
+  },
+  {
+    "question": "Quel est le plus grand animal du monde ?",
+    "bonne": "La baleine bleue",
+    "mauvaise1": "L’éléphant",
+    "mauvaise2": "Le requin-baleine",
+    "mauvaise3": "La girafe"
+  },
+  {
+    "question": "Combien de planètes compte le système solaire ?",
+    "bonne": "8",
+    "mauvaise1": "9",
+    "mauvaise2": "7",
+    "mauvaise3": "10"
+  },
+  {
+    "question": "Quel organe pompe le sang dans le corps ?",
+    "bonne": "Le cœur",
+    "mauvaise1": "Les poumons",
+    "mauvaise2": "Le foie",
+    "mauvaise3": "Le cerveau"
+  },
+  {
+    "question": "Qu’est-ce qui va le plus vite ?",
+    "bonne": "La lumière",
+    "mauvaise1": "Le son",
+    "mauvaise2": "Une fusée",
+    "mauvaise3": "Un avion de chasse"
+  },
+  {
+    "question": "Combien font 7 × 8 ?",
+    "bonne": "56",
+    "mauvaise1": "54",
+    "mauvaise2": "64",
+    "mauvaise3": "48"
+  },
+  {
+    "question": "Quelle est la racine carrée de 144 ?",
+    "bonne": "12",
+    "mauvaise1": "14",
+    "mauvaise2": "11",
+    "mauvaise3": "16"
+  },
+  {
+    "question": "Combien de degrés au total dans les angles d’un triangle ?",
+    "bonne": "180°",
+    "mauvaise1": "360°",
+    "mauvaise2": "90°",
+    "mauvaise3": "270°"
+  },
+  {
+    "question": "Combien de côtés a un hexagone ?",
+    "bonne": "6",
+    "mauvaise1": "5",
+    "mauvaise2": "7",
+    "mauvaise3": "8"
+  },
+  {
+    "question": "Combien font 15 % de 200 ?",
+    "bonne": "30",
+    "mauvaise1": "15",
+    "mauvaise2": "20",
+    "mauvaise3": "35"
+  },
+  {
+    "question": "Quel nombre est premier ?",
+    "bonne": "13",
+    "mauvaise1": "15",
+    "mauvaise2": "21",
+    "mauvaise3": "27"
+  },
+  {
+    "question": "Quelle est la capitale de l’Australie ?",
+    "bonne": "Canberra",
+    "mauvaise1": "Sydney",
+    "mauvaise2": "Melbourne",
+    "mauvaise3": "Perth"
+  },
+  {
+    "question": "Quelle est la plus haute montagne du monde ?",
+    "bonne": "L’Everest",
+    "mauvaise1": "Le mont Blanc",
+    "mauvaise2": "Le Kilimandjaro",
+    "mauvaise3": "Le K2"
+  },
+  {
+    "question": "Quelle est la capitale du Japon ?",
+    "bonne": "Tokyo",
+    "mauvaise1": "Kyoto",
+    "mauvaise2": "Osaka",
+    "mauvaise3": "Séoul"
+  },
+  {
+    "question": "Quel est le plus grand océan ?",
+    "bonne": "L’océan Pacifique",
+    "mauvaise1": "L’océan Atlantique",
+    "mauvaise2": "L’océan Indien",
+    "mauvaise3": "L’océan Arctique"
+  },
+  {
+    "question": "Quelle est la capitale de la Belgique ?",
+    "bonne": "Bruxelles",
+    "mauvaise1": "Anvers",
+    "mauvaise2": "Liège",
+    "mauvaise3": "Bruges"
+  },
+  {
+    "question": "Dans quel pays se trouve la tour de Pise ?",
+    "bonne": "L’Italie",
+    "mauvaise1": "L’Espagne",
+    "mauvaise2": "La Grèce",
+    "mauvaise3": "Le Portugal"
+  },
+  {
+    "question": "Quel pays a la forme d’une botte ?",
+    "bonne": "L’Italie",
+    "mauvaise1": "La France",
+    "mauvaise2": "Le Chili",
+    "mauvaise3": "La Norvège"
+  },
+  {
+    "question": "Quelle est la capitale du Canada ?",
+    "bonne": "Ottawa",
+    "mauvaise1": "Toronto",
+    "mauvaise2": "Montréal",
+    "mauvaise3": "Vancouver"
+  },
+  {
+    "question": "Sur quel continent se trouve l’Égypte ?",
+    "bonne": "L’Afrique",
+    "mauvaise1": "L’Asie",
+    "mauvaise2": "L’Europe",
+    "mauvaise3": "L’Océanie"
+  },
+  {
+    "question": "Quel est le plus grand pays du monde en superficie ?",
+    "bonne": "La Russie",
+    "mauvaise1": "Le Canada",
+    "mauvaise2": "La Chine",
+    "mauvaise3": "Les États-Unis"
+  },
+  {
+    "question": "Qui a peint la Joconde ?",
+    "bonne": "Léonard de Vinci",
+    "mauvaise1": "Picasso",
+    "mauvaise2": "Van Gogh",
+    "mauvaise3": "Michel-Ange"
+  },
+  {
+    "question": "En quelle année la tour Eiffel a-t-elle été inaugurée ?",
+    "bonne": "1889",
+    "mauvaise1": "1900",
+    "mauvaise2": "1850",
+    "mauvaise3": "1925"
+  },
+  {
+    "question": "Tous les combien d’années ont lieu les Jeux olympiques d’été ?",
+    "bonne": "4 ans",
+    "mauvaise1": "2 ans",
+    "mauvaise2": "5 ans",
+    "mauvaise3": "3 ans"
+  },
+  {
+    "question": "Combien de joueurs par équipe sur un terrain de foot ?",
+    "bonne": "11",
+    "mauvaise1": "10",
+    "mauvaise2": "9",
+    "mauvaise3": "12"
+  },
+  {
+    "question": "Quel super-héros vit à Gotham City ?",
+    "bonne": "Batman",
+    "mauvaise1": "Superman",
+    "mauvaise2": "Spider-Man",
+    "mauvaise3": "Iron Man"
+  },
+  {
+    "question": "Quel est le vrai nom de Spider-Man ?",
+    "bonne": "Peter Parker",
+    "mauvaise1": "Bruce Wayne",
+    "mauvaise2": "Tony Stark",
+    "mauvaise3": "Clark Kent"
+  },
+  {
+    "question": "Combien de cases sur un échiquier ?",
+    "bonne": "64",
+    "mauvaise1": "81",
+    "mauvaise2": "100",
+    "mauvaise3": "49"
+  },
+  {
+    "question": "Quel instrument a des touches noires et blanches ?",
+    "bonne": "Le piano",
+    "mauvaise1": "La guitare",
+    "mauvaise2": "Le violon",
+    "mauvaise3": "La batterie"
+  },
+  {
+    "question": "Dans quel film trouve-t-on Woody et Buzz l’Éclair ?",
+    "bonne": "Toy Story",
+    "mauvaise1": "Cars",
+    "mauvaise2": "Shrek",
+    "mauvaise3": "Le Monde de Nemo"
+  },
+  {
+    "question": "Quelle langue parle-t-on au Brésil ?",
+    "bonne": "Le portugais",
+    "mauvaise1": "L’espagnol",
+    "mauvaise2": "Le brésilien",
+    "mauvaise3": "L’anglais"
+  }
+]

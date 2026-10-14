@@ -1,7 +1,10 @@
 /* Dessine et devine — 2 à 8 joueurs : un joueur dessine, les autres devinent le mot.
    Les mots proposés ne sont jamais montrés aux autres joueurs (pas de chat). */
 import { copieJoueurs, indexDe, classer, melanger, normaliser, distance } from './outils.js';
-import MOTS from './mots.js';
+import DONNEES from './mots.json' with { type: 'json' };
+
+// les mots sont dans mots.json (modifiables avec Pages CMS « Mots à dessiner »)
+const MOTS = DONNEES.map(m => String(m && m.mot || '').trim()).filter(Boolean);
 
 export const DUREE = 75000;
 const DUREE_CHOIX = 12000;

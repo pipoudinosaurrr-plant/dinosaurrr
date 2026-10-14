@@ -1,6 +1,11 @@
 /* Quiz battle — 2 à 8 joueurs, 10 questions, plus on répond vite et juste, plus on marque */
 import { copieJoueurs, indexDe, classer, melanger, hasard } from './outils.js';
-import BANQUE from './questions.js';
+import DONNEES from './questions.json' with { type: 'json' };
+
+// les questions sont dans questions.json (modifiables avec Pages CMS « Questions du quiz »)
+const BANQUE = DONNEES
+  .filter(q => q && q.question && q.bonne && q.mauvaise1 && q.mauvaise2 && q.mauvaise3)
+  .map(q => [q.question, q.bonne, q.mauvaise1, q.mauvaise2, q.mauvaise3]);
 
 export const NB_QUESTIONS = 10;
 export const DUREE = 15000;

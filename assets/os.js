@@ -1220,7 +1220,7 @@
 
     /* ----- C'est parti ----- */
 
-    appliquerFond(stockage.lire('site-fond-xp2', FONDS[0].id), false);
+    appliquerFond(stockage.lire('site-fond-xp2', C.fondParDefaut || FONDS[0].id), false);
 
     dessinerIcones();
     construireMenu();

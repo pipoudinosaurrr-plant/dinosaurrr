@@ -11,8 +11,11 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | Fichier / dossier | À quoi ça sert |
 | --- | --- |
 | `index.html` | La page d'accueil (bureau sur ordi, appli sur téléphone) |
-| `assets/config.js` | **Tes réglages** : nom du site, pseudo, slogan, phrase d'accroche, présentation, adresse mail |
-| `assets/jeux.js` | La liste des jeux (pour en ajouter) |
+| `_data/site.json` | **Tes réglages** : nom du site, pseudo, slogan, présentation, mail, fond d'écran par défaut (Pages CMS « Réglages du site ») |
+| `_data/jeux.json` | La liste des jeux (Pages CMS « Jeux ») |
+| `_data/commandes.json` | Tes commandes secrètes pour l'Invite de commandes (Pages CMS « Commandes secrètes ») |
+| `assets/config.js`, `assets/jeux.js` | Fabriqués automatiquement à partir des fichiers `_data/` (ne pas les modifier) |
+| `assets/coffre.json`, `outils/coffre.html` | Le coffre secret chiffré, et la page qui le fabrique |
 | `assets/icones.js` | Les icônes (traits fins, style pro) |
 | `assets/os.js`, `assets/os.css` | Le « système » : fenêtres, barre des tâches, version mobile |
 | `assets/article.css` | Le style des pages d'articles ouvertes seules |
@@ -24,11 +27,11 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `.pages.yml` | Les réglages de l'éditeur Pages CMS |
 | `_config.yml`, `posts.json` | La « mécanique » du blog (pas besoin d'y toucher) |
 | `CNAME` | Le nom de domaine du site (à changer si tu prends une autre extension que `.com`) |
-| `serveur/`, `wrangler.jsonc`, `package.json` | Le serveur des jeux multijoueurs (il tourne chez Cloudflare, voir étape 7) |
+| `serveur/`, `wrangler.jsonc`, `package.json` | Le serveur des jeux multijoueurs (il tourne chez Cloudflare, voir étape 8) |
 | `games/cercle/moteur.js` | Les règles du Cercle, utilisées à la fois par le mode solo et par le serveur |
 | `games/multi/` | Le salon commun des autres jeux à plusieurs (`salon.js`) et leurs règles (`jeux/`) |
-| `games/multi/jeux/questions.js` | Les questions du Quiz battle (ajoute les tiennes) |
-| `games/multi/jeux/mots.js` | Les mots de Dessine et devine (ajoute les tiens) |
+| `games/multi/jeux/questions.json` | Les questions du Quiz battle (Pages CMS « Questions du quiz ») |
+| `games/multi/jeux/mots.json` | Les mots de Dessine et devine (Pages CMS « Mots à dessiner ») |
 
 Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine.
 
@@ -57,7 +60,7 @@ Les jeux en solo : Pluie de météorites, Data Clicker, L'histoire du jeu vidéo
 
 ## 3. Brancher ton nom de domaine
 
-Si ton domaine n'est pas en `.com`, ouvre le fichier `CNAME` et remplace `dinosaurrr.com` par ton vrai domaine (et pareil dans `assets/config.js` et `_config.yml`).
+Si ton domaine n'est pas en `.com`, ouvre le fichier `CNAME` et remplace `dinosaurrr.com` par ton vrai domaine (et pareil dans `_data/site.json` et `_config.yml`).
 
 **D'abord sur GitHub** (dans cet ordre, c'est important) :
 
@@ -111,20 +114,36 @@ Les enregistrements du site (A, CNAME `www`) et ceux du mail (MX, TXT, CNAME `si
 
 Chaque article existe à trois endroits : dans la fenêtre Blog du bureau, dans l'onglet Blog sur téléphone, et en page seule (bien pour le partager ou pour Google). La page `/blog/` liste tous les articles.
 
-Astuce : dans un article, un lien vers `/#jeu/meteorites` ouvre directement le jeu, sur ordi comme sur téléphone (remplace `meteorites` par l'`id` d'un autre jeu de `assets/jeux.js`).
+Astuce : dans un article, un lien vers `/#jeu/meteorites` ouvre directement le jeu, sur ordi comme sur téléphone (remplace `meteorites` par le petit nom d'un autre jeu, visible dans Pages CMS « Jeux »).
 
-## 6. Personnaliser
+## 6. Modifier le site sans coder (Pages CMS)
 
-- **Nom du site, pseudo, slogan, phrase d'accroche, présentation, mail** : `assets/config.js`. L'accroche est le gros titre de l'accueil sur téléphone.
+Tout se fait sur **app.pagescms.org** (marche aussi sur téléphone). Dans le menu de gauche :
+
+| Rubrique | Ce que tu peux changer |
+| --- | --- |
+| **Articles du blog** | Écrire, modifier, supprimer des articles |
+| **Réglages du site** | Nom, pseudo, slogan, présentation, message de bienvenue, fond d'écran par défaut, adresse mail |
+| **Jeux** | Titre, description, icône, ordre (glisser), icône sur le bureau, badge « Nouveau », cacher un jeu |
+| **Questions du quiz** | Ajouter / modifier / supprimer des questions (bonne réponse + 3 mauvaises) |
+| **Mots à dessiner** | La liste des mots de Dessine et devine |
+| **Commandes secrètes** | Ce qui s'affiche quand on tape un mot dans l'Invite de commandes (et ce qui s'ouvre ensuite) |
+| **Coffre secret** | Le contenu du coffre (fabriqué d'abord sur `dinosaurrr.com/outils/coffre.html`) |
+
+Clique sur **Save** : le site se met à jour en 1 à 2 minutes. Les questions du quiz et les mots à dessiner servent aussi au serveur des parties en ligne : Cloudflare le remet à jour tout seul après chaque **Save**.
+
+## 7. Personnaliser le code
+
+- **Pour modifier n'importe quel fichier** : sur la page de ton dépôt GitHub, appuie sur la touche **.** (point). Un éditeur de code s'ouvre dans le navigateur (github.dev). Modifie, puis dans l'onglet « Source Control » (à gauche), écris un message et clique **Commit & Push**.
 - **Ajouter un jeu** :
   1. copie `games/modele.html` → par exemple `games/mon-jeu.html` et code ton jeu dedans (le style noir du site est déjà branché via `jeu.css`) ;
-  2. ajoute un bloc dans `assets/jeux.js` (copie un bloc existant et change `id`, `titre`, `fichier`, `icone`, `description`). Mets `bureau: true` pour avoir une icône sur le bureau, `nouveau: true` pour le badge « Nouveau ».
+  2. dans Pages CMS → **Jeux**, ajoute une entrée avec le chemin `games/mon-jeu.html`.
 - **Les petits plus du bureau** (fichier `assets/xp-extras.js`) : Invite de commandes (tape `aide`), Bloc-notes, Exécuter… (menu démarrer), Date et heure (clic sur l'horloge), écrans de veille (onglet dans Propriétés d'affichage), sons (clic sur le haut-parleur pour couper), sélection au lasso. Il y a aussi des surprises cachées : essaie `crash` dans Exécuter, ou le code Konami (↑ ↑ ↓ ↓ ← → ← → B A) sur le bureau.
 - **Changer le fond d'écran du bureau** : clic droit sur le bureau → **Propriétés** (ou menu démarrer → Fond d'écran). Huit fonds en pixel art avec le dino (colline, coucher de soleil, nuit et aurore, plage, volcan, hiver, espace, rétro 80) + bleu et noir unis. Les images sont dans `assets/fonds/` (400 × 250 pixels, agrandies sans lissage).
 
 Sur GitHub, tu peux modifier n'importe quel fichier directement : ouvre-le, clique sur l'icône crayon, puis **Commit changes**.
 
-## 7. Activer le multijoueur (Le Cercle)
+## 8. Activer le multijoueur (Le Cercle)
 
 Le mode solo contre des bots marche tout de suite. Pour jouer en ligne avec tes potes, il faut allumer le petit serveur chez Cloudflare (gratuit). À faire une seule fois :
 

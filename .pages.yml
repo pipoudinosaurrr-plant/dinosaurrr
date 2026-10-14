@@ -1,5 +1,6 @@
 # Réglages de l'éditeur Pages CMS (app.pagescms.org)
-# C'est ici qu'on décrit les champs que tu remplis pour écrire un article.
+# Chaque bloc ci-dessous devient une rubrique dans le menu de gauche de Pages CMS.
+# Quand tu cliques sur « Save », GitHub met le site à jour tout seul en 1 à 2 minutes.
 
 media:
   input: media
@@ -7,6 +8,7 @@ media:
   rename: safe
 
 content:
+  # ---------------------------------------------------------------- Articles
   - name: articles
     label: Articles du blog
     type: collection
@@ -47,3 +49,216 @@ content:
         type: rich-text
         options:
           format: markdown
+
+  # ---------------------------------------------------------------- Réglages
+  - name: reglages
+    label: Réglages du site
+    type: file
+    path: _data/site.json
+    format: json
+    fields:
+      - name: nomSite
+        label: Nom du site
+        type: string
+        required: true
+      - name: pseudo
+        label: Ton pseudo
+        type: string
+        required: true
+      - name: slogan
+        label: Slogan (accueil sur téléphone)
+        type: string
+      - name: accroche
+        label: Phrase d'accroche (accueil sur téléphone)
+        type: text
+      - name: bio
+        label: Présentation (fenêtre « À propos »)
+        type: text
+      - name: bienvenue
+        label: Message de la bulle de bienvenue (bureau)
+        type: text
+      - name: fondParDefaut
+        label: Fond d'écran pour les nouveaux visiteurs
+        description: Chaque visiteur peut ensuite choisir le sien (clic droit sur le bureau → Propriétés).
+        type: select
+        options:
+          values:
+            - name: pixel
+              label: Colline en pixels
+            - name: coucher
+              label: Coucher de soleil
+            - name: nuit
+              label: Nuit et aurore
+            - name: plage
+              label: Plage
+            - name: volcan
+              label: Volcan
+            - name: hiver
+              label: Hiver
+            - name: espace
+              label: Dino dans l'espace
+            - name: retro
+              label: Rétro 80
+            - name: bleu
+              label: Bleu uni
+            - name: noir
+              label: Noir uni
+      - name: mailNom
+        label: Adresse mail — partie avant le @
+        type: string
+      - name: mailDomaine
+        label: Adresse mail — partie après le @
+        type: string
+      - name: serveurJeux
+        label: Serveur des jeux en ligne (ne change pas sauf si tu sais pourquoi)
+        type: string
+
+  # ---------------------------------------------------------------- Jeux
+  - name: jeux
+    label: Jeux
+    type: file
+    path: _data/jeux.json
+    format: json
+    list: true
+    fields:
+      - name: id
+        label: Petit nom (sans espace ni accent)
+        description: Sert dans les liens, par ex. dinosaurrr.com/#jeu/pong
+        type: string
+        required: true
+        pattern:
+          regex: "^[a-z0-9-]+$"
+          message: "Seulement des lettres minuscules, des chiffres et des tirets."
+      - name: titre
+        label: Titre
+        type: string
+        required: true
+      - name: description
+        label: Description
+        type: text
+      - name: icone
+        label: Icône
+        type: select
+        options:
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette]
+      - name: fichier
+        label: Fichier du jeu
+        description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
+        type: string
+        required: true
+      - name: largeur
+        label: Largeur de la fenêtre (bureau)
+        type: number
+      - name: hauteur
+        label: Hauteur de la fenêtre (bureau)
+        type: number
+      - name: bureau
+        label: Icône sur le bureau
+        type: boolean
+      - name: nouveau
+        label: Badge « Nouveau »
+        type: boolean
+      - name: multi
+        label: Jeu en ligne à plusieurs
+        description: Seulement pour les jeux déjà programmés pour le serveur.
+        type: boolean
+      - name: cache
+        label: Cacher ce jeu
+        description: Le jeu disparaît du site sans être supprimé.
+        type: boolean
+
+  # ---------------------------------------------------------------- Quiz
+  - name: questions
+    label: Questions du quiz
+    type: file
+    path: games/multi/jeux/questions.json
+    format: json
+    list: true
+    fields:
+      - name: question
+        label: Question
+        type: string
+        required: true
+      - name: bonne
+        label: Bonne réponse
+        type: string
+        required: true
+      - name: mauvaise1
+        label: Mauvaise réponse 1
+        type: string
+        required: true
+      - name: mauvaise2
+        label: Mauvaise réponse 2
+        type: string
+        required: true
+      - name: mauvaise3
+        label: Mauvaise réponse 3
+        type: string
+        required: true
+
+  # ---------------------------------------------------------------- Dessine et devine
+  - name: mots
+    label: Mots à dessiner
+    type: file
+    path: games/multi/jeux/mots.json
+    format: json
+    list: true
+    fields:
+      - name: mot
+        label: Mot
+        type: string
+        required: true
+
+  # ---------------------------------------------------------------- Invite de commandes
+  - name: commandes
+    label: Commandes secrètes
+    type: file
+    path: _data/commandes.json
+    format: json
+    list: true
+    fields:
+      - name: commande
+        label: Ce qu'on tape dans l'Invite de commandes
+        type: string
+        required: true
+      - name: reponse
+        label: Ce qui s'affiche (une ligne = une ligne)
+        type: text
+      - name: couleur
+        label: Couleur du texte
+        type: select
+        options:
+          values:
+            - name: normal
+              label: Gris (normal)
+            - name: vert
+              label: Vert
+            - name: jaune
+              label: Jaune
+            - name: rouge
+              label: Rouge
+      - name: ouvrir
+        label: Ouvrir ensuite (facultatif)
+        description: Le petit nom d'un jeu (pong, demineur…), blog, jeux, notepad, ou une adresse web.
+        type: string
+
+  # ---------------------------------------------------------------- Coffre secret
+  - name: coffre
+    label: Coffre secret
+    type: file
+    path: assets/coffre.json
+    format: json
+    fields:
+      - name: commande
+        label: commande
+        description: "Fabrique ces 4 valeurs sur dinosaurrr.com/outils/coffre.html puis colle-les ici. Ne tape jamais ton code en clair dans ces champs."
+        type: string
+      - name: sel
+        label: sel
+        type: string
+      - name: iv
+        label: iv
+        type: string
+      - name: donnees
+        label: donnees
+        type: text

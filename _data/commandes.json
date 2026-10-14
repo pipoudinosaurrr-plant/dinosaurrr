@@ -1,0 +1,17 @@
+[
+  {
+    "commande": "pizza",
+    "reponse": "Le dino adore la pizza.\nSurtout la 4 fromages.",
+    "ouvrir": ""
+  },
+  {
+    "commande": "pipou",
+    "reponse": "C'est moi ! Bienvenue sur dinosaurrr.",
+    "ouvrir": ""
+  },
+  {
+    "commande": "gg",
+    "reponse": "Bien joué ! Tiens, une partie de Pong pour fêter ça.",
+    "ouvrir": "pong"
+  }
+]

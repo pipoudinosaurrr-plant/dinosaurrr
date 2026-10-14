@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Fabrique du coffre secret</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px 16px 48px; background: #3a6ea5; color: #000; font: 13px/1.5 Tahoma, "Segoe UI", Verdana, sans-serif; }
+    .fenetre { max-width: 640px; margin: 0 auto; border-radius: 8px 8px 0 0; background: #0855dd; padding: 0 4px 4px; box-shadow: 3px 4px 10px rgba(0,0,0,.4); }
+    .titre { height: 30px; padding: 6px 8px; color: #fff; font: bold 14px "Trebuchet MS", Tahoma, sans-serif; text-shadow: 1px 1px #0f1089; }
+    .corps { padding: 16px 18px 18px; background: #ece9d8; }
+    h1 { margin: 0 0 4px; font-size: 16px; }
+    p.aide { margin: 0 0 14px; color: #444; }
+    fieldset { margin: 0 0 14px; padding: 8px 12px 12px; border: 1px solid #d0d0bf; border-radius: 3px; }
+    legend { color: #0046d5; padding: 0 3px; }
+    label { display: block; margin: 8px 0 3px; }
+    input, textarea { width: 100%; padding: 4px 6px; border: 1px solid #7f9db9; background: #fff; font: 13px Tahoma, Verdana, sans-serif; }
+    textarea { min-height: 110px; resize: vertical; }
+    small { color: #666; }
+    button { height: 26px; min-width: 90px; padding: 0 12px; border: 1px solid #003c74; border-radius: 3px; background: linear-gradient(180deg, #fff, #ecebe6 86%, #d6d0c5); font: 13px Tahoma, Verdana, sans-serif; cursor: pointer; }
+    button:hover { box-shadow: inset -1px 1px #fff0cf, inset 1px 2px #fdd889, inset -2px 2px #fbc761, inset 2px -2px #e5a01a; }
+    .gros { font-weight: bold; height: 30px; }
+    .resultat { display: none; }
+    .resultat.visible { display: block; }
+    .valeur { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+    .valeur b { width: 90px; flex: none; }
+    .valeur input { font: 12px "Lucida Console", Consolas, monospace; }
+    .ok { padding: 8px 10px; border: 1px solid #000; border-radius: 6px; background: #ffffe1; }
+    ol { padding-left: 20px; }
+  </style>
+</head>
+<body>
+  <div class="fenetre">
+    <div class="titre">Fabrique du coffre secret</div>
+    <div class="corps">
+      <h1>Change le contenu du coffre secret</h1>
+      <p class="aide">Tout se passe sur ton ordinateur : rien n'est envoyé nulle part. Cette page fabrique 4 valeurs chiffrées que tu colles ensuite dans Pages CMS. La commande et le code n'apparaissent jamais en clair sur le site.</p>
+
+      <fieldset>
+        <legend>Comment on ouvre le coffre</legend>
+        <label for="commande">Mot à taper dans l'Invite de commandes</label>
+        <input id="commande" autocomplete="off" spellcheck="false">
+        <label for="code">Code secret demandé ensuite</label>
+        <input id="code" autocomplete="off" spellcheck="false">
+        <small>Majuscules et accents ne comptent pas. Choisis un code assez long (8 lettres ou plus).</small>
+      </fieldset>
+
+      <fieldset>
+        <legend>Ce qu'il y a dedans</legend>
+        <label for="t">Titre de la fenêtre</label>
+        <input id="t" value="Coffre secret">
+        <label for="m">Message (une ligne vide = un nouveau paragraphe)</label>
+        <textarea id="m" placeholder="Bravo, tu as trouvé le coffre !"></textarea>
+        <label for="img">Image (facultatif) : adresse d'une image, par ex. /media/tresor.png</label>
+        <input id="img" placeholder="/media/mon-image.png">
+        <small>Pour ajouter une image : envoie-la d'abord dans Pages CMS → Médias, puis colle son adresse ici.</small>
+        <label for="lien">Lien (facultatif)</label>
+        <input id="lien" placeholder="https://…">
+      </fieldset>
+
+      <p><button class="gros" id="fabriquer">Fabriquer le coffre</button></p>
+
+      <div class="resultat" id="resultat">
+        <p class="ok">C'est prêt ! Maintenant :</p>
+        <ol>
+          <li>Va sur <b>app.pagescms.org</b>, ouvre ton site puis <b>Coffre secret</b>.</li>
+          <li>Colle chaque valeur dans le champ du même nom (bouton « Copier » à droite).</li>
+          <li>Clique sur <b>Save</b>. Le coffre change en 1 à 2 minutes.</li>
+        </ol>
+        <div id="valeurs"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const echapper = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+
+  $('fabriquer').addEventListener('click', async () => {
+    const commande = norm($('commande').value), code = norm($('code').value);
+    if (!commande || !code) { alert('Il faut un mot à taper et un code.'); return; }
+    if (!window.crypto || !crypto.subtle) { alert('Ton navigateur ne sait pas chiffrer ici. Ouvre cette page sur dinosaurrr.com (en https).'); return; }
+    let html = $('m').value.trim().split(/\n\s*\n/).filter(Boolean).map(p => '<p>' + echapper(p).replace(/\n/g, '<br>') + '</p>').join('');
+    const img = $('img').value.trim(), lien = $('lien').value.trim();
+    if (img) html += `<p><img src="${echapper(img)}" alt=""></p>`;
+    if (lien) html += `<p><a href="${echapper(lien)}" target="_blank" rel="noopener">${echapper(lien)}</a></p>`;
+    const contenu = JSON.stringify({ titre: $('t').value.trim() || 'Coffre secret', html: html || '<p>(coffre vide)</p>' });
+    const enc = new TextEncoder();
+    const empreinte = hex(await crypto.subtle.digest('SHA-256', enc.encode('dino:' + commande)));
+    const sel = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const base = await crypto.subtle.importKey('raw', enc.encode(code), 'PBKDF2', false, ['deriveKey']);
+    const cle = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: sel, iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const chiffre = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cle, enc.encode(contenu));
+    const valeurs = { commande: empreinte, sel: b64(sel), iv: b64(iv), donnees: b64(chiffre) };
+    $('valeurs').innerHTML = Object.entries(valeurs).map(([k, v]) =>
+      `<div class="valeur"><b>${k}</b><input readonly value="${v}"><button data-v="${k}">Copier</button></div>`).join('');
+    $('valeurs').onclick = e => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      const champ = b.previousElementSibling; champ.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(champ.value) : Promise.reject()).catch(() => document.execCommand('copy'));
+      b.textContent = 'Copié !'; setTimeout(() => { b.textContent = 'Copier'; }, 1200);
+    };
+    $('resultat').classList.add('visible');
+    $('resultat').scrollIntoView({ behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

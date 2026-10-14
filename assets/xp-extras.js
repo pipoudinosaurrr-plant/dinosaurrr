@@ -545,6 +545,16 @@ window.XP_EXTRAS = function (api) {
       api.ouvrirApp('coffre');
     }
 
+    // commandes ajoutées par toi dans Pages CMS (« Commandes secrètes » → _data/commandes.json)
+    function commandePerso(texte) {
+      const liste = Array.isArray(window.SITE_COMMANDES) ? window.SITE_COMMANDES : [];
+      const c = liste.find(x => x && x.commande && normaliser(x.commande) === normaliser(texte));
+      if (!c) return false;
+      String(c.reponse || '').split('\n').forEach(l => ecrire(l, c.couleur === 'vert' ? 'console-vert' : c.couleur === 'jaune' ? 'console-jaune' : c.couleur === 'rouge' ? 'console-rouge' : ''));
+      if (c.ouvrir) lancer(c.ouvrir);
+      return true;
+    }
+
     async function executer(ligne) {
       ecrire(chemin() + '>' + ligne);
       const texte = ligne.trim();
@@ -555,6 +565,7 @@ window.XP_EXTRAS = function (api) {
       const arg = espace < 0 ? '' : texte.slice(espace + 1).trim();
       const nomSansExe = nom.replace(/\.exe$/, '');
       if (commandes[nomSansExe]) { saisie.disabled = true; try { await commandes[nomSansExe](arg); } finally { saisie.disabled = false; saisie.focus(); } }
+      else if (commandePerso(texte)) { /* commande ajoutée dans Pages CMS */ }
       else if (lancer(texte)) ecrire(`Ouverture de ${texte}…`);
       else if (await estCoffre(texte)) { historique.shift(); saisie.disabled = true; try { await ouvrirCoffre(); } finally { saisie.disabled = false; saisie.focus(); } }
       else { ecrire(`'${texte.split(/\s/)[0]}' n'est pas reconnu en tant que commande interne`); ecrire('ou externe, un programme exécutable ou un fichier de commandes.'); }
