@@ -262,3 +262,296 @@ content:
       - name: donnees
         label: donnees
         type: text
+
+  # ---------------------------------------------------------------- Apparence
+  - name: apparence
+    label: Apparence
+    type: file
+    path: _data/apparence.json
+    format: json
+    fields:
+      - name: theme
+        label: Thème du bureau (ordinateur)
+        type: select
+        options:
+          values:
+            - name: bleu
+              label: "Bleu (Luna)"
+            - name: olive
+              label: "Vert olive"
+            - name: argent
+              label: "Argent"
+            - name: noir
+              label: "Noir"
+      - name: accent
+        label: Couleur de sélection (menus, éléments choisis)
+        type: select
+        options:
+          values:
+            - name: bleu
+              label: "Bleu XP"
+            - name: vert
+              label: "Vert"
+            - name: orange
+              label: "Orange"
+            - name: rose
+              label: "Rose"
+            - name: violet
+              label: "Violet"
+            - name: rouge
+              label: "Rouge"
+            - name: gris
+              label: "Gris"
+      - name: photo
+        label: Photo de profil (menu démarrer, À propos, écran d'accueil)
+        description: Laisse vide pour garder le logo du site. Une image carrée, c'est mieux.
+        type: image
+      - name: demarrerTexte
+        label: Texte du bouton démarrer
+        type: string
+      - name: demarrerImage
+        label: Image du bouton démarrer
+        description: Laisse vide pour garder le petit dino.
+        type: image
+      - name: fondsPerso
+        label: Mes fonds d'écran
+        description: Ils s'ajoutent en haut de la liste dans Propriétés d'affichage.
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{nom}"
+        fields:
+          - name: nom
+            label: Nom
+            type: string
+          - name: image
+            label: Image
+            type: image
+          - name: pixelise
+            label: Agrandir en gros pixels (pour du pixel art)
+            type: boolean
+          - name: parDefaut
+            label: Fond par défaut pour les nouveaux visiteurs
+            type: boolean
+      - name: iconesBureau
+        label: Icônes du bureau
+        description: Laisse vide pour la liste automatique. Sinon, ajoute les icônes dans l'ordre voulu (la Corbeille reste toujours en bas à droite).
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{element} {nom}"
+        fields:
+          - name: element
+            label: Icône
+            type: select
+            options:
+              values:
+                - name: blog
+                  label: "Blog"
+                - name: jeux
+                  label: "Dossier Jeux"
+                - name: apropos
+                  label: "À propos"
+                - name: contact
+                  label: "Contact"
+                - name: cmd
+                  label: "Invite de commandes"
+                - name: notepad
+                  label: "Bloc-notes"
+                - name: executer
+                  label: "Exécuter"
+                - name: dateheure
+                  label: "Date et heure"
+                - name: affichage
+                  label: "Propriétés d'affichage"
+                - name: jeu-cercle
+                  label: "Jeu : Le Cercle"
+                - name: jeu-puissance4
+                  label: "Jeu : Puissance 4"
+                - name: jeu-morpion
+                  label: "Jeu : Morpion géant"
+                - name: jeu-navale
+                  label: "Jeu : Bataille navale"
+                - name: jeu-pong
+                  label: "Jeu : Pong"
+                - name: jeu-tron
+                  label: "Jeu : Tron"
+                - name: jeu-course
+                  label: "Jeu : Course de réflexes"
+                - name: jeu-quiz
+                  label: "Jeu : Quiz battle"
+                - name: jeu-dessin
+                  label: "Jeu : Dessine et devine"
+                - name: jeu-demineur
+                  label: "Jeu : Démineur"
+                - name: jeu-meteorites
+                  label: "Jeu : Pluie de météorites"
+                - name: jeu-clicker
+                  label: "Jeu : Data Clicker"
+                - name: jeu-histoire
+                  label: "Jeu : L'histoire du jeu vidéo"
+                - name: jeu-reflexes
+                  label: "Jeu : Test de réflexes"
+                - name: jeu-bouton
+                  label: "Jeu : Le bouton qui fuit"
+                - name: jeu-pseudo
+                  label: "Jeu : Générateur de pseudo"
+                - name: jeu-paint
+                  label: "Jeu : Paint"
+          - name: nom
+            label: Nom affiché (facultatif)
+            type: string
+      - name: tailleTexte
+        label: Taille du texte (ordinateur)
+        type: select
+        options:
+          values:
+            - name: normal
+              label: "Normal"
+            - name: grand
+              label: "Grandes polices"
+            - name: tres-grand
+              label: "Très grandes polices"
+      - name: pixelisation
+        label: Pixelisation des icônes et du texte
+        type: select
+        options:
+          values:
+            - name: normal
+              label: "Pixelisé (comme XP)"
+            - name: fort
+              label: "Très pixelisé"
+            - name: lisse
+              label: "Lisse (moderne)"
+      - name: mobileTheme
+        label: Couleurs de la version téléphone
+        type: select
+        options:
+          values:
+            - name: noir
+              label: "Noir"
+            - name: bleu-nuit
+              label: "Bleu nuit"
+            - name: violet-nuit
+              label: "Violet nuit"
+            - name: anthracite
+              label: "Gris anthracite"
+      - name: mobileAccent
+        label: Couleur d'accent sur téléphone
+        type: select
+        options:
+          values:
+            - name: vert
+              label: "Vert"
+            - name: bleu
+              label: "Bleu"
+            - name: orange
+              label: "Orange"
+            - name: rose
+              label: "Rose"
+            - name: violet
+              label: "Violet"
+            - name: rouge
+              label: "Rouge"
+            - name: jaune
+              label: "Jaune"
+      - name: sonParDefaut
+        label: Sons activés pour les nouveaux visiteurs
+        type: boolean
+      - name: veilleParDefaut
+        label: Écran de veille par défaut
+        type: select
+        options:
+          values:
+            - name: dino
+              label: "Dino rebondissant"
+            - name: etoiles
+              label: "Voyage dans les étoiles"
+            - name: tuyaux
+              label: "Tuyaux en pixels"
+            - name: aucun
+              label: "Aucun"
+      - name: veilleMinutes
+        label: Écran de veille après (minutes)
+        type: number
+
+  # ---------------------------------------------------------------- Textes
+  - name: textes
+    label: Textes du site
+    type: file
+    path: _data/textes.json
+    format: json
+    fields:
+      - name: versionLigne1
+        label: "Bureau : texte en bas à droite (ligne 1)"
+        type: string
+        description: "Partout : {nom} = nom du site, {pseudo} = ton pseudo."
+      - name: versionLigne2
+        label: "Bureau : texte en bas à droite (ligne 2)"
+        type: string
+      - name: aproposEdition
+        label: "Fenêtre À propos : ligne de version"
+        type: string
+      - name: retourTitre
+        label: "Bulle quand on rouvre la session : titre"
+        type: string
+      - name: retourTexte
+        label: "Bulle quand on rouvre la session : texte"
+        type: string
+      - name: accueilInvite
+        label: "Écran d'accueil (Fermer la session) : phrase"
+        type: string
+      - name: accueilPied
+        label: "Écran d'accueil : petit texte en bas"
+        type: string
+      - name: extinction
+        label: "Message après « Arrêter »"
+        type: string
+      - name: veille
+        label: "Message de la mise en veille"
+        type: string
+      - name: corbeilleVider
+        label: "Question avant de vider la Corbeille"
+        type: string
+        description: "{nombre} = nombre de fichiers"
+      - name: suppressionRefus
+        label: "Message quand on essaie de supprimer une icône"
+        type: text
+      - name: konami
+        label: "Message du code Konami"
+        type: string
+      - name: ecranBleuCode
+        label: "Écran bleu : code d'erreur"
+        type: string
+      - name: ecranBleuTexte
+        label: "Écran bleu : texte complet"
+        type: text
+        description: "{code} = le code d'erreur au-dessus"
+      - name: ecranBleuRetour
+        label: "Bulle après l'écran bleu"
+        type: string
+      - name: cmdAccueil
+        label: "Invite de commandes : phrase d'accueil"
+        type: string
+      - name: cmdInconnue
+        label: "Invite de commandes : commande inconnue"
+        type: text
+        description: "{commande} = ce qui a été tapé"
+      - name: hackFin
+        label: "Invite de commandes : fin de la commande HACK"
+        type: string
+      - name: executerIntrouvable
+        label: "Exécuter : programme introuvable"
+        type: text
+        description: "{commande} = ce qui a été tapé"
+      - name: coffreIncorrect
+        label: "Coffre : mauvais code"
+        type: string
+      - name: coffreOuvert
+        label: "Coffre : bon code"
+        type: string
+      - name: coffreBloque
+        label: "Coffre : trop d'essais"
+        type: string

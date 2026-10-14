@@ -302,7 +302,10 @@
 
   // On redessine chaque icône à sa vraie taille en pixels (16, 32…), bords nets,
   // puis on l'agrandit sans lissage : sur un écran Retina on voit les pixels, comme sur XP.
+  // niveau de pixelisation choisi dans Pages CMS → Apparence (normal, lisse, fort)
+  const NIVEAU = ((window.SITE_APPARENCE || {}).pixelisation) || 'normal';
   function pixeliser(nom, taille) {
+    if (NIVEAU === 'lisse') return;
     const cle = nom + '@' + taille;
     if (png[cle] || enCours[cle]) return;
     enCours[cle] = true;
@@ -310,10 +313,11 @@
     image.onload = () => {
       try {
         const toile = document.createElement('canvas');
-        toile.width = toile.height = taille;
+        const t = NIVEAU === 'fort' ? Math.max(8, Math.round(taille / 2)) : taille;
+        toile.width = toile.height = t;
         const g = toile.getContext('2d');
-        g.drawImage(image, 0, 0, taille, taille);
-        const donnees = g.getImageData(0, 0, taille, taille);
+        g.drawImage(image, 0, 0, t, t);
+        const donnees = g.getImageData(0, 0, t, t);
         const p = donnees.data;
         for (let i = 3; i < p.length; i += 4) p[i] = p[i] < 90 ? 0 : 255;
         g.putImageData(donnees, 0, 0);

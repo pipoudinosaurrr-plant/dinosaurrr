@@ -1,0 +1,16 @@
+{
+  "theme": "bleu",
+  "accent": "bleu",
+  "photo": "",
+  "demarrerTexte": "démarrer",
+  "demarrerImage": "",
+  "fondsPerso": [],
+  "iconesBureau": [],
+  "tailleTexte": "normal",
+  "pixelisation": "normal",
+  "mobileTheme": "noir",
+  "mobileAccent": "vert",
+  "sonParDefaut": true,
+  "veilleParDefaut": "dino",
+  "veilleMinutes": 3
+}

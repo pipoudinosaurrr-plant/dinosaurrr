@@ -42,6 +42,19 @@
 
   const logo = (taille = 28) => `<img src="assets/favicon.svg" width="${taille}" height="${taille}" alt="">`;
 
+  /* ---------- Apparence et textes (Pages CMS → « Apparence », « Textes du site ») ---------- */
+  const A = window.SITE_APPARENCE || {};
+  const TEXTES = window.SITE_TEXTES || {};
+  // un texte modifiable : {nom}, {pseudo} et les autres {mots} sont remplacés
+  function txt(cle, defaut, vars = {}) {
+    const brut = (typeof TEXTES[cle] === 'string' && TEXTES[cle].trim()) ? TEXTES[cle] : defaut;
+    const v = Object.assign({ nom: NOM, pseudo: C.pseudo || NOM }, vars);
+    return String(brut).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+  }
+  const photoProfil = (taille = 46) => A.photo ? `<img src="${echapper(A.photo)}" width="${taille}" height="${taille}" alt="" style="object-fit:cover">` : logo(taille);
+  const ACCENTS_BUREAU = { bleu: '#316ac5', vert: '#2e8b3e', orange: '#d9731e', rose: '#c2408a', violet: '#6a3fb5', rouge: '#c0392b', gris: '#5a5a6e' };
+  const ACCENTS_MOBILE = { vert: ['#22c55e', '#4ade80'], bleu: ['#3b82f6', '#60a5fa'], orange: ['#f97316', '#fb923c'], rose: ['#ec4899', '#f472b6'], violet: ['#8b5cf6', '#a78bfa'], rouge: ['#ef4444', '#f87171'], jaune: ['#eab308', '#facc15'] };
+
   function echapper(texte) {
     return String(texte ?? '').replace(/[&<>"']/g, c => (
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -180,6 +193,10 @@
 
   function bureau() {
     document.body.classList.add('mode-bureau');
+    document.body.dataset.theme = ['bleu', 'olive', 'argent', 'noir'].includes(A.theme) ? A.theme : 'bleu';
+    document.body.dataset.pixel = ['normal', 'lisse', 'fort'].includes(A.pixelisation) ? A.pixelisation : 'normal';
+    document.body.style.setProperty('--xp-sel', ACCENTS_BUREAU[A.accent] || ACCENTS_BUREAU.bleu);
+    document.body.style.setProperty('--t', { grand: 1.15, 'tres-grand': 1.3 }[A.tailleTexte] || 1);
 
     // icône en couleur façon XP (sinon l'icône au trait)
     const xp = (nom, taille = 32) => (window.iconeXP && window.iconeXP(nom, taille)) || svg(nom, taille);
@@ -206,8 +223,13 @@
       { id: 'bleu', nom: '(Aucun) Bleu', couleur: '#3a6ea5' },
       { id: 'noir', nom: '(Aucun) Noir', couleur: '#000000' }
     ];
-    const imageFond = f => f.image ? `assets/fonds/${f.image}.png` : '';
-    const styleFond = f => f.image ? `${f.couleur} url("${imageFond(f)}") center bottom / cover no-repeat` : f.couleur;
+    // tes propres fonds (Pages CMS → Apparence → Mes fonds d'écran)
+    (Array.isArray(A.fondsPerso) ? A.fondsPerso : []).forEach((f, i) => {
+      if (f && f.image) FONDS.splice(i, 0, { id: 'perso-' + i, nom: f.nom || 'Mon fond ' + (i + 1), url: f.image, couleur: '#000000', lisse: !f.pixelise, parDefaut: !!f.parDefaut });
+    });
+    const imageFond = f => f.url ? f.url : f.image ? `assets/fonds/${f.image}.png` : '';
+    const styleFond = f => (f.url || f.image) ? `${f.couleur} url("${imageFond(f)}") center ${f.url ? 'center' : 'bottom'} / cover no-repeat` : f.couleur;
+    const fondDefaut = (FONDS.find(f => f.parDefaut) || {}).id || C.fondParDefaut || FONDS[0].id;
 
     const APPS = {
       blog: { titre: 'Blog', icone: 'fichier', taille: [1060, 690], adresse: 'blog', ouvrir: contenuBlog },
@@ -238,17 +260,31 @@
       chargerArticles: () => chargerArticles(),
       appliquerFond: id => appliquerFond(id),
       arreter: () => arreter(),
-      fermerSession: () => fermerSession()
+      fermerSession: () => fermerSession(),
+      txt, A
     }) : null;
     if (extras) Object.assign(APPS, extras.apps);
     const son = nom => { if (extras) extras.son(nom); };
 
+    const ICONES_BASE = {
+      blog: { nom: 'Blog', icone: 'fichier' }, jeux: { nom: 'Jeux', icone: 'manette' },
+      apropos: { nom: 'À propos', icone: 'info' }, contact: { nom: 'Contact', icone: 'mail' },
+      cmd: { nom: 'Invite de commandes', icone: 'console' }, notepad: { nom: 'Bloc-notes', icone: 'blocnotes' },
+      executer: { nom: 'Exécuter', icone: 'executer' }, dateheure: { nom: 'Date et heure', icone: 'horloge' },
+      affichage: { nom: 'Affichage', icone: 'image' }
+    };
+    JEUX.forEach(j => { ICONES_BASE['jeu-' + j.id] = { nom: j.titre, icone: j.icone }; });
+    const choixIcones = (Array.isArray(A.iconesBureau) ? A.iconesBureau : []).filter(x => x && ICONES_BASE[x.element] && APPS[x.element]);
     const ICONES_BUREAU = [
-      { app: 'blog', nom: 'Blog', icone: 'fichier' },
-      { app: 'jeux', nom: 'Jeux', icone: 'manette' },
-      ...JEUX.filter(j => j.bureau).map(j => ({ app: 'jeu-' + j.id, nom: j.titre, icone: j.icone })),
-      { app: 'apropos', nom: 'À propos', icone: 'info' },
-      { app: 'contact', nom: 'Contact', icone: 'mail' },
+      ...(choixIcones.length
+        ? choixIcones.map(x => ({ app: x.element, nom: x.nom || ICONES_BASE[x.element].nom, icone: ICONES_BASE[x.element].icone }))
+        : [
+          { app: 'blog', nom: 'Blog', icone: 'fichier' },
+          { app: 'jeux', nom: 'Jeux', icone: 'manette' },
+          ...JEUX.filter(j => j.bureau).map(j => ({ app: 'jeu-' + j.id, nom: j.titre, icone: j.icone })),
+          { app: 'apropos', nom: 'À propos', icone: 'info' },
+          { app: 'contact', nom: 'Contact', icone: 'mail' }
+        ]),
       { app: 'corbeille', nom: 'Corbeille', icone: 'corbeille', coin: true }
     ];
 
@@ -261,14 +297,14 @@
     app.innerHTML = `
       <main class="bureau" aria-label="Bureau">
         <div class="fond"></div>
-        <div class="version-bureau" aria-hidden="true">${echapper(NOM)} xp · Édition familiale<br>Version 2.0 (build 2600)</div>
+        <div class="version-bureau" aria-hidden="true">${echapper(txt('versionLigne1', '{nom} xp · Édition familiale'))}<br>${echapper(txt('versionLigne2', 'Version 2.0 (build 2600)'))}</div>
         <div class="icones-bureau" role="list"></div>
         <div class="fenetres"></div>
       </main>
       <div class="menu-demarrer" hidden role="menu" aria-label="Menu démarrer"></div>
       <div class="menu-contextuel" hidden role="menu"></div>
       <footer class="barre-taches">
-        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${xp('dino', 22)}<span>démarrer</span></button>
+        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${A.demarrerImage ? `<img src="${echapper(A.demarrerImage)}" width="22" height="22" alt="" style="object-fit:contain">` : xp('dino', 22)}<span>${echapper(A.demarrerTexte || 'démarrer')}</span></button>
         <div class="lancement" aria-label="Lancement rapide">
           ${LANCEMENT.map(l => `<button data-app="${l.app}" title="${echapper(l.nom)}" aria-label="${echapper(l.nom)}">${xp(l.icone, 16)}</button>`).join('')}
         </div>
@@ -825,8 +861,8 @@
       corps.innerHTML = `
         <div class="dialogue-xp">
           <div class="dialogue-tete">
-            <span class="photo">${logo(46)}</span>
-            <div><b>${echapper(NOM)}</b><br>Édition familiale · Version 2.0<br>© ${new Date().getFullYear()} ${echapper(C.pseudo || NOM)}</div>
+            <span class="photo">${photoProfil(46)}</span>
+            <div><b>${echapper(NOM)}</b><br>${echapper(txt('aproposEdition', 'Édition familiale · Version 2.0'))}<br>© ${new Date().getFullYear()} ${echapper(C.pseudo || NOM)}</div>
           </div>
           <hr class="grave">
           <p class="bio selectionnable">${echapper(C.bio || '')}</p>
@@ -897,7 +933,7 @@
       corps.addEventListener('click', e => {
         if (e.target.closest('[data-a="vider"]')) {
           const vider = () => { session.ecrire('site-corbeille', 'vide'); son('corbeille'); dessiner(); };
-          if (extras) extras.boite({ titre: 'Confirmer la suppression de plusieurs fichiers', icone: 'attention', boutons: ['Oui', 'Non'], texte: `Voulez-vous vraiment supprimer ces ${FICHIERS.length} éléments ?` }).then(r => { if (r === 'Oui') vider(); });
+          if (extras) extras.boite({ titre: 'Confirmer la suppression de plusieurs fichiers', icone: 'attention', boutons: ['Oui', 'Non'], texte: echapper(txt('corbeilleVider', 'Voulez-vous vraiment supprimer ces {nombre} éléments ?', { nombre: FICHIERS.length })) }).then(r => { if (r === 'Oui') vider(); });
           else vider();
           return;
         }
@@ -936,7 +972,7 @@
       const item = (attr, icone, titre, taille = 32) => `<button class="menu-item" role="menuitem" ${attr}>${xp(icone, taille)}<span>${echapper(titre)}</span></button>`;
       const petit = (attr, icone, titre) => `<button role="menuitem" ${attr}>${xp(icone, 16)}${echapper(titre)}</button>`;
       menu.innerHTML = `
-        <div class="menu-entete"><span class="photo">${logo(46)}</span><span>${echapper(C.pseudo || NOM)}</span></div>
+        <div class="menu-entete"><span class="photo">${photoProfil(46)}</span><span>${echapper(C.pseudo || NOM)}</span></div>
         <div class="menu-colonnes">
           <div class="menu-gauche">
             ${grand('data-app="blog"', 'fichier', 'Blog', 'Lire les articles')}
@@ -1041,6 +1077,7 @@
       const f = FONDS.find(x => x.id === id) || FONDS[0];
       document.documentElement.dataset.fond = f.id;
       $('.fond').style.background = styleFond(f);
+      $('.fond').style.imageRendering = f.lisse ? 'auto' : '';
       if (enregistrer) stockage.ecrire('site-fond-xp2', f.id);
       $$('[data-nom-fond]').forEach(el => { el.textContent = f.nom; });
       return f;
@@ -1167,7 +1204,7 @@
     }
 
     function veille() {
-      const ecran = creer('<div class="veille"><small>Bouge la souris ou appuie sur une touche pour sortir de veille.</small></div>');
+      const ecran = creer(`<div class="veille"><small>${echapper(txt('veille', 'Bouge la souris ou appuie sur une touche pour sortir de veille.'))}</small></div>`);
       document.body.append(ecran);
       setTimeout(() => {
         const sortir = () => { ecran.remove(); window.removeEventListener('keydown', sortir); };
@@ -1180,7 +1217,7 @@
     function eteindre() {
       fermerMenus();
       son('arret');
-      const ecran = creer(`<div class="extinction"><div><p>Tu peux maintenant fermer cet onglet en toute sécurité.</p><button class="btn">Redémarrer</button></div></div>`);
+      const ecran = creer(`<div class="extinction"><div><p>${echapper(txt('extinction', 'Tu peux maintenant fermer cet onglet en toute sécurité.'))}</p><button class="btn">Redémarrer</button></div></div>`);
       document.body.append(ecran);
       $('button', ecran).addEventListener('click', () => { session.ecrire('site-demarre', '0'); location.href = location.pathname; });
     }
@@ -1191,17 +1228,17 @@
         <div class="accueil-xp">
           <div class="bande haut"></div>
           <div class="milieu">
-            <div class="gauche">${logo(76)}<h2>${echapper(NOM)}</h2><p>Pour commencer, cliquez sur votre nom d'utilisateur</p></div>
+            <div class="gauche">${logo(76)}<h2>${echapper(NOM)}</h2><p>${echapper(txt('accueilInvite', "Pour commencer, cliquez sur votre nom d'utilisateur"))}</p></div>
             <div class="trait"></div>
-            <div><button class="utilisateur"><span class="photo">${logo(58)}</span><span>${echapper(C.pseudo || NOM)}</span></button></div>
+            <div><button class="utilisateur"><span class="photo">${photoProfil(58)}</span><span>${echapper(C.pseudo || NOM)}</span></button></div>
           </div>
           <div class="bande bas">
             <button data-c="arreter">${xp('eteindre', 30)}<span>Arrêter l'ordinateur</span></button>
-            <small>Une seule session sur ce site : la tienne.</small>
+            <small>${echapper(txt('accueilPied', 'Une seule session sur ce site : la tienne.'))}</small>
           </div>
         </div>`);
       document.body.append(ecran);
-      $('.utilisateur', ecran).addEventListener('click', () => { ecran.remove(); son('demarrage'); bulle('Bon retour', 'Session ouverte : ' + (C.pseudo || NOM), 3500); });
+      $('.utilisateur', ecran).addEventListener('click', () => { ecran.remove(); son('demarrage'); bulle(txt('retourTitre', 'Bon retour'), txt('retourTexte', 'Session ouverte : {pseudo}'), 3500); });
       $('[data-c="arreter"]', ecran).addEventListener('click', () => { ecran.remove(); eteindre(); });
     }
 
@@ -1220,7 +1257,7 @@
 
     /* ----- C'est parti ----- */
 
-    appliquerFond(stockage.lire('site-fond-xp2', C.fondParDefaut || FONDS[0].id), false);
+    appliquerFond(stockage.lire('site-fond-xp2', fondDefaut), false);
 
     dessinerIcones();
     construireMenu();
@@ -1264,6 +1301,10 @@
 
   function mobile() {
     document.body.classList.add('mode-mobile');
+    document.body.dataset.mtheme = ['noir', 'bleu-nuit', 'violet-nuit', 'anthracite'].includes(A.mobileTheme) ? A.mobileTheme : 'noir';
+    const accentM = ACCENTS_MOBILE[A.mobileAccent] || ACCENTS_MOBILE.vert;
+    document.body.style.setProperty('--accent', accentM[0]);
+    document.body.style.setProperty('--accent-clair', accentM[1]);
 
     app.innerHTML = `
       <div class="m-fond" aria-hidden="true"></div>
@@ -1370,7 +1411,7 @@
         <h1 class="m-titre-vue">À propos</h1>
         <p class="m-sous-titre">@${echapper(C.pseudo || '')}</p>
         <div class="m-carte">
-          <div class="profil">${logo(52)}<div><h2>${echapper(NOM)}</h2><div class="meta"><span>${articles.length || '–'} articles</span><span>${JEUX.length} jeux</span></div></div></div>
+          <div class="profil">${photoProfil(52)}<div><h2>${echapper(NOM)}</h2><div class="meta"><span>${articles.length || '–'} articles</span><span>${JEUX.length} jeux</span></div></div></div>
           <p class="bio" style="margin:0">${echapper(C.bio || '')}</p>
         </div>
         <div class="m-carte">

@@ -11,6 +11,8 @@ window.XP_EXTRAS = function (api) {
   'use strict';
 
   const { $, $$, echapper, creer, stockage, NOM, C, JEUX } = api;
+  const A = api.A || {};
+  const txt = (cle, defaut, vars) => (api.txt ? api.txt(cle, defaut, vars) : defaut);
   const xp = (nom, t) => api.xp(nom, t);
   const pseudo = C.pseudo || NOM;
   const normaliser = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -19,7 +21,7 @@ window.XP_EXTRAS = function (api) {
   /* ================= Sons (fabriqués à la volée, aucun fichier) ================= */
 
   let audio = null;
-  let sonActif = stockage.lire('site-son', true);
+  let sonActif = stockage.lire('site-son', A.sonParDefaut !== false);
   function contexte() {
     if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
     if (audio.state === 'suspended') audio.resume().catch(() => {});
@@ -140,7 +142,7 @@ window.XP_EXTRAS = function (api) {
       if (!v) return;
       api.fermer(etat.id);
       if (lancer(v)) stockage.ecrire('site-executer', [v, ...historique.filter(h => h !== v)].slice(0, 8));
-      else boite({ titre: v, icone: 'erreur', texte: `${echapper(NOM)} ne trouve pas « ${echapper(v)} ». Vérifiez que le nom est correct, puis réessayez.<br><br>Astuce : tape <b>aide</b> dans l'Invite de commandes pour voir tout ce qui existe.` });
+      else boite({ titre: v, icone: 'erreur', texte: `${echapper(txt('executerIntrouvable', '{nom} ne trouve pas « {commande} ». Vérifiez que le nom est correct, puis réessayez.', { commande: v }))}<br><br>Astuce : tape <b>aide</b> dans l'Invite de commandes pour voir tout ce qui existe.` });
     };
     champ.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); valider(); } });
     corps.addEventListener('click', e => {
@@ -262,7 +264,7 @@ window.XP_EXTRAS = function (api) {
     ecrire(`${NOM} XP [version 2.0.2600]`);
     ecrire(`(C) Copyright 2026 ${pseudo}.`);
     ecrire('');
-    ecrire('Tape « aide » pour voir les commandes.');
+    ecrire(txt('cmdAccueil', 'Tape « aide » pour voir les commandes.'));
     ecrire('');
 
     const articles = () => api.chargerArticles().catch(() => []);
@@ -417,7 +419,7 @@ window.XP_EXTRAS = function (api) {
           await pause(250);
         }
         ecrire('');
-        ecrire('ACCÈS REFUSÉ. Le dino a tout vu. Bien essayé.', 'console-rouge');
+        ecrire(txt('hackFin', 'ACCÈS REFUSÉ. Le dino a tout vu. Bien essayé.'), 'console-rouge');
       }
     };
     commandes.ls = commandes.dir;
@@ -510,17 +512,17 @@ window.XP_EXTRAS = function (api) {
             sortie.append(s); ecran.scrollTop = ecran.scrollHeight;
             await pause(90);
           }
-          ecrire('ACCÈS AUTORISÉ. Le coffre est ouvert !', 'console-vert');
+          ecrire(txt('coffreOuvert', 'ACCÈS AUTORISÉ. Le coffre est ouvert !'), 'console-vert');
           son('demarrage');
           afficherTresor(tresor);
           return;
         }
         son('erreur');
-        ecrire('CODE INCORRECT.', 'console-rouge');
+        ecrire(txt('coffreIncorrect', 'CODE INCORRECT.'), 'console-rouge');
         await pause(500);
       }
       ecrireBlocage(Date.now() + 30000);
-      ecrire("Trop d'essais : le coffre se verrouille pendant 30 secondes.", 'console-rouge');
+      ecrire(txt('coffreBloque', "Trop d'essais : le coffre se verrouille pendant 30 secondes."), 'console-rouge');
     }
 
     function afficherTresor(t) {
@@ -568,7 +570,7 @@ window.XP_EXTRAS = function (api) {
       else if (commandePerso(texte)) { /* commande ajoutée dans Pages CMS */ }
       else if (lancer(texte)) ecrire(`Ouverture de ${texte}…`);
       else if (await estCoffre(texte)) { historique.shift(); saisie.disabled = true; try { await ouvrirCoffre(); } finally { saisie.disabled = false; saisie.focus(); } }
-      else { ecrire(`'${texte.split(/\s/)[0]}' n'est pas reconnu en tant que commande interne`); ecrire('ou externe, un programme exécutable ou un fichier de commandes.'); }
+      else txt('cmdInconnue', "'{commande}' n'est pas reconnu en tant que commande interne\nou externe, un programme exécutable ou un fichier de commandes.", { commande: texte.split(/\s/)[0] }).split('\n').forEach(l => ecrire(l));
       ecrire('');
     }
 
@@ -688,7 +690,7 @@ window.XP_EXTRAS = function (api) {
     { id: 'tuyaux', nom: 'Tuyaux en pixels' },
     { id: 'aucun', nom: '(Aucun)' }
   ];
-  const reglagesVeille = () => Object.assign({ type: 'dino', minutes: 3 }, stockage.lire('site-veille', {}));
+  const reglagesVeille = () => Object.assign({ type: A.veilleParDefaut || 'dino', minutes: Number(A.veilleMinutes) || 3 }, stockage.lire('site-veille', {}));
 
   const DINO = [
     '..........kkkk..',
@@ -880,33 +882,18 @@ window.XP_EXTRAS = function (api) {
 
   /* ================= Écran bleu (pour rire) ================= */
 
+  const TEXTE_ECRAN_BLEU = "Un problème a été détecté et {nom} a été arrêté pour éviter\nd'endommager votre ordinateur.\n\n{code}\n\nSi c'est la première fois que vous voyez cet écran d'arrêt,\nredémarrez votre ordinateur. Si cet écran apparaît encore,\ndonnez une part de pizza au dino et réessayez.\n\nInformations techniques :\n\n*** STOP: 0x0000D1N0 (0xC0FFEE00, 0x00000042, 0xBADC0DE5, 0x00000000)\n\nAppuyez sur une touche ou cliquez pour redémarrer…";
   function ecranBleu() {
     if ($('.ecran-bleu')) return;
     son('erreur');
-    const e = creer(`<div class="ecran-bleu" role="alertdialog" aria-label="Écran bleu"><pre>Un problème a été détecté et ${echapper(NOM)} a été arrêté pour éviter
-d'endommager votre ordinateur.
-
-DINO_TROP_MIGNON_EXCEPTION
-
-Si c'est la première fois que vous voyez cet écran d'arrêt,
-redémarrez votre ordinateur. Si cet écran apparaît encore,
-donnez une part de pizza au dino et réessayez.
-
-Vérifiez aussi que vous n'avez pas tapé « crash » dans
-l'Invite de commandes. (C'est peut-être ça.)
-
-Informations techniques :
-
-*** STOP: 0x0000D1N0 (0xC0FFEE00, 0x00000042, 0xBADC0DE5, 0x00000000)
-
-***  DINO.SYS - Adresse F00DCAFE base à F0000000, date 2026
-
-Appuyez sur une touche ou cliquez pour redémarrer…</pre></div>`);
+    const code = txt('ecranBleuCode', 'DINO_TROP_MIGNON_EXCEPTION');
+    const texte = txt('ecranBleuTexte', TEXTE_ECRAN_BLEU, { code });
+    const e = creer(`<div class="ecran-bleu" role="alertdialog" aria-label="Écran bleu"><pre>${echapper(texte)}</pre></div>`);
     document.body.append(e);
     const fin = () => {
       e.remove();
       window.removeEventListener('keydown', fin, true);
-      api.bulle(NOM, 'Le dino a redémarré. Tout va bien.', 3000);
+      api.bulle(NOM, txt('ecranBleuRetour', 'Le dino a redémarré. Tout va bien.'), 3000);
     };
     setTimeout(() => { window.addEventListener('keydown', fin, true); e.addEventListener('pointerdown', fin); }, 600);
   }
@@ -944,7 +931,7 @@ Appuyez sur une touche ou cliquez pour redémarrer…</pre></div>`);
     window.addEventListener('keydown', e => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       i = k === code[i] ? i + 1 : (k === code[0] ? 1 : 0);
-      if (i === code.length) { i = 0; pluieDeDinos(); api.bulle('Code secret', 'Tu as trouvé le code Konami. Pluie de dinos !', 4000); }
+      if (i === code.length) { i = 0; pluieDeDinos(); api.bulle('Code secret', txt('konami', 'Tu as trouvé le code Konami. Pluie de dinos !'), 4000); }
     });
   }
 
@@ -987,7 +974,7 @@ Appuyez sur une touche ou cliquez pour redémarrer…</pre></div>`);
       if (!sel.length) return;
       e.preventDefault();
       boite({ titre: 'Confirmer la suppression', icone: 'attention', boutons: ['Oui', 'Non'], texte: sel.length > 1 ? `Voulez-vous vraiment envoyer ces ${sel.length} éléments dans la Corbeille ?` : `Voulez-vous vraiment envoyer « ${echapper($('span', sel[0]).textContent)} » dans la Corbeille ?` })
-        .then(r => { if (r === 'Oui') boite({ titre: 'Erreur', icone: 'erreur', texte: 'Impossible de supprimer : le dino s\'est assis dessus et refuse de bouger.' }); });
+        .then(r => { if (r === 'Oui') boite({ titre: 'Erreur', icone: 'erreur', texte: echapper(txt('suppressionRefus', "Impossible de supprimer : le dino s'est assis dessus et refuse de bouger.")) }); });
     });
   }
 

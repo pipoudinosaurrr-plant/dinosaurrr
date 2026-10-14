@@ -13,6 +13,7 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `index.html` | La page d'accueil (bureau sur ordi, appli sur téléphone) |
 | `_data/site.json` | **Tes réglages** : nom du site, pseudo, slogan, présentation, mail, fond d'écran par défaut (Pages CMS « Réglages du site ») |
 | `_data/jeux.json` | La liste des jeux (Pages CMS « Jeux ») |
+| `_data/apparence.json`, `_data/textes.json` | L'apparence et les phrases du site (Pages CMS « Apparence » et « Textes du site ») |
 | `_data/commandes.json` | Tes commandes secrètes pour l'Invite de commandes (Pages CMS « Commandes secrètes ») |
 | `assets/config.js`, `assets/jeux.js` | Fabriqués automatiquement à partir des fichiers `_data/` (ne pas les modifier) |
 | `assets/coffre.json`, `outils/coffre.html` | Le coffre secret chiffré, et la page qui le fabrique |
@@ -128,6 +129,8 @@ Tout se fait sur **app.pagescms.org** (marche aussi sur téléphone). Dans le me
 | **Questions du quiz** | Ajouter / modifier / supprimer des questions (bonne réponse + 3 mauvaises) |
 | **Mots à dessiner** | La liste des mots de Dessine et devine |
 | **Commandes secrètes** | Ce qui s'affiche quand on tape un mot dans l'Invite de commandes (et ce qui s'ouvre ensuite) |
+| **Apparence** | Thème du bureau (bleu, olive, argent, noir), couleur de sélection, photo de profil, bouton démarrer (texte + image), tes propres fonds d'écran, icônes du bureau (lesquelles, ordre, noms), taille du texte, pixelisation, couleurs de la version téléphone, sons et écran de veille par défaut |
+| **Textes du site** | Les phrases des bulles et des messages, l'écran bleu, l'Invite de commandes, le coffre… (`{nom}` = nom du site, `{pseudo}` = ton pseudo) |
 | **Coffre secret** | Le contenu du coffre (fabriqué d'abord sur `dinosaurrr.com/outils/coffre.html`) |
 
 Clique sur **Save** : le site se met à jour en 1 à 2 minutes. Les questions du quiz et les mots à dessiner servent aussi au serveur des parties en ligne : Cloudflare le remet à jour tout seul après chaque **Save**.
