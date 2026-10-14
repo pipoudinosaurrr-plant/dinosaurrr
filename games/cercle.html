@@ -104,6 +104,9 @@
 
     #hud { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
     #hud[hidden] { display: none; }
+    .hud-gauche { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .bouton-quitter { pointer-events: auto; cursor: pointer; border: 1px solid var(--bord2, rgba(255,255,255,.2)); color: inherit; font: inherit; }
+    .bouton-quitter:hover { background: rgba(239, 68, 68, .25); }
 
     .hud-haut { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 8px; }
     .hud-haut > :last-child { justify-self: end; }
@@ -185,7 +188,7 @@
 
   <div id="hud" hidden>
     <div class="hud-haut">
-      <div><span class="pilule"><span class="point-vert"></span>EN VIE <b id="nb-vivants">0/0</b></span></div>
+      <div class="hud-gauche"><span class="pilule"><span class="point-vert"></span>EN VIE <b id="nb-vivants">0/0</b></span><button class="pilule bouton-quitter" id="quitter-jeu" type="button">✕ Quitter</button></div>
       <span class="pilule alerte" id="alerte" hidden></span>
       <span class="pilule"><b id="chrono">0:00</b></span>
     </div>
@@ -711,6 +714,14 @@
     $('pseudo').addEventListener('change', pseudo);
     $('solo').addEventListener('click', lancerSolo);
     $('quitter').addEventListener('click', quitter);
+    // en pleine partie : bouton Quitter, touche Échap, retour arrière du navigateur ou fermeture de la page
+    $('quitter-jeu').addEventListener('click', quitter);
+    window.addEventListener('keydown', e => { if (e.key === 'Escape' && ecran === 'jeu' && !solo) quitter(); });
+    window.addEventListener('pagehide', () => { try { if (ws) ws.close(); } catch (e) { /* rien */ } });
+    window.addEventListener('hashchange', () => {
+      // on a reculé dans l'historique pendant une partie en ligne : on quitte vraiment la partie
+      if (ws && ecran !== 'accueil' && location.hash.slice(1).toUpperCase().replace('!', '') !== codeSalle) quitter();
+    });
     $('lancer').addEventListener('click', () => envoyer({ t: 'lance' }));
     $('plus-bot').addEventListener('click', () => envoyer({ t: 'bot', ajout: true }));
     $('moins-bot').addEventListener('click', () => envoyer({ t: 'bot', ajout: false }));

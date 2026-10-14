@@ -454,6 +454,11 @@ export function demarrerJeu(cfg) {
     }
   }
   window.addEventListener('hashchange', lireInvitation);
+  // retour arrière du navigateur pendant une partie en ligne : on quitte vraiment la partie
+  window.addEventListener('hashchange', () => {
+    if (ws && ecran !== 'accueil' && location.hash.slice(1).toUpperCase().replace('!', '') !== codeSalle) quitter();
+  });
+  window.addEventListener('pagehide', () => { try { if (ws) ws.close(); } catch (e) { /* rien */ } });
   lireInvitation();
 
   montrer('accueil');
