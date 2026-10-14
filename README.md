@@ -36,7 +36,9 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 
 Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine.
 
-Les jeux en solo : Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
+Les jeux en solo : Turbo Dino (course de voitures 3D), Dino Blaster (shooter spatial), Dino Aventure (plateformes), Blocs, Serpent, Casse-briques, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
+
+Les 6 jeux d'arcade (Turbo, Blaster, Aventure, Blocs, Serpent, Casse-briques) partagent `games/arcade.js` : clavier (flèches, WASD/ZQSD), boutons tactiles sur téléphone, menus, pause, records et sons.
 
 ---
 

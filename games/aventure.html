@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dino Aventure</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Dino Aventure : jeu de plateformes"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const TS = 16;                 // taille d'une case
+  const LIGNES = 14;
+  const W = 400, H = LIGNES * TS;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H, pixel: true });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const borne = A.borne;
+
+  /* ==========================================================
+     Physique (en pixels et secondes)
+     ========================================================== */
+  const GRAVITE = 1400, CHUTE_MAX = 430;
+  const COURSE = 128, ACCEL_SOL = 1100, ACCEL_AIR = 750, FROTTEMENT = 1300;
+  const SAUT = 392, SAUT_RESSORT = 640, COYOTE = 0.09, TAMPON = 0.12;
+
+  /* ==========================================================
+     Les morceaux de niveau (alignés en bas, 14 lignes au total)
+     #  sol      B brique   ? bloc bonus   - plateforme traversable
+     ^  pics     S ressort  o pièce        E scarabée   F chauve-souris
+     M> plateforme mobile (M = départ, > = trajet)    C drapeau de contrôle
+     G  arrivée  P départ du joueur
+     ========================================================== */
+  const MORCEAUX = {
+    depart: [
+      '............',
+      '.P..........',
+      '############',
+      '############'],
+    pieces: [
+      '............',
+      '....ooo.....',
+      '...o...o....',
+      '............',
+      '............',
+      '############',
+      '############'],
+    trou2: [
+      '..........',
+      '....oo....',
+      '..........',
+      '..........',
+      '####..####',
+      '####..####'],
+    trou3: [
+      '...........',
+      '....ooo....',
+      '...........',
+      '...........',
+      '####...####',
+      '####...####'],
+    marches: [
+      '..............',
+      '.........oo...',
+      '.......BBBBB..',
+      '.....BBBBBBB..',
+      '##############',
+      '##############'],
+    bonus: [
+      '..............',
+      '.....B?B?B....',
+      '..............',
+      '..............',
+      '...........E..',
+      '##############',
+      '##############'],
+    ennemis: [
+      '................',
+      '....E.....o..E..',
+      '################',
+      '################'],
+    pics: [
+      '..............',
+      '...o....oo....',
+      '...^^...^^^...',
+      '##############',
+      '##############'],
+    ressort: [
+      '............',
+      '......oo....',
+      '.....BBBB...',
+      '.....BBBB...',
+      '.....BBBB...',
+      '.....BBBB...',
+      '...S.BBBB...',
+      '############',
+      '############'],
+    plateformes: [
+      '................',
+      '......o..o......',
+      '.....--..--.....',
+      '................',
+      '####........####',
+      '####........####'],
+    mobile: [
+      '................',
+      '.......oo.......',
+      '................',
+      '...M>>>>>>>>>...',
+      '###..........###',
+      '###..........###'],
+    tour: [
+      '...ooo........',
+      '..-----.......',
+      '..............',
+      '......---.....',
+      '..............',
+      '..---.........',
+      '..............',
+      '...........E..',
+      '##############',
+      '##############'],
+    chauves: [
+      '................',
+      '.....F......F...',
+      '................',
+      '........o.......',
+      '................',
+      '################',
+      '################'],
+    controle: [
+      '........',
+      '...C....',
+      '########',
+      '########'],
+    pyramide: [
+      '................',
+      '.......oo.......',
+      '......BBBB......',
+      '.....BBBBBB.....',
+      '....BBBBBBBB....',
+      '...BBBBBBBBBB...',
+      '################',
+      '################'],
+    pics_plateformes: [
+      '..................',
+      '.....ooo....ooo...',
+      '....-----..-----..',
+      '..................',
+      '..^^^^^^^^^^^^^^..',
+      '##################',
+      '##################'],
+    arrivee: [
+      '..............',
+      '.........G....',
+      '##############',
+      '##############']
+  };
+
+  const NIVEAUX = [
+    {
+      nom: 'Plaine verte', par: 55,
+      theme: { ciel: ['#7dd3fc', '#e0f2fe'], colline1: '#86efac', colline2: '#4ade80', herbe: '#22c55e', herbe2: '#16a34a', sol: '#a16207', sol2: '#854d0e', brique: '#c2410c', brique2: '#7c2d12', nuages: true },
+      plan: ['depart', 'pieces', 'trou2', 'marches', 'bonus', 'ennemis', 'controle', 'trou3', 'plateformes', 'ressort', 'pieces', 'pyramide', 'arrivee']
+    },
+    {
+      nom: 'Grottes', par: 70,
+      theme: { ciel: ['#1c1917', '#44403c'], colline1: '#292524', colline2: '#1c1917', herbe: '#78716c', herbe2: '#57534e', sol: '#44403c', sol2: '#292524', brique: '#57534e', brique2: '#1c1917', grotte: true },
+      plan: ['depart', 'ennemis', 'pics', 'bonus', 'trou3', 'controle', 'tour', 'plateformes', 'ennemis', 'pics', 'controle', 'pyramide', 'chauves', 'arrivee']
+    },
+    {
+      nom: 'Volcan', par: 75,
+      theme: { ciel: ['#7c2d12', '#fb923c'], colline1: '#9a3412', colline2: '#431407', herbe: '#a8a29e', herbe2: '#78716c', sol: '#57534e', sol2: '#3f3f46', brique: '#991b1b', brique2: '#450a0a', lave: true },
+      plan: ['depart', 'trou2', 'pics', 'mobile', 'controle', 'marches', 'trou3', 'ressort', 'mobile', 'controle', 'chauves', 'pics_plateformes', 'arrivee']
+    },
+    {
+      nom: 'Forêt de nuit', par: 80,
+      theme: { ciel: ['#020617', '#1e1b4b'], colline1: '#1e293b', colline2: '#0f172a', herbe: '#15803d', herbe2: '#14532d', sol: '#3f2a14', sol2: '#2a1b0b', brique: '#334155', brique2: '#1e293b', nuit: true },
+      plan: ['depart', 'chauves', 'plateformes', 'ennemis', 'controle', 'tour', 'mobile', 'pics', 'controle', 'chauves', 'trou3', 'pics_plateformes', 'ennemis', 'arrivee']
+    },
+    {
+      nom: 'Château du T-Rex', par: 95,
+      theme: { ciel: ['#2e1065', '#6d28d9'], colline1: '#3b0764', colline2: '#1e1b4b', herbe: '#71717a', herbe2: '#52525b', sol: '#3f3f46', sol2: '#27272a', brique: '#52525b', brique2: '#27272a', chateau: true, lave: true },
+      plan: ['depart', 'pics', 'mobile', 'ennemis', 'tour', 'controle', 'plateformes', 'chauves', 'ressort', 'mobile', 'controle', 'pics_plateformes', 'trou3', 'ennemis', 'pyramide', 'arrivee']
+    }
+  ];
+
+  function assembler(plan) {
+    const lignes = Array.from({ length: LIGNES }, () => '');
+    for (const nom of plan) {
+      const m = MORCEAUX[nom];
+      const w = m[0].length;
+      const haut = LIGNES - m.length;
+      for (let y = 0; y < LIGNES; y++) lignes[y] += y < haut ? '.'.repeat(w) : m[y - haut];
+    }
+    return lignes;
+  }
+
+  /* ==========================================================
+     Sprites
+     ========================================================== */
+  const DINO_C = { G: '#22c55e', D: '#15803d', W: '#fff', K: '#111', Y: '#fde047', R: '#f87171' };
+  const DINO = {
+    repos: A.sprite([
+      '......GGGGG.',
+      '.....GGWKGGG',
+      '.....GGGGGGG',
+      '.....GGGRRR.',
+      'G....GGGG...',
+      'G...GGGGGG..',
+      'GG.GGGGGGGG.',
+      '.GGGGGGGD...',
+      '..GGGGGGD...',
+      '...GGGGG....',
+      '...GG.GG....',
+      '...D..D.....'], DINO_C),
+    course1: A.sprite([
+      '......GGGGG.',
+      '.....GGWKGGG',
+      '.....GGGGGGG',
+      '.....GGGRRR.',
+      'G....GGGG...',
+      'G...GGGGGG..',
+      'GG.GGGGGGGG.',
+      '.GGGGGGGD...',
+      '..GGGGGGD...',
+      '...GGGGG....',
+      '..GG...GG...',
+      '..D.....D...'], DINO_C),
+    course2: A.sprite([
+      '......GGGGG.',
+      '.....GGWKGGG',
+      '.....GGGGGGG',
+      '.....GGGRRR.',
+      'G....GGGG...',
+      'G...GGGGGG..',
+      'GG.GGGGGGGG.',
+      '.GGGGGGGD...',
+      '..GGGGGGD...',
+      '...GGGGG....',
+      '....GGG.....',
+      '....D.D.....'], DINO_C),
+    saut: A.sprite([
+      '......GGGGG.',
+      '.....GGWKGGG',
+      '.....GGGGGGG',
+      '.....GGGRRR.',
+      'G....GGGG...',
+      'G...GGGGGGG.',
+      'GG.GGGGGGG..',
+      '.GGGGGGGD...',
+      '..GGGGGGD...',
+      '...GGGGGG...',
+      '..GG....GG..',
+      '..D......D..'], DINO_C)
+  };
+  for (const k of Object.keys(DINO)) DINO[k + 'G'] = A.miroir(DINO[k]);
+  const SCARABEE = [
+    A.sprite(['...PPPPP...', '..PPLPPPPP.', '.PPPPPPPPPP', 'PPWKPPPPPPP', 'PPPPPPPPPPP', '.K.K...K.K.'], { P: '#7c3aed', L: '#c4b5fd', W: '#fff', K: '#111' }),
+    A.sprite(['...PPPPP...', '..PPLPPPPP.', '.PPPPPPPPPP', 'PPWKPPPPPPP', 'PPPPPPPPPPP', 'K.K.....K.K'], { P: '#7c3aed', L: '#c4b5fd', W: '#fff', K: '#111' })
+  ];
+  const SCARABEE_D = SCARABEE.map(A.miroir);
+  const CHAUVE = [
+    A.sprite(['K..........K', 'KK..KKKK..KK', 'KKKKRKKRKKKK', '.KKKKKKKKKK.', '...KK..KK...'], { K: '#3b0764', R: '#f43f5e' }),
+    A.sprite(['....KKKK....', '..KKRKKRKK..', '.KKKKKKKKKK.', 'KK.KK..KK.KK', 'K..........K'], { K: '#3b0764', R: '#f43f5e' })
+  ];
+  const COEUR = A.sprite(['.RR.RR.', 'RRRRRRR', 'RRRRRRR', '.RRRRR.', '..RRR..', '...R...'], { R: '#ef4444' });
+  const COEUR_VIDE = A.sprite(['.KK.KK.', 'K..K..K', 'K.....K', '.K...K.', '..K.K..', '...K...'], { K: '#71717a' });
+
+  /* ==========================================================
+     État
+     ========================================================== */
+  let niveau = 0, grille = [], largeur = 0;
+  let joueur, ennemis, pieces, plateformes, ressorts, controles, particules, pops;
+  let camX = 0, temps = 0, piecesPrises = 0, piecesTotal = 0, coeurs = 3, retour = null;
+  let etat = 'menu';
+  let fin = null;
+
+  function charger(n) {
+    niveau = n;
+    const lignes = assembler(NIVEAUX[n].plan);
+    largeur = lignes[0].length;
+    grille = lignes.map(l => [...l]);
+    ennemis = []; pieces = []; plateformes = []; ressorts = []; controles = []; particules = []; pops = [];
+    let depart = { x: 2, y: 11 };
+    for (let y = 0; y < LIGNES; y++) for (let x = 0; x < largeur; x++) {
+      const c = grille[y][x];
+      if ('PEFoSCGM>'.includes(c)) grille[y][x] = '.';
+      if (c === 'P') depart = { x, y };
+      if (c === 'E') ennemis.push({ type: 'scarabee', x: x * TS + 2, y: y * TS + 6, w: 12, h: 10, vx: -28, vy: 0, t: Math.random() * 3 });
+      if (c === 'F') ennemis.push({ type: 'chauve', x: x * TS + 2, y: y * TS + 4, x0: x * TS + 2, y0: y * TS + 4, w: 12, h: 8, t: Math.random() * 6 });
+      if (c === 'o') pieces.push({ x: x * TS + 4, y: y * TS + 3, w: 8, h: 10 });
+      if (c === 'S') ressorts.push({ x: x * TS, y: y * TS + 8, w: 16, h: 8, t: 0 });
+      if (c === 'C') controles.push({ x: x * TS, y: y * TS, actif: false });
+      if (c === 'G') fin = { x: x * TS, y: y * TS };
+      if (c === 'M') {
+        let k = x;
+        while (lignes[y][k + 1] === '>') k++;
+        plateformes.push({ x: x * TS, y: y * TS, w: 48, h: 6, min: x * TS, max: (k + 1) * TS - 48, vx: 42, dx: 0 });
+      }
+    }
+    piecesTotal = pieces.length + grille.flat().filter(c => c === '?').length;
+    piecesPrises = 0;
+    temps = 0;
+    coeurs = 3;
+    retour = { x: depart.x * TS + 2, y: depart.y * TS + 2 };
+    joueur = { x: retour.x, y: retour.y, w: 10, h: 13, vx: 0, vy: 0, sol: false, coyote: 0, tampon: 0, dir: 1, invincible: 0, anim: 0, mort: 0, plateforme: null };
+    camX = 0;
+  }
+
+  /* ==========================================================
+     Collisions avec la grille
+     ========================================================== */
+  const SOLIDES = '#B?U';
+  function caseEn(tx, ty) {
+    if (tx < 0 || tx >= largeur) return 'B';      // murs invisibles aux bords
+    if (ty < 0 || ty >= LIGNES) return '.';
+    return grille[ty][tx];
+  }
+  const solide = (tx, ty) => SOLIDES.includes(caseEn(tx, ty));
+
+  function deplacer(o, dt, estJoueur) {
+    // horizontal
+    o.x += o.vx * dt;
+    let x1 = Math.floor(o.x / TS), x2 = Math.floor((o.x + o.w - 0.01) / TS);
+    let y1 = Math.floor(o.y / TS), y2 = Math.floor((o.y + o.h - 0.01) / TS);
+    for (let ty = y1; ty <= y2; ty++) {
+      if (o.vx > 0 && solide(x2, ty)) { o.x = x2 * TS - o.w; o.vx = 0; o.mur = 1; break; }
+      if (o.vx < 0 && solide(x1, ty)) { o.x = (x1 + 1) * TS; o.vx = 0; o.mur = -1; break; }
+    }
+    // vertical
+    const basAvant = o.y + o.h;
+    o.y += o.vy * dt;
+    x1 = Math.floor(o.x / TS); x2 = Math.floor((o.x + o.w - 0.01) / TS);
+    y1 = Math.floor(o.y / TS); y2 = Math.floor((o.y + o.h - 0.01) / TS);
+    o.sol = false;
+    if (o.vy >= 0) {
+      for (let tx = x1; tx <= x2; tx++) {
+        const c = caseEn(tx, y2);
+        const traversable = c === '-' && basAvant <= y2 * TS + 0.5 && !(estJoueur && A.touches.bas && o.passeDessous);
+        if (SOLIDES.includes(c) || traversable) { o.y = y2 * TS - o.h; o.vy = 0; o.sol = true; break; }
+      }
+    } else {
+      for (let tx = x1; tx <= x2; tx++) {
+        if (solide(tx, y1)) {
+          o.y = (y1 + 1) * TS; o.vy = 0;
+          if (estJoueur) frapperBloc(tx, y1);
+          break;
+        }
+      }
+    }
+    // plateformes mobiles (seulement par le dessus)
+    if (o.vy >= 0) {
+      for (const p of plateformes) {
+        if (o.x + o.w > p.x && o.x < p.x + p.w && basAvant <= p.y + 0.5 && o.y + o.h >= p.y) {
+          o.y = p.y - o.h; o.vy = 0; o.sol = true;
+          if (estJoueur) o.plateforme = p;
+        }
+      }
+    }
+  }
+
+  function frapperBloc(tx, ty) {
+    const c = grille[ty][tx];
+    if (c === '?') {
+      grille[ty][tx] = 'U';
+      piecesPrises++;
+      pops.push({ x: tx * TS + 4, y: ty * TS - 4, t: 0 });
+      A.son('piece');
+    } else {
+      A.son('pose');
+    }
+    // un scarabée posé sur le bloc est éjecté
+    for (const e of ennemis) if (e.type === 'scarabee' && !e.mort && Math.abs(e.y + e.h - ty * TS) < 3 && e.x + e.w > tx * TS && e.x < tx * TS + TS) tuer(e);
+  }
+
+  /* ==========================================================
+     Mise à jour
+     ========================================================== */
+  function blesser(direction) {
+    if (joueur.invincible > 0 || joueur.mort) return;
+    coeurs--;
+    A.son('touche');
+    joueur.invincible = 1.5;
+    joueur.vy = -220;
+    joueur.vx = direction * 160;
+    if (coeurs <= 0) perdre();
+  }
+
+  function tomber() {
+    coeurs--;
+    A.son('touche');
+    if (coeurs <= 0) return perdre();
+    joueur.x = retour.x; joueur.y = retour.y; joueur.vx = 0; joueur.vy = 0; joueur.invincible = 1.5;
+  }
+
+  function perdre() {
+    joueur.mort = 1;
+    etat = 'perdu';
+    A.son('perdu');
+    manette.montrer(false);
+    setTimeout(() => A.panneau({
+      pastille: NIVEAUX[niveau].nom,
+      titre: 'Aïe !',
+      texte: 'Tu n’as plus de cœurs. Les drapeaux te font repartir plus loin : touche-les en passant !',
+      boutons: [{ texte: 'Réessayer', primaire: true, action: () => jouer(niveau) }, { texte: 'Choisir un niveau', action: menu }]
+    }), 700);
+  }
+
+  function tuer(e) {
+    e.mort = true;
+    A.son('petite');
+    for (let i = 0; i < 10; i++) particules.push({ x: e.x + 6, y: e.y + 4, vx: A.hasard(-90, 90), vy: A.hasard(-160, -20), t: 0, vie: 0.5, c: e.type === 'chauve' ? '#7e22ce' : '#a78bfa' });
+  }
+
+  function majJoueur(dt) {
+    const k = A.touches;
+    const j = joueur;
+    // plateforme mobile : on est emporté avec
+    if (j.plateforme && j.sol) j.x += j.plateforme.dx;
+    j.plateforme = null;
+
+    const dir = (k.droite ? 1 : 0) - (k.gauche ? 1 : 0);
+    const acc = j.sol ? ACCEL_SOL : ACCEL_AIR;
+    if (dir) { j.vx += dir * acc * dt; j.dir = dir; }
+    else if (j.sol) { const f = FROTTEMENT * dt; j.vx = Math.abs(j.vx) <= f ? 0 : j.vx - Math.sign(j.vx) * f; }
+    j.vx = borne(j.vx, -COURSE, COURSE);
+
+    if (A.vient('action') || A.vient('haut')) j.tampon = TAMPON;
+    j.tampon -= dt;
+    j.coyote = j.sol ? COYOTE : j.coyote - dt;
+    if (j.tampon > 0 && j.coyote > 0) {
+      j.vy = -SAUT; j.tampon = 0; j.coyote = 0; j.sol = false;
+      A.son('saut');
+    }
+    // saut plus court si on lâche tôt
+    if (j.vy < -120 && !(k.action || k.haut)) j.vy = -120;
+    j.vy = Math.min(CHUTE_MAX, j.vy + GRAVITE * dt);
+    j.passeDessous = k.bas;
+    deplacer(j, dt, true);
+    j.anim += dt * (Math.abs(j.vx) > 10 ? Math.abs(j.vx) / 18 : 0);
+    j.invincible = Math.max(0, j.invincible - dt);
+
+    // tombé dans un trou
+    if (j.y > H + 20) { tomber(); return; }
+
+    // pics (moitié basse de la case) et lave
+    const x1 = Math.floor((j.x + 2) / TS), x2 = Math.floor((j.x + j.w - 2) / TS), yb = Math.floor((j.y + j.h - 1) / TS);
+    for (let tx = x1; tx <= x2; tx++) {
+      if (caseEn(tx, yb) === '^' && (j.y + j.h) > yb * TS + 8) { blesser(-j.dir); j.vy = -300; break; }
+    }
+    // pièces
+    for (const p of pieces) {
+      if (!p.pris && j.x < p.x + p.w && j.x + j.w > p.x && j.y < p.y + p.h && j.y + j.h > p.y) {
+        p.pris = true; piecesPrises++; A.son('piece');
+      }
+    }
+    // ressorts
+    for (const r of ressorts) {
+      if (j.vy >= 0 && j.x + j.w > r.x + 3 && j.x < r.x + r.w - 3 && j.y + j.h >= r.y - 1 && j.y + j.h <= r.y + 9) {
+        j.vy = -SAUT_RESSORT; r.t = 0.25; A.son('saut'); A.son('rebond');
+      }
+    }
+    // drapeaux de contrôle
+    for (const c of controles) {
+      if (!c.actif && Math.abs(j.x - c.x) < 14) {
+        c.actif = true; retour = { x: c.x + 2, y: c.y + 2 }; A.son('bonus');
+        if (coeurs < 3) coeurs++;
+      }
+    }
+    // arrivée
+    if (fin && j.x + j.w > fin.x + 4 && etat === 'jeu') gagner();
+  }
+
+  function majEnnemis(dt) {
+    for (const e of ennemis) {
+      if (e.mort) continue;
+      e.t += dt;
+      if (e.type === 'scarabee') {
+        // seulement s'il est proche de l'écran
+        if (Math.abs(e.x - joueur.x) > W) continue;
+        e.vy = Math.min(CHUTE_MAX, e.vy + GRAVITE * dt);
+        e.mur = 0;
+        const vx = e.vx;
+        deplacer(e, dt, false);
+        if (e.mur) e.vx = -vx;
+        else e.vx = vx;
+        // demi-tour au bord du vide
+        if (e.sol) {
+          const devant = e.vx > 0 ? Math.floor((e.x + e.w + 1) / TS) : Math.floor((e.x - 1) / TS);
+          const dessous = Math.floor((e.y + e.h + 2) / TS);
+          if (!solide(devant, dessous) && caseEn(devant, dessous) !== '-') e.vx = -e.vx;
+        }
+        if (e.y > H + 20) e.mort = true;
+      } else {
+        e.x = e.x0 + Math.sin(e.t * 0.9) * 22;
+        e.y = e.y0 + Math.sin(e.t * 2.2) * 18;
+      }
+      // contact avec le joueur
+      const j = joueur;
+      if (j.x < e.x + e.w && j.x + j.w > e.x && j.y < e.y + e.h && j.y + j.h > e.y) {
+        if (j.vy > 40 && j.y + j.h - e.y < 9) {
+          tuer(e);
+          j.vy = (A.touches.action || A.touches.haut) ? -SAUT * 1.05 : -260;
+        } else {
+          blesser(j.x < e.x ? -1 : 1);
+        }
+      }
+    }
+  }
+
+  function majPlateformes(dt) {
+    for (const p of plateformes) {
+      const avant = p.x;
+      p.x += p.vx * dt;
+      if (p.x > p.max) { p.x = p.max; p.vx = -Math.abs(p.vx); }
+      if (p.x < p.min) { p.x = p.min; p.vx = Math.abs(p.vx); }
+      p.dx = p.x - avant;
+    }
+  }
+
+  function maj(dt) {
+    temps += dt;
+    // petits pas pour ne jamais traverser une case
+    const n = Math.ceil(dt / (1 / 120));
+    const pas = dt / n;
+    for (let i = 0; i < n && etat === 'jeu'; i++) {
+      majPlateformes(pas);
+      majJoueur(pas);
+      if (etat !== 'jeu') break;
+      majEnnemis(pas);
+    }
+    camX += ((joueur.x - W * 0.4) - camX) * Math.min(1, dt * 8);
+    camX = borne(camX, 0, largeur * TS - W);
+  }
+
+  function majEffets(dt) {
+    for (const p of particules) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 600 * dt; }
+    particules = particules.filter(p => p.t < p.vie);
+    for (const p of pops) p.t += dt;
+    pops = pops.filter(p => p.t < 0.5);
+    for (const r of ressorts) r.t = Math.max(0, r.t - dt);
+  }
+
+  function gagner() {
+    etat = 'gagne';
+    A.son('gagne');
+    manette.montrer(false);
+    const nv = NIVEAUX[niveau];
+    const toutes = piecesPrises >= piecesTotal;
+    const rapide = temps <= nv.par;
+    const etoiles = 1 + (toutes ? 1 : 0) + (rapide ? 1 : 0);
+    const cle = 'aventure-' + niveau;
+    const avant = A.stock.lire('arcade-' + cle, null);
+    const meilleur = {
+      etoiles: Math.max(etoiles, avant ? avant.etoiles : 0),
+      temps: avant && avant.temps < temps ? avant.temps : temps
+    };
+    A.stock.ecrire('arcade-' + cle, meilleur);
+    A.stock.ecrire('arcade-aventure-debloque', Math.max(A.stock.lire('arcade-aventure-debloque', 0), Math.min(NIVEAUX.length - 1, niveau + 1)));
+    const dernier = niveau === NIVEAUX.length - 1;
+    setTimeout(() => A.panneau({
+      pastille: 'Niveau ' + (niveau + 1) + ' · ' + nv.nom,
+      titre: dernier ? '🏆 Tu as fini le jeu !' : 'Niveau réussi !',
+      texte: `<span style="font-size:30px;letter-spacing:6px;color:#facc15">${'★'.repeat(etoiles)}<span style="color:#3f3f46">${'★'.repeat(3 - etoiles)}</span></span>`,
+      lignes: [
+        ['Temps', A.chrono(temps) + (temps <= meilleur.temps ? ' 🏅' : '')],
+        ['Pièces', `${piecesPrises} / ${piecesTotal}` + (toutes ? ' ★' : '')],
+        ['Objectif chrono', A.chrono(nv.par) + (rapide ? ' ★' : '')]
+      ],
+      boutons: [
+        ...(dernier ? [] : [{ texte: 'Niveau suivant', primaire: true, action: () => jouer(niveau + 1) }]),
+        { texte: 'Rejouer ce niveau', primaire: dernier, action: () => jouer(niveau) },
+        { texte: 'Choisir un niveau', action: menu }
+      ]
+    }), 900);
+  }
+
+  /* ==========================================================
+     Dessin
+     ========================================================== */
+  function dessinerFond(th, t) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, th.ciel[0]); g.addColorStop(1, th.ciel[1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (th.nuit || th.chateau) {
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 40; i++) { ctx.globalAlpha = 0.3 + (i % 4) / 6; ctx.fillRect(((i * 97 - camX * 0.05) % W + W) % W, (i * 37) % 120, 1, 1); }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fef9c3'; ctx.beginPath(); ctx.arc(330 - camX * 0.02, 40, 14, 0, 7); ctx.fill();
+    }
+    if (th.nuages) {
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      for (let i = 0; i < 6; i++) {
+        const x = ((i * 140 - camX * 0.2 + t * 6) % (W + 120) + W + 120) % (W + 120) - 60, y = 20 + (i * 23) % 50;
+        ctx.fillRect(x, y, 40, 8); ctx.fillRect(x + 8, y - 6, 22, 8);
+      }
+    }
+    // collines en couches (parallaxe)
+    const couche = (coul, vitesse, base, amp, periode) => {
+      ctx.fillStyle = coul;
+      ctx.beginPath(); ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 4) {
+        const wx = x + camX * vitesse;
+        ctx.lineTo(x, base - (Math.sin(wx / periode) * 0.5 + 0.5) * amp - (Math.sin(wx / (periode * 0.37)) * 0.5 + 0.5) * amp * 0.4);
+      }
+      ctx.lineTo(W, H); ctx.fill();
+    };
+    if (th.grotte) {
+      couche(th.colline1, 0.3, H - 40, 50, 60);
+      // stalactites
+      ctx.fillStyle = '#0c0a09';
+      for (let i = 0; i < 20; i++) {
+        const x = ((i * 53 - camX * 0.5) % (W + 40) + W + 40) % (W + 40) - 20;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 10, 0); ctx.lineTo(x + 5, 14 + (i * 7) % 20); ctx.fill();
+      }
+    } else if (th.chateau) {
+      ctx.fillStyle = th.colline1;
+      for (let i = 0; i < 8; i++) {
+        const x = ((i * 90 - camX * 0.25) % (W + 100) + W + 100) % (W + 100) - 50;
+        const h = 60 + (i * 31) % 50;
+        ctx.fillRect(x, H - 40 - h, 34, h + 40);
+        for (let k = 0; k < 4; k++) ctx.fillRect(x - 3 + k * 10, H - 46 - h, 6, 8);
+        ctx.fillStyle = '#fde047'; ctx.fillRect(x + 14, H - 20 - h, 5, 8); ctx.fillStyle = th.colline1;
+      }
+    } else {
+      couche(th.colline1, 0.15, H - 60, 50, 80);
+      couche(th.colline2, 0.35, H - 30, 40, 50);
+    }
+  }
+
+  function dessinerCases(th, t) {
+    const x0 = Math.max(0, Math.floor(camX / TS)), x1 = Math.min(largeur - 1, Math.ceil((camX + W) / TS));
+    for (let y = 0; y < LIGNES; y++) for (let x = x0; x <= x1; x++) {
+      const c = grille[y][x];
+      const px = Math.round(x * TS - camX), py = y * TS;
+      if (c === '#') {
+        const dessusVide = !SOLIDES.includes(caseEn(x, y - 1)) || y === 0;
+        ctx.fillStyle = th.sol; ctx.fillRect(px, py, TS, TS);
+        ctx.fillStyle = th.sol2;
+        ctx.fillRect(px + ((x * 7 + y * 3) % 11), py + ((x * 5 + y) % 12) + 2, 2, 2);
+        ctx.fillRect(px + ((x * 3 + y * 7) % 13), py + ((x + y * 5) % 10) + 4, 2, 2);
+        if (dessusVide) {
+          ctx.fillStyle = th.herbe; ctx.fillRect(px, py, TS, 5);
+          ctx.fillStyle = th.herbe2; ctx.fillRect(px, py + 5, TS, 2);
+          for (let k = 0; k < 4; k++) ctx.fillRect(px + k * 4 + 1, py - 1, 2, 2);
+        }
+      } else if (c === 'B') {
+        ctx.fillStyle = th.brique; ctx.fillRect(px, py, TS, TS);
+        ctx.fillStyle = th.brique2;
+        ctx.fillRect(px, py + 7, TS, 1); ctx.fillRect(px, py + 15, TS, 1);
+        ctx.fillRect(px + 7, py, 1, 7); ctx.fillRect(px + 3, py + 8, 1, 7); ctx.fillRect(px + 11, py + 8, 1, 7);
+      } else if (c === '?' || c === 'U') {
+        ctx.fillStyle = c === '?' ? '#f59e0b' : '#78350f'; ctx.fillRect(px, py, TS, TS);
+        ctx.fillStyle = c === '?' ? '#92400e' : '#451a03';
+        ctx.fillRect(px, py + 15, TS, 1); ctx.fillRect(px + 15, py, 1, TS);
+        if (c === '?') {
+          ctx.fillStyle = Math.floor(t * 3) % 2 ? '#fff' : '#fef3c7';
+          ctx.font = `800 12px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('?', px + 8, py + 9);
+        }
+      } else if (c === '-') {
+        ctx.fillStyle = '#a16207'; ctx.fillRect(px, py, TS, 5);
+        ctx.fillStyle = '#713f12'; ctx.fillRect(px, py + 5, TS, 2); ctx.fillRect(px + 7, py, 1, 5);
+      } else if (c === '^') {
+        ctx.fillStyle = '#d4d4d8';
+        for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(px + k * 4, py + TS); ctx.lineTo(px + k * 4 + 2, py + 7); ctx.lineTo(px + k * 4 + 4, py + TS); ctx.fill(); }
+        ctx.fillStyle = '#71717a'; ctx.fillRect(px, py + TS - 2, TS, 2);
+      }
+    }
+    // lave au fond des trous
+    if (th.lave) {
+      for (let x = x0; x <= x1; x++) {
+        if (grille[LIGNES - 1][x] === '.') {
+          const px = Math.round(x * TS - camX);
+          ctx.fillStyle = '#dc2626'; ctx.fillRect(px, H - 12, TS, 12);
+          ctx.fillStyle = '#f97316'; ctx.fillRect(px, H - 12 + Math.sin(t * 4 + x) * 2, TS, 4);
+          ctx.fillStyle = '#fde047'; ctx.fillRect(px + ((x * 5 + Math.floor(t * 6)) % 14), H - 8, 2, 2);
+        }
+      }
+    }
+  }
+
+  function dessinerObjets(t) {
+    // plateformes mobiles
+    for (const p of plateformes) {
+      const px = Math.round(p.x - camX);
+      ctx.fillStyle = '#0ea5e9'; ctx.fillRect(px, p.y, p.w, p.h);
+      ctx.fillStyle = '#7dd3fc'; ctx.fillRect(px, p.y, p.w, 2);
+      ctx.fillStyle = '#075985'; for (let k = 4; k < p.w; k += 10) ctx.fillRect(px + k, p.y + 3, 4, 2);
+    }
+    // ressorts
+    for (const r of ressorts) {
+      const px = Math.round(r.x - camX), comp = r.t > 0 ? 3 : 0;
+      ctx.fillStyle = '#71717a'; ctx.fillRect(px + 3, r.y + 2 + comp, 10, 6 - comp);
+      ctx.fillStyle = '#ef4444'; ctx.fillRect(px + 1, r.y + comp, 14, 3);
+    }
+    // pièces
+    for (const p of pieces) {
+      if (p.pris) continue;
+      const larg = Math.abs(Math.cos(t * 3 + p.x * 0.05)) * 6 + 2;
+      const px = Math.round(p.x - camX + 4 - larg / 2);
+      ctx.fillStyle = '#facc15'; ctx.fillRect(px, p.y, larg, 10);
+      ctx.fillStyle = '#fef08a'; ctx.fillRect(px, p.y + 1, Math.max(1, larg / 3), 8);
+    }
+    for (const p of pops) {
+      ctx.globalAlpha = 1 - p.t * 2;
+      ctx.fillStyle = '#facc15'; ctx.fillRect(Math.round(p.x - camX), p.y - p.t * 40, 8, 10);
+      ctx.globalAlpha = 1;
+    }
+    // drapeaux de contrôle
+    for (const c of controles) {
+      const px = Math.round(c.x - camX);
+      ctx.fillStyle = '#d4d4d8'; ctx.fillRect(px + 7, c.y - 16, 2, 32);
+      ctx.fillStyle = c.actif ? '#22c55e' : '#ef4444';
+      ctx.fillRect(px + 9, c.y - 16 + (c.actif ? 0 : 0), 10, 7);
+    }
+    // arrivée
+    if (fin) {
+      const px = Math.round(fin.x - camX);
+      ctx.fillStyle = '#e5e5e5'; ctx.fillRect(px + 7, fin.y - 72, 3, 88);
+      ctx.fillStyle = '#facc15'; ctx.fillRect(px + 5, fin.y - 76, 7, 5);
+      const ondule = Math.sin(t * 5) * 1.5;
+      ctx.fillStyle = '#22c55e'; ctx.fillRect(px + 10, fin.y - 70 + ondule, 20, 13);
+      ctx.fillStyle = '#fff'; ctx.fillRect(px + 22, fin.y - 67 + ondule, 3, 3);
+    }
+    // ennemis
+    for (const e of ennemis) {
+      if (e.mort) continue;
+      const img = e.type === 'scarabee' ? SCARABEE[Math.floor(e.t * 6) % 2] : CHAUVE[Math.floor(e.t * 8) % 2];
+      const px = Math.round(e.x - camX + e.w / 2 - img.width / 2), py = Math.round(e.y + e.h - img.height);
+      if (e.type === 'scarabee' && e.vx > 0) ctx.drawImage(SCARABEE_D[Math.floor(e.t * 6) % 2], px, py);
+      else ctx.drawImage(img, px, py);
+    }
+    // joueur
+    const j = joueur;
+    if (!(j.invincible > 0 && Math.floor(t * 14) % 2)) {
+      let img;
+      if (!j.sol) img = 'saut';
+      else if (Math.abs(j.vx) > 10) img = Math.floor(j.anim) % 2 ? 'course1' : 'course2';
+      else img = 'repos';
+      const sprite = DINO[img + (j.dir < 0 ? 'G' : '')];
+      ctx.drawImage(sprite, Math.round(j.x - camX + j.w / 2 - sprite.width / 2), Math.round(j.y + j.h - sprite.height));
+    }
+    for (const p of particules) {
+      ctx.globalAlpha = 1 - p.t / p.vie;
+      ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x - camX), Math.round(p.y), 2, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function dessinerHUD() {
+    for (let i = 0; i < 3; i++) ctx.drawImage(i < coeurs ? COEUR : COEUR_VIDE, 6 + i * 10, 6);
+    ctx.font = `700 9px ${MONO}`; ctx.textBaseline = 'top';
+    const txt = (t, x, y, c, align = 'left') => { ctx.textAlign = align; ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(t, x + 1, y + 1); ctx.fillStyle = c; ctx.fillText(t, x, y); };
+    ctx.fillStyle = '#facc15'; ctx.fillRect(42, 6, 4, 6);
+    txt(`${piecesPrises}/${piecesTotal}`, 49, 5, '#fff');
+    txt(A.chrono(temps), W / 2, 5, '#fff', 'center');
+    txt(`${niveau + 1}. ${NIVEAUX[niveau].nom}`, W - 6 - 92 / T.echelle, 5, '#e5e5e5', 'right');
+  }
+
+  function dessiner(t) {
+    T.effacer('#000');
+    const th = NIVEAUX[niveau].theme;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+    dessinerFond(th, t);
+    dessinerCases(th, t);
+    dessinerObjets(t);
+    if (etat !== 'menu') dessinerHUD();
+    ctx.restore();
+  }
+
+  /* ==========================================================
+     Menus
+     ========================================================== */
+  function jouer(n) {
+    A.fermerPanneau();
+    charger(n);
+    etat = 'jeu';
+    manette.montrer(true);
+  }
+  function menu() {
+    etat = 'menu';
+    manette.montrer(false);
+    const debloque = A.stock.lire('arcade-aventure-debloque', 0);
+    let choisi = Math.min(debloque, Number(A.stock.lire('aventure-choisi', 0)) || 0);
+    charger(choisi);
+    A.panneau({
+      pastille: 'Plateformes · 5 niveaux',
+      titre: 'Dino Aventure',
+      texte: 'Saute sur les ennemis, ramasse les pièces et atteins le drapeau. 3 étoiles : finir, toutes les pièces, battre le chrono.',
+      choix: NIVEAUX.map((nv, i) => {
+        const r = A.stock.lire('arcade-aventure-' + i, null);
+        return {
+          texte: `${i + 1}. ${nv.nom}`,
+          sous: i > debloque ? '🔒' : r ? `${'★'.repeat(r.etoiles)}${'☆'.repeat(3 - r.etoiles)} · ${A.chrono(r.temps)}` : 'Pas encore fini',
+          actif: i === choisi, bloque: i > debloque,
+          action: () => { choisi = i; A.stock.ecrire('aventure-choisi', i); charger(i); }
+        };
+      }),
+      boutons: [{ texte: 'Jouer', primaire: true, action: () => jouer(choisi) }],
+      aide: A.TACTILE ? '◀ ▶ pour courir, SAUT pour sauter (reste appuyé pour sauter plus haut).'
+        : '← → ou A D courir · Espace, ↑ ou W sauter (reste appuyé = plus haut) · ↓ pour descendre des planches · P pause'
+    });
+  }
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({
+      titre: 'Pause', lignes: [['Niveau', `${niveau + 1}. ${NIVEAUX[niveau].nom}`], ['Pièces', `${piecesPrises} / ${piecesTotal}`]],
+      boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer le niveau', action: () => jouer(niveau) }, { texte: 'Choisir un niveau', action: menu }]
+    });
+  }
+  A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
+
+  const manette = A.manette([
+    { nom: 'gauche', texte: '◀', classe: 'large', style: 'left:14px;bottom:calc(16px + env(safe-area-inset-bottom))' },
+    { nom: 'droite', texte: '▶', classe: 'large', style: 'left:108px;bottom:calc(16px + env(safe-area-inset-bottom))' },
+    { nom: 'bas', texte: '▼', classe: 'petit', style: 'left:84px;bottom:calc(108px + env(safe-area-inset-bottom))' },
+    { nom: 'action', texte: '<small>SAUT</small>', classe: 'large', style: 'right:16px;bottom:calc(16px + env(safe-area-inset-bottom));border-color:rgba(34,197,94,.6);color:#86efac' }
+  ]);
+  A.boutonsCoin(pause);
+  A.conseillerPaysage();
+
+  menu();
+  A.boucle((dt, t) => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if (A.vient('recommencer') && etat === 'jeu') jouer(niveau);
+    if (etat === 'jeu' && window.__robot) window.__robot({ joueur, caseEn, ennemis, plateformes, TS });
+    if (etat === 'jeu') maj(dt);
+    else if (etat === 'menu') { camX = (Math.sin(t * 0.15) * 0.5 + 0.5) * (largeur * TS - W); }
+    majEffets(dt);
+    dessiner(t);
+  });
+
+  window.__aventure = {
+    get etat() { return etat; }, get joueur() { return joueur; }, get pieces() { return [piecesPrises, piecesTotal]; }, get coeurs() { return coeurs; },
+    niveaux: () => NIVEAUX.map(n => assembler(n.plan)), jouer, get niveau() { return niveau; },
+    get temps() { return temps; }, dieu() { coeurs = 99; }
+  };
+})();
+</script>
+</body>
+</html>

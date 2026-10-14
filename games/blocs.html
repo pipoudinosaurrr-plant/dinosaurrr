@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Blocs</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Blocs : empile les pièces et fais des lignes"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const COL = 10, LIG = 20, C = 24;
+  const BX = 12, BY = 56;
+  const W = BX + COL * C + 108, H = BY + LIG * C + 12;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H, hautSurTelephone: 170 });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  /* ---------- Les 7 pièces (rotation façon « SRS ») ---------- */
+  const PIECES = {
+    I: { c: '#22d3ee', f: [[0, 1], [1, 1], [2, 1], [3, 1]], n: 4 },
+    O: { c: '#facc15', f: [[1, 0], [2, 0], [1, 1], [2, 1]], n: 4 },
+    T: { c: '#a855f7', f: [[1, 0], [0, 1], [1, 1], [2, 1]], n: 3 },
+    S: { c: '#22c55e', f: [[1, 0], [2, 0], [0, 1], [1, 1]], n: 3 },
+    Z: { c: '#ef4444', f: [[0, 0], [1, 0], [1, 1], [2, 1]], n: 3 },
+    J: { c: '#3b82f6', f: [[0, 0], [0, 1], [1, 1], [2, 1]], n: 3 },
+    L: { c: '#f97316', f: [[2, 0], [0, 1], [1, 1], [2, 1]], n: 3 }
+  };
+  // décalages essayés quand une rotation est bloquée (« wall kicks »)
+  const KICKS = {
+    '0>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]], '1>0': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    '1>2': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]], '2>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+    '2>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]], '3>2': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    '3>0': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]], '0>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]]
+  };
+  const KICKS_I = {
+    '0>1': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]], '1>0': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
+    '1>2': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]], '2>1': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+    '2>3': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]], '3>2': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
+    '3>0': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]], '0>3': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]]
+  };
+  function cases(type, rot) {
+    const p = PIECES[type];
+    let f = p.f.map(([x, y]) => [x, y]);
+    if (type === 'O') return f;
+    for (let i = 0; i < rot; i++) f = f.map(([x, y]) => [p.n - 1 - y, x]);
+    return f;
+  }
+
+  let grille, piece, sac, suivantes, reserve, reserveUtilisee, score, lignes, niveau, etat = 'menu';
+  let chute, verrou, mouvementsVerrou, das, dasDir, effacement, ligneFlash, combo, b2b, texteBonus;
+
+  function nouvellePartie() {
+    grille = Array.from({ length: LIG }, () => Array(COL).fill(null));
+    sac = []; suivantes = [];
+    for (let i = 0; i < 5; i++) suivantes.push(tirer());
+    reserve = null; reserveUtilisee = false;
+    score = 0; lignes = 0; niveau = 1; chute = 0; verrou = 0; mouvementsVerrou = 0; das = 0; dasDir = 0;
+    effacement = null; combo = -1; b2b = false; texteBonus = null;
+    nouvellePiece();
+  }
+  function tirer() {
+    if (!sac.length) { sac = Object.keys(PIECES); for (let i = sac.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [sac[i], sac[j]] = [sac[j], sac[i]]; } }
+    return sac.pop();
+  }
+  function nouvellePiece(type) {
+    type = type || suivantes.shift();
+    if (suivantes.length < 5) suivantes.push(tirer());
+    piece = { type, rot: 0, x: type === 'O' ? 3 : 3, y: type === 'I' ? -1 : 0 };
+    chute = 0; verrou = 0; mouvementsVerrou = 0;
+    if (collision(piece.x, piece.y, piece.rot)) perdre();
+  }
+  function collision(x, y, rot, type = piece.type) {
+    for (const [cx, cy] of cases(type, rot)) {
+      const gx = x + cx, gy = y + cy;
+      if (gx < 0 || gx >= COL || gy >= LIG) return true;
+      if (gy >= 0 && grille[gy][gx]) return true;
+    }
+    return false;
+  }
+  const auSol = () => collision(piece.x, piece.y + 1, piece.rot);
+  function bouger(dx) {
+    if (!collision(piece.x + dx, piece.y, piece.rot)) { piece.x += dx; resetVerrou(); A.son('tourne'); return true; }
+    return false;
+  }
+  function tourner(sens) {
+    if (piece.type === 'O') return;
+    const de = piece.rot, vers = (piece.rot + sens + 4) % 4;
+    const table = piece.type === 'I' ? KICKS_I : KICKS;
+    for (const [kx, ky] of table[de + '>' + vers]) {
+      if (!collision(piece.x + kx, piece.y - ky, vers)) {
+        piece.x += kx; piece.y -= ky; piece.rot = vers;
+        piece.derniereRotation = true;
+        resetVerrou();
+        A.son('tourne');
+        return;
+      }
+    }
+  }
+  function resetVerrou() { if (auSol() && mouvementsVerrou < 15) { verrou = 0; mouvementsVerrou++; } }
+  function garder() {
+    if (reserveUtilisee) return;
+    const t = piece.type;
+    if (reserve) nouvellePiece(reserve); else nouvellePiece();
+    reserve = t; reserveUtilisee = true;
+    A.son('clic');
+  }
+  function chuteLibre() {
+    let n = 0;
+    while (!collision(piece.x, piece.y + 1, piece.rot)) { piece.y++; n++; }
+    score += n * 2;
+    poser();
+  }
+  function poser() {
+    // un T tourné au dernier moment dans un trou = « T-spin »
+    let tspin = false;
+    if (piece.type === 'T' && piece.derniereRotation) {
+      const coins = [[0, 0], [2, 0], [0, 2], [2, 2]].filter(([cx, cy]) => { const gx = piece.x + cx, gy = piece.y + cy; return gx < 0 || gx >= COL || gy >= LIG || (gy >= 0 && grille[gy][gx]); }).length;
+      tspin = coins >= 3;
+    }
+    for (const [cx, cy] of cases(piece.type, piece.rot)) {
+      const gy = piece.y + cy;
+      if (gy < 0) return perdre();
+      grille[gy][piece.x + cx] = PIECES[piece.type].c;
+    }
+    A.son('pose');
+    const pleines = [];
+    for (let y = 0; y < LIG; y++) if (grille[y].every(Boolean)) pleines.push(y);
+    if (pleines.length) {
+      const n = pleines.length;
+      const base = tspin ? [0, 800, 1200, 1600][n] : [0, 100, 300, 500, 800][n];
+      const difficile = n === 4 || tspin;
+      combo++;
+      let points = base * niveau * (difficile && b2b ? 1.5 : 1) + 50 * combo * niveau;
+      score += Math.round(points);
+      b2b = difficile;
+      texteBonus = { t: 1.2, texte: tspin ? 'T-SPIN !' : n === 4 ? 'BLOCS ×4 !' : n === 3 ? 'TRIPLE' : n === 2 ? 'DOUBLE' : '', combo: combo > 0 ? 'COMBO ×' + combo : '' };
+      effacement = { lignes: pleines, t: 0.22 };
+      A.son(n === 4 || tspin ? 'bonus' : 'ligne');
+      piece = null;
+    } else {
+      combo = -1;
+      if (tspin) { score += 400 * niveau; texteBonus = { t: 1.2, texte: 'T-SPIN', combo: '' }; }
+      reserveUtilisee = false;
+      nouvellePiece();
+    }
+  }
+  function finEffacement() {
+    for (const y of effacement.lignes) { grille.splice(y, 1); grille.unshift(Array(COL).fill(null)); }
+    lignes += effacement.lignes.length;
+    const nv = 1 + Math.floor(lignes / 10);
+    if (nv > niveau) { niveau = nv; texteBonus = { t: 1.4, texte: 'NIVEAU ' + niveau, combo: '' }; }
+    effacement = null;
+    reserveUtilisee = false;
+    nouvellePiece();
+  }
+  const vitesseChute = () => Math.pow(0.8 - (niveau - 1) * 0.007, niveau - 1);   // secondes par ligne
+
+  function perdre() {
+    etat = 'fin';
+    piece = null;
+    A.son('perdu');
+    manette.montrer(false);
+    const r = A.record('blocs-score', score);
+    const rl = A.record('blocs-lignes', lignes);
+    setTimeout(() => A.panneau({
+      pastille: 'Partie terminée',
+      titre: r.nouveau ? '🏅 Nouveau record !' : 'Perdu !',
+      lignes: [['Score', A.format(score)], ['Lignes', String(lignes)], ['Niveau', String(niveau)], ['Record', A.format(r.record)], ['Plus de lignes', String(rl.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }, { texte: 'Menu', action: menu }]
+    }), 500);
+  }
+
+  /* ---------- Clavier : rotations et réserve ---------- */
+  addEventListener('keydown', e => {
+    if (etat !== 'jeu' || !piece || e.repeat) return;
+    if (['ArrowUp', 'KeyW', 'KeyX'].includes(e.code)) { e.preventDefault(); tourner(1); }
+    else if (['KeyZ', 'KeyY', 'KeyQ', 'ControlLeft', 'ControlRight'].includes(e.code)) { e.preventDefault(); tourner(-1); }
+    else if (['KeyC', 'ShiftLeft', 'ShiftRight'].includes(e.code)) { e.preventDefault(); garder(); }
+    // gauche / droite : on bouge tout de suite (même pour un appui très bref)
+    else if (['ArrowLeft', 'KeyA'].includes(e.code) && !effacement) { bouger(-1); dasDir = -1; das = 0; }
+    else if (['ArrowRight', 'KeyD'].includes(e.code) && !effacement) { bouger(1); dasDir = 1; das = 0; }
+  });
+
+  function maj(dt) {
+    if (effacement) { effacement.t -= dt; if (effacement.t <= 0) finEffacement(); return; }
+    if (!piece) return;
+    const k = A.touches;
+    if (A.vient('action')) { chuteLibre(); return; }
+    if (A.vient('action3') && A.TACTILE) garder();
+    // déplacement gauche / droite avec répétition automatique
+    const d = (k.droite ? 1 : 0) - (k.gauche ? 1 : 0);
+    if (d !== dasDir) { dasDir = d; das = 0; if (d) bouger(d); }
+    else if (d) {
+      das += dt;
+      while (das > 0.17) { if (!bouger(d)) { das = 0.17; break; } das -= 0.045; }
+    }
+    // chute
+    const vitesse = k.bas ? Math.min(vitesseChute(), 0.03) : vitesseChute();
+    chute += dt;
+    while (chute >= vitesse) {
+      chute -= vitesse;
+      if (!collision(piece.x, piece.y + 1, piece.rot)) { piece.y++; piece.derniereRotation = false; if (k.bas) score += 1; verrou = 0; }
+      else break;
+    }
+    if (auSol()) {
+      verrou += dt;
+      if (verrou >= 0.5) poser();
+    }
+    if (texteBonus) { texteBonus.t -= dt; if (texteBonus.t <= 0) texteBonus = null; }
+  }
+
+  /* ---------- Dessin ---------- */
+  function bloc(x, y, couleur, taille = C, alpha = 1) {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = couleur;
+    ctx.fillRect(x + 1, y + 1, taille - 2, taille - 2);
+    ctx.fillStyle = 'rgba(255,255,255,.28)';
+    ctx.fillRect(x + 1, y + 1, taille - 2, Math.max(2, taille / 6));
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    ctx.fillRect(x + 1, y + taille - 1 - Math.max(2, taille / 6), taille - 2, Math.max(2, taille / 6));
+    ctx.globalAlpha = 1;
+  }
+  function miniPiece(type, x, y, taille) {
+    const f = cases(type, 0);
+    const minX = Math.min(...f.map(c => c[0])), maxX = Math.max(...f.map(c => c[0]));
+    const minY = Math.min(...f.map(c => c[1])), maxY = Math.max(...f.map(c => c[1]));
+    const ox = x - ((maxX - minX + 1) * taille) / 2, oy = y - ((maxY - minY + 1) * taille) / 2;
+    for (const [cx, cy] of f) bloc(ox + (cx - minX) * taille, oy + (cy - minY) * taille, PIECES[type].c, taille);
+  }
+  function dessiner(t) {
+    T.effacer('#000');
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(BX - 2, BY - 2, COL * C + 4, LIG * C + 4);
+    ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 2; ctx.strokeRect(BX - 2, BY - 2, COL * C + 4, LIG * C + 4);
+    ctx.strokeStyle = 'rgba(255,255,255,.035)'; ctx.lineWidth = 1;
+    for (let x = 1; x < COL; x++) { ctx.beginPath(); ctx.moveTo(BX + x * C + 0.5, BY); ctx.lineTo(BX + x * C + 0.5, BY + LIG * C); ctx.stroke(); }
+    for (let y = 1; y < LIG; y++) { ctx.beginPath(); ctx.moveTo(BX, BY + y * C + 0.5); ctx.lineTo(BX + COL * C, BY + y * C + 0.5); ctx.stroke(); }
+    if (!grille) return;
+    for (let y = 0; y < LIG; y++) for (let x = 0; x < COL; x++) {
+      if (!grille[y][x]) continue;
+      const flashe = effacement && effacement.lignes.includes(y);
+      bloc(BX + x * C, BY + y * C, flashe ? (Math.floor(t * 30) % 2 ? '#fff' : grille[y][x]) : grille[y][x]);
+    }
+    if (piece && etat !== 'menu') {
+      // fantôme : où la pièce va tomber
+      let gy = piece.y;
+      while (!collision(piece.x, gy + 1, piece.rot)) gy++;
+      for (const [cx, cy] of cases(piece.type, piece.rot)) {
+        if (gy + cy < 0) continue;
+        ctx.strokeStyle = PIECES[piece.type].c; ctx.globalAlpha = 0.45; ctx.lineWidth = 2;
+        ctx.strokeRect(BX + (piece.x + cx) * C + 2, BY + (gy + cy) * C + 2, C - 4, C - 4);
+        ctx.globalAlpha = 1;
+      }
+      for (const [cx, cy] of cases(piece.type, piece.rot)) {
+        if (piece.y + cy < 0) continue;
+        bloc(BX + (piece.x + cx) * C, BY + (piece.y + cy) * C, PIECES[piece.type].c);
+      }
+    }
+    // panneau de droite
+    const px = BX + COL * C + 14, pw = W - px - 8;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#71717a'; ctx.font = `700 10px ${MONO}`;
+    ctx.fillText('SUIVANTES', px, BY + 10);
+    for (let i = 0; i < 4; i++) {
+      if (suivantes[i]) miniPiece(suivantes[i], px + pw / 2, BY + 36 + i * 50, i === 0 ? 16 : 12);
+    }
+    ctx.fillStyle = '#71717a'; ctx.fillText('RÉSERVE', px, BY + 240);
+    ctx.strokeStyle = '#27272a'; ctx.strokeRect(px, BY + 248, pw, 56);
+    if (reserve) { ctx.globalAlpha = reserveUtilisee ? 0.35 : 1; miniPiece(reserve, px + pw / 2, BY + 276, 14); ctx.globalAlpha = 1; }
+    const infos = [['NIVEAU', niveau], ['LIGNES', lignes], ['RECORD', A.format(Math.max(score, A.record('blocs-score') || 0))]];
+    infos.forEach(([n, v], i) => {
+      ctx.fillStyle = '#71717a'; ctx.font = `700 10px ${MONO}`; ctx.fillText(n, px, BY + 334 + i * 44);
+      ctx.fillStyle = '#fafafa'; ctx.font = `800 18px ${MONO}`; ctx.fillText(String(v), px, BY + 354 + i * 44);
+    });
+    // score en haut
+    ctx.fillStyle = '#fff'; ctx.font = `800 26px ${MONO}`; ctx.fillText(A.format(score), BX, 38);
+    if (texteBonus) {
+      ctx.globalAlpha = Math.min(1, texteBonus.t * 2);
+      ctx.textAlign = 'center'; ctx.font = `900 24px ${MONO}`;
+      ctx.fillStyle = '#facc15'; ctx.fillText(texteBonus.texte, BX + COL * C / 2, BY + LIG * C * 0.4);
+      if (texteBonus.combo) { ctx.font = `800 14px ${MONO}`; ctx.fillStyle = '#fff'; ctx.fillText(texteBonus.combo, BX + COL * C / 2, BY + LIG * C * 0.4 + 24); }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* ---------- Menus ---------- */
+  function lancer() { A.fermerPanneau(); nouvellePartie(); etat = 'jeu'; manette.montrer(true); }
+  function menu() {
+    etat = 'menu';
+    manette.montrer(false);
+    nouvellePartie();
+    A.panneau({
+      pastille: 'Puzzle',
+      titre: 'Blocs',
+      texte: 'Empile les pièces et remplis des lignes entières pour les faire disparaître. 4 lignes d’un coup rapportent un max de points !',
+      lignes: [['Record', A.format(A.record('blocs-score') || 0)], ['Plus de lignes', String(A.record('blocs-lignes') || 0)]],
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancer }],
+      aide: A.TACTILE
+        ? '◀ ▶ déplacer · ▼ descendre · ↻ tourner · ⤓ poser direct · R réserve'
+        : '← → déplacer · ↓ descendre · ↑ ou X tourner · Z tourner à l’envers · Espace : poser direct · C ou Maj : réserve · P pause'
+    });
+  }
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Score', A.format(score)], ['Lignes', String(lignes)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancer }, { texte: 'Menu', action: menu }] });
+  }
+  A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
+
+  // boutons tactiles : rotation et réserve passent par des clics directs
+  const manette = A.manette([
+    { nom: 'gauche', texte: '◀', style: 'left:12px;bottom:calc(84px + env(safe-area-inset-bottom))' },
+    { nom: 'droite', texte: '▶', style: 'left:84px;bottom:calc(84px + env(safe-area-inset-bottom))' },
+    { nom: 'bas', texte: '▼', style: 'left:48px;bottom:calc(14px + env(safe-area-inset-bottom))' },
+    { nom: 'tourner', texte: '↻', classe: 'large', style: 'right:12px;bottom:calc(84px + env(safe-area-inset-bottom))' },
+    { nom: 'action', texte: '⤓', style: 'right:104px;bottom:calc(24px + env(safe-area-inset-bottom))' },
+    { nom: 'action3', texte: '<small>R</small>', classe: 'petit', style: 'right:30px;bottom:calc(24px + env(safe-area-inset-bottom))' }
+  ]);
+  A.boutonsCoin(pause);
+
+  menu();
+  A.boucle((dt, t) => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if (etat === 'jeu' && A.vient('tourner') && piece) tourner(1);
+    if (etat === 'jeu') maj(dt);
+    dessiner(t);
+  });
+
+  window.__blocs = { get etat() { return etat; }, get score() { return score; }, get lignes() { return lignes; }, get piece() { return piece; }, get grille() { return grille; },
+    forcer(t) { piece = { type: t, rot: 0, x: 3, y: 0 }; },
+    remplir(n) { for (let y = LIG - n; y < LIG; y++) for (let x = 0; x < COL - 1; x++) grille[y][x] = '#888'; } };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Serpent</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Serpent"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const N = 18, C = 20, HAUT = 44;
+  const W = N * C + 16, H = N * C + HAUT + 12;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const X0 = 8, Y0 = HAUT;
+
+  const MODES = [
+    { id: 'classique', nom: 'Classique', sous: 'Les murs tuent', murs: true, depart: 7, gain: 0.22, max: 15 },
+    { id: 'libre', nom: 'Sans murs', sous: 'On ressort de l’autre côté', murs: false, depart: 7, gain: 0.22, max: 15 },
+    { id: 'turbo', nom: 'Turbo', sous: 'Ça accélère vite', murs: true, depart: 9, gain: 0.45, max: 20 }
+  ];
+  let mode = MODES[Math.min(2, Number(A.stock.lire('serpent-mode', 0)) || 0)];
+
+  let serpent, dir, file, fruit, etoile, score, vitesse, accu, etat = 'menu', grandir, mort, flash, mangeT, obstacles;
+
+  function nouvellePartie() {
+    serpent = [{ x: 6, y: 9 }, { x: 5, y: 9 }, { x: 4, y: 9 }];
+    dir = { x: 1, y: 0 };
+    file = [];
+    score = 0; vitesse = mode.depart; accu = 0; grandir = 0; mort = 0; flash = 0; mangeT = 0;
+    etoile = null;
+    obstacles = [];
+    placerFruit();
+  }
+
+  const occupe = (x, y) => serpent.some(s => s.x === x && s.y === y) || obstacles.some(o => o.x === x && o.y === y);
+  function caseLibre() {
+    for (let i = 0; i < 500; i++) {
+      const x = Math.floor(Math.random() * N), y = Math.floor(Math.random() * N);
+      if (!occupe(x, y) && !(fruit && fruit.x === x && fruit.y === y) && !(etoile && etoile.x === x && etoile.y === y)) return { x, y };
+    }
+    return null;
+  }
+  function placerFruit() { fruit = caseLibre(); }
+
+  function tourner(nx, ny) {
+    const dernier = file.length ? file[file.length - 1] : dir;
+    if (nx === -dernier.x && ny === -dernier.y) return;   // pas de demi-tour
+    if (nx === dernier.x && ny === dernier.y) return;
+    if (file.length < 3) file.push({ x: nx, y: ny });
+  }
+
+  function avancer() {
+    if (file.length) dir = file.shift();
+    const tete = serpent[0];
+    let x = tete.x + dir.x, y = tete.y + dir.y;
+    if (!mode.murs) { x = (x + N) % N; y = (y + N) % N; }
+    const queue = serpent[serpent.length - 1];
+    const touche = x < 0 || y < 0 || x >= N || y >= N || obstacles.some(o => o.x === x && o.y === y) ||
+      serpent.some(s => s.x === x && s.y === y && !(s === queue && grandir === 0));
+    if (touche) return perdre();
+    serpent.unshift({ x, y });
+    if (grandir > 0) grandir--; else serpent.pop();
+    if (fruit && x === fruit.x && y === fruit.y) {
+      score += 10; grandir += 1; vitesse = Math.min(mode.max, vitesse + mode.gain); mangeT = 0.15;
+      A.son('mange');
+      placerFruit();
+      if (!etoile && Math.random() < 0.18) { const c = caseLibre(); if (c) etoile = { ...c, t: 6 }; }
+      // en mode turbo, des rochers apparaissent
+      if (mode.id === 'turbo' && score % 50 === 0) { const c = caseLibre(); if (c && Math.abs(c.x - x) + Math.abs(c.y - y) > 4) obstacles.push(c); }
+    }
+    if (etoile && x === etoile.x && y === etoile.y) {
+      score += 50; grandir += 3; etoile = null; flash = 0.3;
+      A.son('bonus');
+    }
+    if (!fruit) gagner();
+  }
+
+  function perdre() {
+    etat = 'mort';
+    mort = 0.8;
+    A.son('perdu');
+    setTimeout(finir, 900);
+  }
+  function gagner() { etat = 'mort'; A.son('gagne'); setTimeout(finir, 600); }
+
+  function finir() {
+    const r = A.record('serpent-' + mode.id, score);
+    A.panneau({
+      pastille: mode.nom,
+      titre: r.nouveau ? '🏅 Nouveau record !' : 'Perdu !',
+      lignes: [['Score', String(score)], ['Longueur', String(serpent.length)], ['Record (' + mode.nom + ')', String(r.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }, { texte: 'Changer de mode', action: menu }]
+    });
+  }
+
+  function maj(dt) {
+    if (A.vient('haut')) tourner(0, -1);
+    if (A.vient('bas')) tourner(0, 1);
+    if (A.vient('gauche')) tourner(-1, 0);
+    if (A.vient('droite')) tourner(1, 0);
+    accu += dt;
+    const pas = 1 / vitesse;
+    while (accu >= pas && etat === 'jeu') { accu -= pas; avancer(); }
+    if (etoile) { etoile.t -= dt; if (etoile.t <= 0) etoile = null; }
+    flash = Math.max(0, flash - dt);
+    mangeT = Math.max(0, mangeT - dt);
+  }
+
+  /* ---------- Dessin ---------- */
+  function dessiner(t) {
+    T.effacer('#000');
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(X0 - 2, Y0 - 2, N * C + 4, N * C + 4);
+    ctx.strokeStyle = mode.murs ? '#3f3f46' : 'rgba(63,63,70,.4)';
+    ctx.lineWidth = 2;
+    if (!mode.murs) ctx.setLineDash([6, 6]);
+    ctx.strokeRect(X0 - 2, Y0 - 2, N * C + 4, N * C + 4);
+    ctx.setLineDash([]);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if ((x + y) % 2) { ctx.fillStyle = '#111113'; ctx.fillRect(X0 + x * C, Y0 + y * C, C, C); }
+    }
+    if (!serpent) return;
+    // rochers
+    for (const o of obstacles) {
+      ctx.fillStyle = '#57534e'; ctx.fillRect(X0 + o.x * C + 2, Y0 + o.y * C + 3, C - 4, C - 5);
+      ctx.fillStyle = '#78716c'; ctx.fillRect(X0 + o.x * C + 4, Y0 + o.y * C + 4, C - 10, 4);
+    }
+    // fruit
+    if (fruit) {
+      const px = X0 + fruit.x * C, py = Y0 + fruit.y * C;
+      const p = 1 + Math.sin(t * 6) * 0.06;
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath(); ctx.arc(px + C / 2, py + C / 2 + 1, 7 * p, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fca5a5'; ctx.fillRect(px + 6, py + 7, 3, 3);
+      ctx.fillStyle = '#22c55e'; ctx.fillRect(px + 10, py + 2, 4, 3);
+      ctx.fillStyle = '#78350f'; ctx.fillRect(px + 9, py + 2, 2, 4);
+    }
+    if (etoile) {
+      const px = X0 + etoile.x * C + C / 2, py = Y0 + etoile.y * C + C / 2;
+      ctx.globalAlpha = etoile.t < 2 ? (Math.floor(t * 8) % 2 ? 0.4 : 1) : 1;
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 4 : 9;
+        ctx.lineTo(px + Math.cos(a) * rr, py + Math.sin(a) * rr);
+      }
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // le serpent
+    const n = serpent.length;
+    for (let i = n - 1; i >= 0; i--) {
+      const s = serpent[i];
+      const px = X0 + s.x * C, py = Y0 + s.y * C;
+      const k = i / Math.max(1, n - 1);
+      const vert = `hsl(${142 - k * 20}, ${70 - k * 20}%, ${45 - k * 15}%)`;
+      ctx.fillStyle = mort > 0 && Math.floor(t * 10) % 2 ? '#ef4444' : vert;
+      const m = i === 0 ? 1 : 2 + Math.round(k * 2);
+      ctx.beginPath();
+      ctx.roundRect(px + m, py + m, C - 2 * m, C - 2 * m, i === 0 ? 6 : 4);
+      ctx.fill();
+      // relier au segment suivant pour un corps continu
+      if (i < n - 1) {
+        const s2 = serpent[i + 1];
+        if (Math.abs(s2.x - s.x) + Math.abs(s2.y - s.y) === 1) {
+          const mx = Math.min(s.x, s2.x), my = Math.min(s.y, s2.y);
+          const hor = s.y === s2.y;
+          ctx.fillRect(X0 + mx * C + (hor ? C / 2 : m), Y0 + my * C + (hor ? m : C / 2), hor ? C : C - 2 * m, hor ? C - 2 * m : C);
+        }
+      }
+    }
+    // tête : yeux et langue
+    const h = serpent[0], hx = X0 + h.x * C + C / 2, hy = Y0 + h.y * C + C / 2;
+    const ox = dir.y !== 0 ? 4 : 0, oy = dir.x !== 0 ? 4 : 0;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(hx + dir.x * 3 - ox - 2, hy + dir.y * 3 - oy - 2, 4, 4);
+    ctx.fillRect(hx + dir.x * 3 + ox - 2, hy + dir.y * 3 + oy - 2, 4, 4);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(hx + dir.x * 4 - ox - 1, hy + dir.y * 4 - oy - 1, 2, 2);
+    ctx.fillRect(hx + dir.x * 4 + ox - 1, hy + dir.y * 4 + oy - 1, 2, 2);
+    if (Math.floor(t * 3) % 3 === 0 && etat === 'jeu') {
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(hx + dir.x * 11 - (dir.y ? 1 : 0), hy + dir.y * 11 - (dir.x ? 1 : 0), dir.x ? 5 : 2, dir.y ? 5 : 2);
+    }
+    if (flash > 0) { ctx.fillStyle = `rgba(250,204,21,${flash})`; ctx.fillRect(X0, Y0, N * C, N * C); }
+    // HUD
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `800 22px ${MONO}`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
+    ctx.fillText(String(score), X0, 30);
+    ctx.font = `600 11px ${MONO}`; ctx.fillStyle = '#a1a1aa';
+    ctx.fillText(`RECORD ${A.record('serpent-' + mode.id) || 0} · ${mode.nom.toUpperCase()}`, X0 + 60, 28);
+  }
+
+  /* ---------- Glisser le doigt ---------- */
+  let debut = null;
+  addEventListener('pointerdown', e => { if (etat === 'jeu') debut = { x: e.clientX, y: e.clientY }; });
+  addEventListener('pointermove', e => {
+    if (!debut) return;
+    const dx = e.clientX - debut.x, dy = e.clientY - debut.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 22) return;
+    if (Math.abs(dx) > Math.abs(dy)) tourner(Math.sign(dx), 0); else tourner(0, Math.sign(dy));
+    debut = { x: e.clientX, y: e.clientY };
+  });
+  addEventListener('pointerup', () => { debut = null; });
+
+  /* ---------- Menus ---------- */
+  function lancer() { A.fermerPanneau(); nouvellePartie(); etat = 'jeu'; }
+  function menu() {
+    etat = 'menu';
+    nouvellePartie();
+    A.panneau({
+      pastille: 'Classique',
+      titre: 'Serpent',
+      texte: 'Mange les pommes pour grandir. L’étoile dorée vaut 5 pommes, mais elle ne reste pas longtemps !',
+      choix: MODES.map((m, i) => ({ texte: m.nom, sous: (A.record('serpent-' + m.id) ? 'Record ' + A.record('serpent-' + m.id) : m.sous), actif: m === mode, action: () => { mode = m; A.stock.ecrire('serpent-mode', i); nouvellePartie(); } })),
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancer }],
+      aide: A.TACTILE ? 'Glisse le doigt dans une direction pour tourner.' : 'Flèches ou WASD / ZQSD pour tourner · P : pause · M : son'
+    });
+  }
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Score', String(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; accu = 0; } }, { texte: 'Recommencer', action: lancer }, { texte: 'Menu', action: menu }] });
+  }
+  A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
+  A.boutonsCoin(pause);
+
+  menu();
+  A.boucle((dt, t) => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if (etat === 'jeu') maj(dt);
+    if (mort > 0) mort -= dt;
+    dessiner(t);
+  });
+
+  window.__serpent = { get etat() { return etat; }, get score() { return score; }, get longueur() { return serpent.length; }, get tete() { return serpent[0]; }, get fruit() { return fruit; }, get dir() { return dir; }, tourner };
+})();
+</script>
+</body>
+</html>

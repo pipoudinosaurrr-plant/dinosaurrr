@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Turbo Dino</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Turbo Dino : course de voitures"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const T = A.toile(document.getElementById('jeu'));
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  /* ==========================================================
+     Réglages de la route (technique « pseudo-3D » des jeux d'arcade
+     des années 80 : la route est une suite de segments projetés)
+     ========================================================== */
+  const PAS = 1 / 60;
+  const SEG = 200;                  // longueur d'un segment
+  const BANDES = 3;                 // segments par bande de couleur
+  const LARGEUR_ROUTE = 2000;       // demi-largeur de la route
+  const VOIES = 3;
+  const CHAMP = 100;                // angle de vue (degrés)
+  const HAUTEUR_CAMERA = 1000;
+  const PROFONDEUR = 1 / Math.tan((CHAMP / 2) * Math.PI / 180);
+  const DISTANCE_VUE = 260;
+  const JOUEUR_Z = HAUTEUR_CAMERA * PROFONDEUR;
+  const VITESSE_MAX = SEG / PAS;    // 12 000
+  const ACCEL = VITESSE_MAX / 5;
+  const FREIN = -VITESSE_MAX;
+  const RALENTI = -VITESSE_MAX / 5;
+  const HORS_PISTE_FREIN = -VITESSE_MAX / 2;
+  const HORS_PISTE_MAX = VITESSE_MAX / 4;
+  const CENTRIFUGE = 0.3;
+  const LARGEUR_VOITURE = 0.28;
+  const TOURS = 3;
+  const NITRO_FACTEUR = 1.28;
+
+  /* ---------- outils mathématiques ---------- */
+  const borne = A.borne;
+  const avancer = (debut, n, max) => { let r = debut + n; while (r >= max) r -= max; while (r < 0) r += max; return r; };
+  const accel = (v, a, dt) => v + a * dt;
+  const interpoler = (a, b, p) => a + (b - a) * p;
+  const reste = (n, total) => (n % total) / total;
+  const facileEntree = (a, b, p) => a + (b - a) * Math.pow(p, 2);
+  const facileES = (a, b, p) => a + (b - a) * ((-Math.cos(p * Math.PI) / 2) + 0.5);
+  function chevauche(x1, w1, x2, w2, pct = 1) {
+    const h = pct / 2;
+    return !((x1 + w1 * h) < (x2 - w2 * h) || (x1 - w1 * h) > (x2 + w2 * h));
+  }
+
+  /* ==========================================================
+     Les sprites (dessinés au démarrage, en pixel art)
+     ========================================================== */
+  function toileSprite(w, h, dessin) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    dessin(g, w, h);
+    return c;
+  }
+  const r = (g, c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+
+  // voiture vue de derrière (48 × 26), virage = -1 / 0 / 1
+  function voiture(couleur, sombre, virage = 0, dino = false) {
+    return toileSprite(48, 28, (g) => {
+      const v = virage * 2;
+      // ombre
+      r(g, 'rgba(0,0,0,.35)', 3, 24, 42, 4);
+      // roues
+      r(g, '#111', 3, 17, 8, 9); r(g, '#111', 37, 17, 8, 9);
+      r(g, '#2b2b2b', 4, 18, 2, 7); r(g, '#2b2b2b', 38, 18, 2, 7);
+      // toit et vitre arrière
+      r(g, sombre, 11 + v, 2, 26, 9);
+      r(g, couleur, 12 + v, 1, 24, 2);
+      r(g, '#1c2533', 13 + v, 4, 22, 6);
+      r(g, '#3a4a62', 14 + v, 4, 6, 2);
+      if (dino) {
+        // la tête du dino pilote dans la vitre
+        r(g, '#22c55e', 20 + v, 3, 9, 6); r(g, '#22c55e', 27 + v, 5, 4, 3);
+        r(g, '#14532d', 20 + v, 8, 9, 1);
+        r(g, '#fff', 25 + v, 4, 2, 2); r(g, '#000', 26 + v, 4, 1, 1);
+      }
+      // carrosserie
+      r(g, couleur, 2, 10, 44, 10);
+      r(g, sombre, 2, 18, 44, 3);
+      r(g, 'rgba(255,255,255,.25)', 4, 11, 40, 1);
+      // feux arrière
+      r(g, '#ff2a2a', 4, 12, 9, 3); r(g, '#ff2a2a', 35, 12, 9, 3);
+      r(g, '#ffb3b3', 5, 12, 3, 1); r(g, '#ffb3b3', 36, 12, 3, 1);
+      // plaque
+      r(g, '#f5f5f5', 19, 14, 10, 4); r(g, '#999', 20, 16, 8, 1);
+      // pare-chocs
+      r(g, '#1a1a1a', 1, 20, 46, 2);
+      // aileron
+      r(g, sombre, 6 + v, 8, 36, 2);
+    });
+  }
+
+  const S = {};
+  function preparerSprites() {
+    S.joueur = [-1, 0, 1].map(v => voiture('#16a34a', '#14532d', v, true));
+    const COULEURS = [['#dc2626', '#7f1d1d'], ['#2563eb', '#1e3a8a'], ['#eab308', '#854d0e'], ['#9333ea', '#4c1d95'], ['#ea580c', '#7c2d12'], ['#0891b2', '#164e63'], ['#db2777', '#831843']];
+    S.voitures = COULEURS.map(([c, s]) => voiture(c, s));
+
+    S.palmier = toileSprite(40, 64, g => {
+      r(g, '#7c4a1e', 18, 22, 4, 40); r(g, '#5b3413', 20, 22, 2, 40);
+      for (let i = 0; i < 5; i++) r(g, '#8b5a2b', 17, 26 + i * 8, 6, 2);
+      g.fillStyle = '#15803d';
+      [[2, 18, 16, 4], [22, 16, 16, 4], [6, 12, 12, 4], [22, 10, 12, 4], [14, 6, 12, 4], [0, 22, 6, 4], [34, 20, 6, 4], [10, 16, 20, 6]].forEach(([x, y, w, h]) => g.fillRect(x, y, w, h));
+      r(g, '#22c55e', 12, 14, 16, 3); r(g, '#4ade80', 16, 8, 8, 2);
+      r(g, '#713f12', 17, 18, 3, 3); r(g, '#713f12', 21, 19, 3, 3);
+    });
+    S.sapin = toileSprite(36, 64, g => {
+      r(g, '#5b3413', 16, 52, 5, 12);
+      const vert = ['#14532d', '#166534', '#15803d'];
+      for (let i = 0; i < 6; i++) {
+        const w = 8 + i * 5, y = 4 + i * 8;
+        r(g, vert[i % 3], 18 - w / 2, y, w, 10);
+      }
+      r(g, '#22c55e', 15, 6, 3, 3); r(g, '#4ade80', 12, 22, 3, 2);
+    });
+    S.arbre = toileSprite(48, 56, g => {
+      r(g, '#5b3413', 21, 34, 6, 22);
+      g.fillStyle = '#166534'; g.beginPath(); g.arc(24, 22, 20, 0, 7); g.fill();
+      g.fillStyle = '#15803d'; g.beginPath(); g.arc(18, 18, 12, 0, 7); g.fill();
+      g.fillStyle = '#22c55e'; g.beginPath(); g.arc(15, 14, 5, 0, 7); g.fill();
+    });
+    S.buisson = toileSprite(40, 22, g => {
+      g.fillStyle = '#166534'; g.beginPath(); g.ellipse(20, 14, 19, 9, 0, 0, 7); g.fill();
+      g.fillStyle = '#16a34a'; g.beginPath(); g.ellipse(14, 11, 9, 6, 0, 0, 7); g.fill();
+      r(g, '#f472b6', 26, 8, 2, 2); r(g, '#fde047', 10, 13, 2, 2);
+    });
+    S.rocher = toileSprite(40, 26, g => {
+      g.fillStyle = '#57534e'; g.beginPath(); g.moveTo(2, 26); g.lineTo(8, 8); g.lineTo(20, 2); g.lineTo(32, 7); g.lineTo(39, 26); g.fill();
+      g.fillStyle = '#78716c'; g.beginPath(); g.moveTo(8, 10); g.lineTo(20, 4); g.lineTo(24, 14); g.lineTo(12, 18); g.fill();
+    });
+    S.cactus = toileSprite(30, 48, g => {
+      r(g, '#15803d', 12, 4, 7, 44); r(g, '#15803d', 4, 16, 5, 14); r(g, '#15803d', 4, 26, 10, 4); r(g, '#15803d', 21, 10, 5, 14); r(g, '#15803d', 17, 20, 9, 4);
+      r(g, '#22c55e', 13, 5, 2, 42);
+    });
+    S.panneau = toileSprite(80, 56, g => {
+      r(g, '#3f3f46', 14, 34, 4, 22); r(g, '#3f3f46', 62, 34, 4, 22);
+      r(g, '#111', 0, 0, 80, 36); r(g, '#22c55e', 2, 2, 76, 32);
+      r(g, '#052e16', 4, 4, 72, 28);
+      g.fillStyle = '#4ade80'; g.font = 'bold 13px monospace'; g.textAlign = 'center'; g.fillText('DINOSAURRR', 40, 18);
+      g.fillStyle = '#bbf7d0'; g.font = '9px monospace'; g.fillText('.com', 40, 28);
+    });
+    S.panneau2 = toileSprite(80, 56, g => {
+      r(g, '#3f3f46', 14, 34, 4, 22); r(g, '#3f3f46', 62, 34, 4, 22);
+      r(g, '#111', 0, 0, 80, 36); r(g, '#f97316', 2, 2, 76, 32);
+      g.fillStyle = '#fff'; g.font = 'bold 15px monospace'; g.textAlign = 'center'; g.fillText('TURBO', 40, 17);
+      g.font = 'bold 10px monospace'; g.fillText('>>> >>> >>>', 40, 29);
+    });
+    S.fleche = toileSprite(40, 40, g => {
+      r(g, '#3f3f46', 18, 26, 4, 14);
+      r(g, '#fff', 0, 0, 40, 26); r(g, '#dc2626', 2, 2, 36, 22);
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(8, 13); g.lineTo(20, 5); g.lineTo(20, 10); g.lineTo(32, 10); g.lineTo(32, 16); g.lineTo(20, 16); g.lineTo(20, 21); g.fill();
+    });
+    S.flecheD = A.miroir(S.fleche);
+    S.lampadaire = toileSprite(30, 80, g => {
+      const grd = g.createRadialGradient(8, 8, 1, 8, 8, 14);
+      grd.addColorStop(0, 'rgba(255,240,180,.9)'); grd.addColorStop(1, 'rgba(255,240,180,0)');
+      g.fillStyle = grd; g.fillRect(0, 0, 30, 30);
+      r(g, '#52525b', 20, 6, 3, 74); r(g, '#52525b', 8, 6, 14, 3); r(g, '#fef3c7', 5, 8, 8, 3);
+    });
+    S.immeubles = [0, 1, 2].map(k => toileSprite(60, 120, g => {
+      const coul = ['#1e1b4b', '#172554', '#2e1065'][k];
+      const h = [120, 96, 110][k];
+      r(g, coul, 0, 120 - h, 60, h);
+      for (let y = 124 - h; y < 112; y += 8) for (let x = 5; x < 56; x += 9) {
+        r(g, Math.random() < 0.55 ? (Math.random() < 0.2 ? '#f0abfc' : '#fde68a') : '#0f0a2e', x, y, 5, 4);
+      }
+      r(g, k === 1 ? '#f0abfc' : '#22d3ee', 0, 120 - h, 60, 2);
+    }));
+    S.neon = toileSprite(70, 60, g => {
+      r(g, '#27272a', 32, 30, 5, 30);
+      r(g, '#0a0a0a', 0, 0, 70, 30);
+      g.strokeStyle = '#f0abfc'; g.lineWidth = 2; g.strokeRect(2, 2, 66, 26);
+      g.fillStyle = '#f0abfc'; g.font = 'bold 12px monospace'; g.textAlign = 'center'; g.fillText('NEON CITY', 35, 20);
+    });
+    S.depart = toileSprite(120, 70, g => {
+      r(g, '#d4d4d8', 0, 0, 6, 70); r(g, '#d4d4d8', 114, 0, 6, 70);
+      for (let x = 0; x < 120; x += 8) for (let y = 4; y < 20; y += 8) r(g, ((x + y) / 8) % 2 ? '#111' : '#fff', x, y, 8, 8);
+      g.fillStyle = '#22c55e'; g.fillRect(0, 0, 120, 4);
+    });
+    S.bouee = toileSprite(24, 24, g => {
+      for (let i = 0; i < 4; i++) r(g, i % 2 ? '#fff' : '#ef4444', 0, i * 6, 24, 6);
+    });
+  }
+
+  /* ==========================================================
+     Les circuits
+     ========================================================== */
+  const CIRCUITS = [
+    {
+      id: 'plage', nom: 'Côte d’Azur', sous: 'Facile · plage',
+      ciel: ['#38bdf8', '#bae6fd'], soleil: '#fef08a', brouillard: '#bae6fd', densite: 4,
+      montagnes: '#0e7490', collines: '#16a34a',
+      couleurs: {
+        clair: { route: '#6b6b6b', herbe: '#e9d8a6', bord: '#f5f5f5', voie: '#e5e5e5' },
+        sombre: { route: '#646464', herbe: '#dfc98f', bord: '#ef4444' }
+      },
+      ia: [0.84, 0.94],
+      decor: ['palmier', 'palmier', 'palmier', 'buisson', 'rocher', 'bouee'],
+      panneaux: ['panneau', 'panneau2'],
+      plan(R) {
+        R.droite(40); R.courbe(60, 2, 0); R.colline(40, 20); R.droite(50);
+        R.courbe(80, -3, 30); R.ondulations(); R.courbe(60, 2, -20); R.droite(80);
+        R.esses(); R.colline(60, 40); R.courbe(100, -2, -40); R.droite(60);
+        R.courbe(50, 4, 0); R.droite(40); R.courbe(70, -2, 20); R.bosses(); R.descenteFin();
+      }
+    },
+    {
+      id: 'foret', nom: 'Forêt Rex', sous: 'Moyen · virages',
+      ciel: ['#f97316', '#fde68a'], soleil: '#fff7ed', brouillard: '#fcd9a7', densite: 5,
+      montagnes: '#7c2d12', collines: '#14532d',
+      couleurs: {
+        clair: { route: '#5e5e5e', herbe: '#2f7d32', bord: '#f5f5f5', voie: '#e5e5e5' },
+        sombre: { route: '#585858', herbe: '#28702b', bord: '#f97316' }
+      },
+      ia: [0.88, 0.97],
+      decor: ['sapin', 'sapin', 'arbre', 'arbre', 'buisson', 'rocher'],
+      panneaux: ['fleche', 'panneau2'],
+      plan(R) {
+        R.droite(30); R.courbe(50, 4, 20); R.courbe(50, -4, -20); R.colline(50, 60);
+        R.esses(); R.courbe(80, 5, -40); R.droite(40); R.bosses(); R.courbe(60, -5, 30);
+        R.courbe(60, 3, -30); R.ondulations(); R.courbe(40, -6, 0); R.droite(40);
+        R.courbe(70, 4, 50); R.courbe(70, -4, -50); R.esses(); R.descenteFin();
+      }
+    },
+    {
+      id: 'neon', nom: 'Néon City', sous: 'Difficile · nuit',
+      ciel: ['#0b0420', '#3b0764'], soleil: '#f0abfc', lune: true, brouillard: '#1e0b3a', densite: 6,
+      montagnes: '#1e1b4b', collines: '#0f0a2e', ville: true,
+      couleurs: {
+        clair: { route: '#2a2a35', herbe: '#140f2b', bord: '#22d3ee', voie: '#a5f3fc' },
+        sombre: { route: '#262630', herbe: '#110c25', bord: '#f0abfc' }
+      },
+      ia: [0.91, 0.99],
+      decor: ['lampadaire', 'lampadaire', 'immeuble', 'immeuble', 'immeuble', 'neon'],
+      panneaux: ['neon', 'panneau'],
+      plan(R) {
+        R.droite(60); R.courbe(40, 6, 0); R.droite(60); R.courbe(40, -6, 30); R.esses();
+        R.droite(80); R.colline(50, -40); R.courbe(60, 5, 40); R.courbe(30, -6, 0);
+        R.courbe(30, 6, 0); R.droite(70); R.bosses(); R.courbe(80, -4, -30); R.esses();
+        R.courbe(50, 6, 20); R.droite(40); R.descenteFin();
+      }
+    }
+  ];
+
+  /* ==========================================================
+     État du jeu
+     ========================================================== */
+  let circuit = CIRCUITS[0];
+  let segments = [];
+  let longueurPiste = 0;
+  let voitures = [];
+  let position = 0, vitesse = 0, joueurX = 0, joueurY = 0;
+  let tour = 1, tempsCourse = 0, tempsTour = 0, meilleurTour = null, toursFaits = [];
+  let nitro = 1, nitroActif = false;
+  let decalCiel = 0, decalCollines = 0;
+  let etat = 'menu';    // menu, decompte, course, pause, fini
+  let decompte = 0;
+  let message = null;   // { texte, t }
+  let secousse = 0;
+  let classementFinal = null;
+  let montagnes = [], collines = [];
+  let circuitChoisi = Number(A.stock.lire('turbo-circuit', 0)) || 0;
+
+  const NOMS = ['Rex', 'Raptor', 'Tricé', 'Ptéro', 'Stégo', 'Ankylo', 'Bronto'];
+
+  /* ---------- Construction de la route ---------- */
+  function hauteurFin() { return segments.length ? segments[segments.length - 1].p2.monde.y : 0; }
+  function ajouterSegment(courbe, y) {
+    const n = segments.length;
+    segments.push({
+      index: n,
+      p1: { monde: { y: hauteurFin(), z: n * SEG }, camera: {}, ecran: {} },
+      p2: { monde: { y, z: (n + 1) * SEG }, camera: {}, ecran: {} },
+      courbe, sprites: [], voitures: [],
+      couleur: Math.floor(n / BANDES) % 2 ? circuit.couleurs.sombre : circuit.couleurs.clair
+    });
+  }
+  function ajouterRoute(entree, tenue, sortie, courbe, h) {
+    const debutY = hauteurFin(), finY = debutY + h * SEG, total = entree + tenue + sortie;
+    for (let n = 0; n < entree; n++) ajouterSegment(facileEntree(0, courbe, n / entree), facileES(debutY, finY, n / total));
+    for (let n = 0; n < tenue; n++) ajouterSegment(courbe, facileES(debutY, finY, (entree + n) / total));
+    for (let n = 0; n < sortie; n++) ajouterSegment(facileES(courbe, 0, n / sortie), facileES(debutY, finY, (entree + tenue + n) / total));
+  }
+  const R = {
+    droite(n) { ajouterRoute(n / 4, n / 2, n / 4, 0, 0); },
+    courbe(n, c, h) { ajouterRoute(n / 4, n / 2, n / 4, c, h || 0); },
+    colline(n, h) { ajouterRoute(n / 4, n / 2, n / 4, 0, h); },
+    ondulations() { ajouterRoute(25, 25, 25, 0, 20); ajouterRoute(25, 25, 25, 0, -20); ajouterRoute(25, 25, 25, 2, 20); ajouterRoute(25, 25, 25, 0, 0); ajouterRoute(25, 25, 25, -2, -20); },
+    esses() { ajouterRoute(25, 25, 25, -2, 0); ajouterRoute(25, 25, 25, 4, 0); ajouterRoute(25, 25, 25, 2, 0); ajouterRoute(25, 25, 25, -4, 0); ajouterRoute(25, 25, 25, -2, 0); },
+    bosses() { [5, -2, -5, 8, 5, -7, 5, -2].forEach(h => ajouterRoute(10, 10, 10, 0, h)); },
+    descenteFin() { ajouterRoute(100, 100, 100, -1, -hauteurFin() / SEG); }
+  };
+
+  function construire() {
+    segments = [];
+    circuit.plan(R);
+    // ligne de départ / arrivée
+    for (let n = 0; n < 2; n++) {
+      segments[n + 4].couleur = { route: '#f5f5f5', herbe: circuit.couleurs.clair.herbe, bord: '#f5f5f5', depart: true };
+    }
+    for (let n = 0; n < BANDES; n++) segments[segments.length - 1 - n].couleur = { route: '#1a1a1a', herbe: circuit.couleurs.sombre.herbe, bord: '#1a1a1a' };
+    longueurPiste = segments.length * SEG;
+
+    // décor
+    const ajouterSprite = (n, nom, offset) => { if (segments[n]) segments[n].sprites.push({ nom, offset }); };
+    ajouterSprite(5, 'depart', 0);
+    for (let n = 20; n < segments.length - 20; n += 3 + Math.floor(Math.random() * 4)) {
+      const nom = circuit.decor[Math.floor(Math.random() * circuit.decor.length)];
+      const cote = Math.random() < 0.5 ? -1 : 1;
+      const loin = nom === 'immeuble' ? 2.9 + Math.random() * 2.2 : nom === 'lampadaire' ? 1.2 : 1.3 + Math.random() * 2.2;
+      ajouterSprite(n, nom, cote * loin);
+      if (Math.random() < 0.35) {
+        const nom2 = circuit.decor[Math.floor(Math.random() * circuit.decor.length)];
+        ajouterSprite(n, nom2, -cote * (1.4 + Math.random() * 2.5));
+      }
+    }
+    // panneaux avant les virages serrés
+    for (let n = 30; n < segments.length - 40; n++) {
+      const c = segments[n + 15].courbe;
+      if (Math.abs(c) >= 3 && Math.abs(segments[n].courbe) < 0.5 && !segments[n - 1].panneau) {
+        const nom = circuit.id === 'foret' ? (c > 0 ? 'fleche' : 'flecheD') : circuit.panneaux[n % circuit.panneaux.length];
+        ajouterSprite(n, nom, c > 0 ? -1.3 : 1.3);
+        segments[n].panneau = true;
+        n += 40;
+      }
+    }
+
+    // fonds : montagnes et collines (boucle de 1000 px)
+    montagnes = []; collines = [];
+    let h = 0.5;
+    for (let i = 0; i <= 100; i++) { h = borne(h + A.hasard(-0.12, 0.12), 0.15, 1); montagnes.push(h); }
+    montagnes[100] = montagnes[0];
+    h = 0.5;
+    for (let i = 0; i <= 50; i++) { h = borne(h + A.hasard(-0.2, 0.2), 0.2, 1); collines.push(h); }
+    collines[50] = collines[0];
+  }
+
+  const LARGEURS = { palmier: 0.9, sapin: 0.8, arbre: 1.1, buisson: 0.7, rocher: 0.7, cactus: 0.5, panneau: 1.4, panneau2: 1.4, fleche: 0.6, flecheD: 0.6, lampadaire: 0.5, immeuble: 2.2, neon: 1.2, depart: 2.6, bouee: 0.25 };
+  const imageSprite = s => s.nom === 'immeuble' ? S.immeubles[s.var ?? (s.var = Math.floor(Math.random() * 3))] : S[s.nom];
+
+  function trouverSegment(z) { return segments[Math.floor(z / SEG) % segments.length]; }
+
+  /* ---------- Les adversaires ---------- */
+  function placerVoitures() {
+    voitures = [];
+    for (const s of segments) s.voitures = [];
+    const [vmin, vmax] = circuit.ia;
+    for (let i = 0; i < 7; i++) {
+      const rang = Math.floor(i / 2);
+      const z = JOUEUR_Z + SEG * (6 + rang * 5) + (i % 2) * SEG * 2;
+      const v = {
+        nom: NOMS[i], image: S.voitures[i],
+        offset: (i % 2 ? 0.45 : -0.45),
+        z, depart: z,
+        tours: 0,
+        base: VITESSE_MAX * interpoler(vmax, vmin, i / 6),
+        vitesse: 0, pct: 0
+      };
+      voitures.push(v);
+      trouverSegment(v.z).voitures.push(v);
+    }
+  }
+
+  function decalageIA(v, segV, segJ, largeurJ) {
+    const regard = 20;
+    if ((segV.index - segJ.index + segments.length) % segments.length > DISTANCE_VUE) return 0;
+    for (let i = 1; i < regard; i++) {
+      const seg = segments[(segV.index + i) % segments.length];
+      if (seg === segJ && v.vitesse > vitesse && chevauche(joueurX, largeurJ, v.offset, LARGEUR_VOITURE, 1.2)) {
+        const dir = joueurX > 0.5 ? -1 : joueurX < -0.5 ? 1 : (v.offset > joueurX ? 1 : -1);
+        return dir * (1 / i) * (v.vitesse - vitesse) / VITESSE_MAX;
+      }
+      for (const autre of seg.voitures) {
+        if (autre === v) continue;
+        if (v.vitesse > autre.vitesse && chevauche(v.offset, LARGEUR_VOITURE, autre.offset, LARGEUR_VOITURE, 1.2)) {
+          const dir = autre.offset > 0.5 ? -1 : autre.offset < -0.5 ? 1 : (v.offset > autre.offset ? 1 : -1);
+          return dir * (1 / i) * (v.vitesse - autre.vitesse) / VITESSE_MAX;
+        }
+      }
+    }
+    if (v.offset < -0.85) return 0.1;
+    if (v.offset > 0.85) return -0.1;
+    return 0;
+  }
+
+  const distanceJoueur = () => (tour - 1) * longueurPiste + position + JOUEUR_Z;
+  const distanceVoiture = v => v.tours * longueurPiste + v.z;
+
+  function majVoitures(dt, segJ) {
+    const dJ = distanceJoueur();
+    for (const v of voitures) {
+      // vitesse : un peu d'élastique pour que la course reste serrée
+      const ecart = (distanceVoiture(v) - dJ) / longueurPiste;   // > 0 : devant le joueur
+      let cible = v.base * (1 - borne(ecart, -0.3, 0.3) * 0.18);
+      if (etat === 'fini' && v.fini) cible = v.base * 0.5;
+      v.vitesse = interpoler(v.vitesse, Math.min(cible, VITESSE_MAX * 1.02), dt * 0.6);
+      const ancien = trouverSegment(v.z);
+      v.offset = borne(v.offset + decalageIA(v, ancien, segJ, LARGEUR_VOITURE) * dt * 60, -1.1, 1.1);
+      const avant = v.z;
+      v.z = avancer(v.z, dt * v.vitesse, longueurPiste);
+      if (v.z < avant) { v.tours++; if (v.tours >= TOURS && !v.fini) v.fini = tempsCourse; }
+      v.pct = reste(v.z, SEG);
+      const nouveau = trouverSegment(v.z);
+      if (ancien !== nouveau) {
+        const i = ancien.voitures.indexOf(v);
+        if (i >= 0) ancien.voitures.splice(i, 1);
+        nouveau.voitures.push(v);
+      }
+    }
+  }
+
+  function rangJoueur() {
+    const dJ = distanceJoueur();
+    return 1 + voitures.filter(v => distanceVoiture(v) > dJ).length;
+  }
+
+  /* ==========================================================
+     Mise à jour
+     ========================================================== */
+  function maj(dt) {
+    if (etat === 'decompte') {
+      const avant = Math.ceil(decompte);
+      decompte -= dt;
+      if (Math.ceil(decompte) !== avant && decompte > 0) A.son('decompte');
+      if (decompte <= 0) { etat = 'course'; A.son('depart'); afficherMessage('GO !'); demarrerMoteur(); }
+      majMoteur();
+      return;
+    }
+    if (etat !== 'course' && etat !== 'fini') return;
+
+    const segJ = trouverSegment(position + JOUEUR_Z);
+    const largeurJ = LARGEUR_VOITURE;
+    const pctVitesse = vitesse / VITESSE_MAX;
+    const dx = dt * 2 * pctVitesse;
+    const touches = A.touches;
+    const pilote = etat === 'course';
+
+    majVoitures(dt, segJ);
+
+    const avant = position;
+    position = avancer(position, dt * vitesse, longueurPiste);
+
+    if (pilote) {
+      if (touches.gauche) joueurX -= dx;
+      else if (touches.droite) joueurX += dx;
+    }
+    joueurX -= dx * pctVitesse * segJ.courbe * CENTRIFUGE;
+
+    // nitro
+    nitroActif = pilote && (touches.action || touches.action2) && nitro > 0.02 && vitesse > VITESSE_MAX * 0.4;
+    if (nitroActif) nitro = Math.max(0, nitro - dt / 2.6);
+    else nitro = Math.min(1, nitro + dt / 14);
+    const max = VITESSE_MAX * (nitroActif ? NITRO_FACTEUR : 1);
+
+    const accelere = pilote && (touches.haut || (A.TACTILE && !touches.bas));
+    if (!pilote) vitesse = accel(vitesse, RALENTI * 0.6, dt);
+    else if (accelere) vitesse = accel(vitesse, nitroActif ? ACCEL * 2.2 : ACCEL, dt);
+    else if (touches.bas) vitesse = accel(vitesse, FREIN, dt);
+    else vitesse = accel(vitesse, RALENTI, dt);
+    if (vitesse > max) vitesse = accel(vitesse, RALENTI * 1.5, dt);
+
+    // hors piste : on ralentit et on peut taper le décor
+    if (joueurX < -1 || joueurX > 1) {
+      if (vitesse > HORS_PISTE_MAX) vitesse = accel(vitesse, HORS_PISTE_FREIN, dt);
+      for (const sp of segJ.sprites) {
+        if (sp.nom === 'depart') continue;
+        const w = LARGEURS[sp.nom] || 0.6;
+        const centre = sp.offset + (sp.offset > 0 ? 1 : -1) * w / 2;
+        if (chevauche(joueurX, largeurJ, centre, w * 0.8)) {
+          if (vitesse > VITESSE_MAX / 5) { A.son('touche'); secousse = 0.35; }
+          vitesse = VITESSE_MAX / 5;
+          position = avancer(segJ.p1.monde.z, -JOUEUR_Z, longueurPiste);
+          break;
+        }
+      }
+    }
+
+    // collisions avec les autres voitures
+    for (const v of segJ.voitures) {
+      if (vitesse > v.vitesse && chevauche(joueurX, largeurJ, v.offset, LARGEUR_VOITURE, 0.8)) {
+        vitesse = v.vitesse * (v.vitesse / vitesse);
+        position = avancer(v.z, -JOUEUR_Z - 30, longueurPiste);
+        A.son('touche');
+        secousse = 0.25;
+        break;
+      }
+    }
+
+    joueurX = borne(joueurX, -3, 3);
+    vitesse = borne(vitesse, 0, VITESSE_MAX * NITRO_FACTEUR);
+
+    decalCiel = avancer(decalCiel, 0.001 * segJ.courbe * (position - avant) / SEG, 1);
+    decalCollines = avancer(decalCollines, 0.002 * segJ.courbe * (position - avant) / SEG, 1);
+
+    // chrono et tours
+    if (etat === 'course') {
+      tempsCourse += dt;
+      tempsTour += dt;
+      if (position < avant && avant - position > longueurPiste / 2) {
+        toursFaits.push(tempsTour);
+        const meilleur = meilleurTour === null || tempsTour < meilleurTour;
+        if (meilleur) meilleurTour = tempsTour;
+        if (tour >= TOURS) return finir();
+        tour++;
+        tempsTour = 0;
+        afficherMessage(tour === TOURS ? 'DERNIER TOUR !' : `TOUR ${tour}`, meilleur && toursFaits.length > 0 ? 'Meilleur tour ' + A.chrono(meilleurTour) : '');
+        A.son('bonus');
+      }
+    }
+    secousse = Math.max(0, secousse - dt);
+    majMoteur();
+  }
+
+  function afficherMessage(texte, sous = '') { message = { texte, sous, t: 1.8 }; }
+
+  function finir() {
+    etat = 'fini';
+    const rang = rangJoueur();
+    classementFinal = rang;
+    const temps = tempsCourse;
+    const rTemps = A.record('turbo-' + circuit.id + '-temps', temps, false);
+    const rTour = A.record('turbo-' + circuit.id + '-tour', meilleurTour, false);
+    if (rang === 1) {
+      const v = A.stock.lire('arcade-turbo-victoires', 0) + 1;
+      A.stock.ecrire('arcade-turbo-victoires', v);
+      if (circuitChoisi + 1 < CIRCUITS.length) A.stock.ecrire('arcade-turbo-debloque', Math.max(A.stock.lire('arcade-turbo-debloque', 0), circuitChoisi + 1));
+    }
+    A.son(rang === 1 ? 'gagne' : rang <= 3 ? 'bonus' : 'perdu');
+    afficherMessage(rang === 1 ? 'VICTOIRE !' : `${rang}${rang === 1 ? 'er' : 'e'} / 8`);
+    arreterMoteur();
+    setTimeout(() => {
+      if (etat !== 'fini') return;
+      A.panneau({
+        pastille: circuit.nom,
+        titre: rang === 1 ? '🏆 Victoire !' : rang <= 3 ? `Podium : ${rang}e !` : `${rang}e sur 8`,
+        texte: rang === 1 ? (circuitChoisi + 1 < CIRCUITS.length ? `Bravo ! Le circuit « ${CIRCUITS[circuitChoisi + 1].nom} » est débloqué.` : 'Tu as battu tous les dinos du circuit le plus dur !') : 'Finis premier pour débloquer le circuit suivant.',
+        lignes: [
+          ['Temps total', A.chrono(temps) + (rTemps.nouveau ? ' 🏅' : '')],
+          ['Meilleur tour', A.chrono(meilleurTour) + (rTour.nouveau ? ' 🏅' : '')],
+          ['Record du circuit', A.chrono(rTemps.record)]
+        ],
+        boutons: [
+          { texte: 'Rejouer', primaire: true, action: () => lancer() },
+          { texte: 'Changer de circuit', action: menu }
+        ]
+      });
+    }, 1600);
+  }
+
+  /* ---------- Son du moteur ---------- */
+  let moteur = null;
+  function demarrerMoteur() {
+    const a = A.audio;
+    if (!a || moteur) return;
+    const o = a.createOscillator(), o2 = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+    o.type = 'sawtooth'; o2.type = 'square';
+    f.type = 'lowpass'; f.frequency.value = 600;
+    g.gain.value = 0.0001;
+    o.connect(f); o2.connect(f); f.connect(g).connect(a.destination);
+    o.start(); o2.start();
+    moteur = { o, o2, g, f };
+  }
+  function majMoteur() {
+    if (!moteur) return;
+    const a = A.audio;
+    if (!a) return;
+    const p = vitesse / VITESSE_MAX;
+    // « rapports » : le régime remonte à chaque passage de vitesse
+    const rapport = Math.min(4, Math.floor(p * 5));
+    const regime = (p * 5 - rapport);
+    const f = 55 + regime * 70 + rapport * 12 + (nitroActif ? 30 : 0);
+    moteur.o.frequency.setTargetAtTime(f, a.currentTime, 0.05);
+    moteur.o2.frequency.setTargetAtTime(f / 2, a.currentTime, 0.05);
+    moteur.f.frequency.setTargetAtTime(400 + p * 900, a.currentTime, 0.1);
+    moteur.g.gain.setTargetAtTime(etat === 'pause' || !A.sonActif ? 0.0001 : 0.03 + p * 0.025, a.currentTime, 0.08);
+  }
+  function arreterMoteur() {
+    if (!moteur) return;
+    try { moteur.g.gain.setTargetAtTime(0.0001, A.audio.currentTime, 0.1); moteur.o.stop(A.audio.currentTime + 0.4); moteur.o2.stop(A.audio.currentTime + 0.4); } catch (e) { /* rien */ }
+    moteur = null;
+  }
+  A.surSon = actif => { if (!actif) arreterMoteur(); else if (etat === 'course') demarrerMoteur(); };
+
+  /* ==========================================================
+     Dessin
+     ========================================================== */
+  function projeter(p, camX, camY, camZ, W, H) {
+    p.camera.x = (p.monde.x || 0) - camX;
+    p.camera.y = (p.monde.y || 0) - camY;
+    p.camera.z = (p.monde.z || 0) - camZ;
+    p.ecran.echelle = PROFONDEUR / p.camera.z;
+    p.ecran.x = Math.round(W / 2 + p.ecran.echelle * p.camera.x * W / 2);
+    p.ecran.y = Math.round(H / 2 - p.ecran.echelle * p.camera.y * H / 2);
+    p.ecran.w = Math.round(p.ecran.echelle * LARGEUR_ROUTE * W / 2);
+  }
+
+  function poly(x1, y1, x2, y2, x3, y3, x4, y4, c) {
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function dessinerSegment(W, x1, y1, w1, x2, y2, w2, brouillard, c) {
+    // on déborde d'1 px vers le bas pour ne laisser aucune ligne entre deux segments
+    y1 += 1;
+    const b1 = w1 / Math.max(6, 2 * VOIES), b2 = w2 / Math.max(6, 2 * VOIES);
+    const l1 = w1 / Math.max(32, 8 * VOIES), l2 = w2 / Math.max(32, 8 * VOIES);
+    ctx.fillStyle = c.herbe;
+    ctx.fillRect(0, y2, W, y1 - y2);
+    poly(x1 - w1 - b1, y1, x1 - w1, y1, x2 - w2, y2, x2 - w2 - b2, y2, c.bord);
+    poly(x1 + w1 + b1, y1, x1 + w1, y1, x2 + w2, y2, x2 + w2 + b2, y2, c.bord);
+    poly(x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, c.route);
+    if (c.depart) {
+      // damier de la ligne d'arrivée
+      const n = 12;
+      for (let i = 0; i < n; i++) {
+        if (i % 2) continue;
+        const a1 = x1 - w1 + (2 * w1) * i / n, a2 = x1 - w1 + (2 * w1) * (i + 1) / n;
+        const c1 = x2 - w2 + (2 * w2) * i / n, c2 = x2 - w2 + (2 * w2) * (i + 1) / n;
+        poly(a1, y1, a2, y1, c2, y2, c1, y2, '#111');
+      }
+    }
+    if (c.voie) {
+      const lw1 = w1 * 2 / VOIES, lw2 = w2 * 2 / VOIES;
+      let lx1 = x1 - w1 + lw1, lx2 = x2 - w2 + lw2;
+      for (let v = 1; v < VOIES; v++, lx1 += lw1, lx2 += lw2) poly(lx1 - l1 / 2, y1, lx1 + l1 / 2, y1, lx2 + l2 / 2, y2, lx2 - l2 / 2, y2, c.voie);
+    }
+    if (brouillard < 1) {
+      ctx.globalAlpha = 1 - brouillard;
+      ctx.fillStyle = circuit.brouillard;
+      ctx.fillRect(0, y2, W, y1 - y2 - 1);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function dessinerSprite(img, largeurMonde, echelle, x, y, decX, decY, clipY, W) {
+    const dw = largeurMonde * LARGEUR_ROUTE * echelle * W / 2;
+    const dh = dw * img.height / img.width;
+    x += dw * decX;
+    y += dh * decY;
+    const clipH = clipY ? Math.max(0, y + dh - clipY) : 0;
+    if (clipH >= dh || dw < 1) return;
+    ctx.drawImage(img, 0, 0, img.width, img.height - img.height * clipH / dh, x, y, dw, dh - clipH);
+  }
+
+  function dessinerFond(W, H) {
+    const hz = H / 2;
+    const g = ctx.createLinearGradient(0, 0, 0, hz + 40);
+    g.addColorStop(0, circuit.ciel[0]); g.addColorStop(1, circuit.ciel[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const decY = -joueurY / 40;  // le fond descend quand on monte une côte
+    // soleil ou lune
+    const sx = W * (0.72 - decalCiel * 0.3 % 1);
+    ctx.fillStyle = circuit.soleil;
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath(); ctx.arc(sx, hz * 0.55 + decY * 0.3, Math.min(W, H) * 0.12, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(sx, hz * 0.55 + decY * 0.3, Math.min(W, H) * 0.07, 0, 7); ctx.fill();
+    if (circuit.lune) {
+      ctx.fillStyle = circuit.ciel[0];
+      ctx.beginPath(); ctx.arc(sx + Math.min(W, H) * 0.03, hz * 0.55 + decY * 0.3 - Math.min(W, H) * 0.02, Math.min(W, H) * 0.065, 0, 7); ctx.fill();
+      // étoiles
+      ctx.fillStyle = '#fff';
+      for (let i = 0; i < 70; i++) {
+        const x = ((i * 137.5 + decalCiel * W * 2) % W + W) % W, y = (i * 53.3) % (hz * 0.9);
+        ctx.globalAlpha = 0.3 + (i % 5) / 8;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // montagnes lointaines
+    const couche = (pts, coul, base, amplitude, largeur, decal) => {
+      ctx.fillStyle = coul;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      const n = pts.length - 1;
+      const dx = largeur / n;
+      const debut = -((decal * largeur) % largeur) - largeur;
+      for (let x = debut, i = 0; x < W + dx; x += dx, i++) {
+        ctx.lineTo(x, base - pts[i % n] * amplitude);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+    };
+    couche(montagnes, circuit.montagnes, hz + 6 + decY * 0.4, H * 0.2, Math.max(W, 900) * 1.2, decalCiel);
+    if (circuit.ville) {
+      // silhouettes d'immeubles
+      ctx.fillStyle = '#0f0a2e';
+      const lg = 34 * 34;
+      const debut = -((decalCollines * lg) % lg) - lg;
+      for (let x = debut, i = 0; x < W + 60; x += 34, i++) {
+        const h = 30 + ((i * 47) % 70) * H / 600;
+        ctx.fillRect(x, hz + 4 + decY * 0.6 - h, 30, h + 10);
+        ctx.fillStyle = (i % 3) ? '#fde68a' : '#f0abfc';
+        for (let k = 0; k < 5; k++) if ((i * 7 + k * 3) % 4 === 0) ctx.fillRect(x + 4 + (k % 3) * 8, hz + 10 + decY * 0.6 - h + Math.floor(k / 3) * 12 + 6, 3, 3);
+        ctx.fillStyle = '#0f0a2e';
+      }
+    } else {
+      couche(collines, circuit.collines, hz + 10 + decY * 0.6, H * 0.08, Math.max(W, 900) * 0.8, decalCollines);
+    }
+  }
+
+  function dessiner() {
+    const W = T.W, H = T.H;
+    T.effacer('#000');
+    if (!segments.length) return;
+    const seg0 = trouverSegment(position);
+    const pct0 = reste(position, SEG);
+    const segJ = trouverSegment(position + JOUEUR_Z);
+    const pctJ = reste(position + JOUEUR_Z, SEG);
+    joueurY = interpoler(segJ.p1.monde.y, segJ.p2.monde.y, pctJ);
+
+    ctx.save();
+    if (secousse > 0) ctx.translate(A.hasard(-6, 6) * secousse * 3, A.hasard(-4, 4) * secousse * 3);
+    dessinerFond(W, H);
+
+    let maxy = H;
+    let x = 0, dx = -(seg0.courbe * pct0);
+    for (let n = 0; n < DISTANCE_VUE; n++) {
+      const s = segments[(seg0.index + n) % segments.length];
+      const boucle = s.index < seg0.index;
+      s.brouillard = 1 / Math.pow(Math.E, Math.pow(n / DISTANCE_VUE, 2) * circuit.densite);
+      s.clip = maxy;
+      projeter(s.p1, joueurX * LARGEUR_ROUTE - x, joueurY + HAUTEUR_CAMERA, position - (boucle ? longueurPiste : 0), W, H);
+      projeter(s.p2, joueurX * LARGEUR_ROUTE - x - dx, joueurY + HAUTEUR_CAMERA, position - (boucle ? longueurPiste : 0), W, H);
+      x += dx;
+      dx += s.courbe;
+      if (s.p1.camera.z <= PROFONDEUR || s.p2.ecran.y >= s.p1.ecran.y || s.p2.ecran.y >= maxy) continue;
+      dessinerSegment(W, s.p1.ecran.x, s.p1.ecran.y, s.p1.ecran.w, s.p2.ecran.x, s.p2.ecran.y, s.p2.ecran.w, s.brouillard, s.couleur);
+      maxy = s.p1.ecran.y;
+    }
+
+    // sprites et voitures, du plus loin au plus proche
+    ctx.imageSmoothingEnabled = false;
+    for (let n = DISTANCE_VUE - 1; n > 0; n--) {
+      const s = segments[(seg0.index + n) % segments.length];
+      for (const v of s.voitures) {
+        const e = interpoler(s.p1.ecran.echelle, s.p2.ecran.echelle, v.pct);
+        const vx = interpoler(s.p1.ecran.x, s.p2.ecran.x, v.pct) + e * v.offset * LARGEUR_ROUTE * W / 2;
+        const vy = interpoler(s.p1.ecran.y, s.p2.ecran.y, v.pct);
+        dessinerSprite(v.image, LARGEUR_VOITURE, e, vx, vy, -0.5, -1, s.clip, W);
+      }
+      for (const sp of s.sprites) {
+        const e = s.p1.ecran.echelle;
+        const sx = s.p1.ecran.x + e * sp.offset * LARGEUR_ROUTE * W / 2;
+        const img = imageSprite(sp);
+        if (!img) continue;
+        dessinerSprite(img, LARGEURS[sp.nom] || 0.6, e, sx, s.p1.ecran.y, sp.offset < 0 ? -1 : sp.offset > 0 ? 0 : -0.5, -1, s.clip, W);
+      }
+    }
+
+    // la voiture du joueur
+    const virage = (A.touches.gauche && etat === 'course') ? 0 : (A.touches.droite && etat === 'course') ? 2 : 1;
+    const rebond = (1.5 * Math.random() * (vitesse / VITESSE_MAX) * H / 480) * (Math.random() < 0.5 ? -1 : 1);
+    const ej = PROFONDEUR / JOUEUR_Z;
+    const yj = H / 2 - ej * interpoler(segJ.p1.camera.y, segJ.p2.camera.y, pctJ) * H / 2 + rebond;
+    if (nitroActif) {
+      // flammes du nitro
+      const dw = LARGEUR_VOITURE * LARGEUR_ROUTE * ej * W / 2;
+      ctx.fillStyle = Math.random() < 0.5 ? '#38bdf8' : '#e0f2fe';
+      ctx.fillRect(W / 2 - dw * 0.32, yj - dw * 0.08, dw * 0.12, dw * 0.12 + Math.random() * dw * 0.15);
+      ctx.fillRect(W / 2 + dw * 0.2, yj - dw * 0.08, dw * 0.12, dw * 0.12 + Math.random() * dw * 0.15);
+    }
+    dessinerSprite(S.joueur[virage], LARGEUR_VOITURE, ej, W / 2, yj, -0.5, -1, null, W);
+    ctx.imageSmoothingEnabled = true;
+    ctx.restore();
+
+    dessinerHUD(W, H);
+  }
+
+  function texte(t, x, y, taille, couleur = '#fff', align = 'left', poids = 800) {
+    ctx.font = `${poids} ${taille}px ${MONO}`;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.fillText(t, x + 2, y + 2);
+    ctx.fillStyle = couleur;
+    ctx.fillText(t, x, y);
+  }
+
+  function dessinerHUD(W, H) {
+    if (etat === 'menu') return;
+    const u = Math.max(0.7, Math.min(1.4, Math.min(W, H) / 560));
+    const m = 14 * u;
+    // position et tour
+    const rang = etat === 'fini' && classementFinal ? classementFinal : rangJoueur();
+    texte(`${rang}`, m, m + 40 * u, 44 * u, rang === 1 ? '#facc15' : '#fff');
+    texte(`/8`, m + (rang >= 10 ? 56 : 30) * u, m + 40 * u, 18 * u, '#d4d4d4');
+    texte(`TOUR ${Math.min(tour, TOURS)}/${TOURS}`, m, m + 64 * u, 14 * u, '#d4d4d4', 'left', 700);
+    // chrono
+    texte(A.chrono(tempsCourse), W / 2, m + 26 * u, 22 * u, '#fff', 'center');
+    texte('TOUR ' + A.chrono(tempsTour) + (meilleurTour ? '  ·  MEILLEUR ' + A.chrono(meilleurTour) : ''), W / 2, m + 46 * u, 11 * u, '#d4d4d4', 'center', 600);
+    // compteur de vitesse
+    const kmh = Math.round(vitesse / VITESSE_MAX * 240);
+    // sur téléphone, le compteur passe en haut à droite (les boutons sont en bas)
+    const bas = A.TACTILE ? m + 112 * u : H - m;
+    texte(`${kmh}`, W - m - 46 * u, bas - 16 * u, 40 * u, nitroActif ? '#38bdf8' : '#fff', 'right');
+    texte('km/h', W - m, bas - 16 * u, 13 * u, '#d4d4d4', 'right', 700);
+    // jauge nitro
+    const jw = 150 * u, jh = 9 * u, jx = W - m - jw, jy = bas - 4 * u;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(jx - 2, jy - 2, jw + 4, jh + 4);
+    ctx.fillStyle = nitro > 0.15 ? '#38bdf8' : '#64748b'; ctx.fillRect(jx, jy, jw * nitro, jh);
+    texte('NITRO', jx - 8 * u, jy + jh, 10 * u, '#bae6fd', 'right', 700);
+    // progression du tour
+    const pw = Math.min(W * 0.4, 260 * u), px = W / 2 - pw / 2, py = m + 56 * u;
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(px, py, pw, 4 * u);
+    for (const v of voitures) {
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.fillRect(px + pw * (v.z / longueurPiste) - 1, py - 2 * u, 3 * u, 8 * u);
+    }
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(px + pw * (((position + JOUEUR_Z) % longueurPiste) / longueurPiste) - 2, py - 3 * u, 5 * u, 10 * u);
+
+    // décompte et messages
+    if (etat === 'decompte') {
+      const n = Math.ceil(decompte);
+      texte(n > 0 ? String(n) : 'GO !', W / 2, H * 0.4, 90 * u, n > 0 ? '#facc15' : '#22c55e', 'center');
+    } else if (message && message.t > 0) {
+      ctx.globalAlpha = Math.min(1, message.t * 2);
+      texte(message.texte, W / 2, H * 0.36, 46 * u, '#facc15', 'center');
+      if (message.sous) texte(message.sous, W / 2, H * 0.36 + 32 * u, 16 * u, '#fff', 'center', 700);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* ==========================================================
+     Menus et boucle
+     ========================================================== */
+  function lancer() {
+    A.fermerPanneau();
+    circuit = CIRCUITS[circuitChoisi];
+    construire();
+    placerVoitures();
+    position = 0; vitesse = 0; joueurX = 0; tour = 1;
+    tempsCourse = 0; tempsTour = 0; meilleurTour = null; toursFaits = [];
+    nitro = 1; nitroActif = false; message = null; classementFinal = null; secousse = 0;
+    etat = 'decompte';
+    decompte = 3;
+    A.son('decompte');
+    demarrerMoteur();
+    manette.montrer(true);
+  }
+
+  function menu() {
+    etat = 'menu';
+    arreterMoteur();
+    manette.montrer(false);
+    // un décor qui défile derrière le menu
+    circuit = CIRCUITS[circuitChoisi];
+    construire();
+    placerVoitures();
+    const debloque = A.stock.lire('arcade-turbo-debloque', 0);
+    A.panneau({
+      pastille: 'Course · 3 tours · 8 voitures',
+      titre: 'Turbo Dino',
+      texte: 'Finis premier pour débloquer le circuit suivant. Attention aux virages : hors de la route, tu ralentis !',
+      choix: CIRCUITS.map((c, i) => {
+        const rec = A.record('turbo-' + c.id + '-temps');
+        return { texte: c.nom, sous: i > debloque ? '🔒 Gagne le précédent' : (rec ? 'Record ' + A.chrono(rec) : c.sous), actif: i === circuitChoisi, bloque: i > debloque, action: () => { circuitChoisi = i; A.stock.ecrire('turbo-circuit', i); circuit = CIRCUITS[i]; construire(); placerVoitures(); } };
+      }),
+      boutons: [{ texte: 'Démarrer la course', primaire: true, action: lancer }],
+      aide: A.TACTILE
+        ? 'La voiture accélère toute seule. ◀ ▶ pour tourner, FREIN pour ralentir, NITRO pour le turbo.'
+        : '↑ ou W accélérer · ↓ ou S freiner · ← → ou A D tourner · Espace ou Maj : nitro · P : pause · M : son'
+    });
+  }
+
+  function pause() {
+    if (etat !== 'course' && etat !== 'decompte') return;
+    const avant = etat;
+    etat = 'pause';
+    majMoteur();
+    A.panneau({
+      titre: 'Pause',
+      boutons: [
+        { texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = avant; } },
+        { texte: 'Recommencer la course', action: lancer },
+        { texte: 'Menu', action: menu }
+      ]
+    });
+  }
+  A.surPerteFocus = () => { if (etat === 'course' || etat === 'decompte') pause(); };
+
+  const manette = A.manette([
+    { nom: 'gauche', texte: '◀', classe: 'large', style: 'left:14px;bottom:calc(18px + env(safe-area-inset-bottom))' },
+    { nom: 'droite', texte: '▶', classe: 'large', style: 'left:110px;bottom:calc(18px + env(safe-area-inset-bottom))' },
+    { nom: 'bas', texte: '<small>FREIN</small>', classe: 'large', style: 'right:110px;bottom:calc(18px + env(safe-area-inset-bottom))' },
+    { nom: 'action', texte: '<small>NITRO</small>', classe: 'large', style: 'right:14px;bottom:calc(18px + env(safe-area-inset-bottom));border-color:rgba(56,189,248,.6);color:#bae6fd' }
+  ]);
+  A.boutonsCoin(pause);
+  A.conseillerPaysage();
+
+  preparerSprites();
+  menu();
+
+  let tAttract = 0;
+  A.boucle(dt => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if (A.vient('recommencer') && (etat === 'course' || etat === 'fini')) lancer();
+    if (etat === 'menu') {
+      // démo : la caméra roule toute seule derrière le menu
+      tAttract += dt;
+      vitesse = VITESSE_MAX * 0.55;
+      position = avancer(position, dt * vitesse, longueurPiste);
+      const segJ = trouverSegment(position + JOUEUR_Z);
+      joueurX = interpoler(joueurX, -segJ.courbe * 0.08, dt * 2);
+      decalCiel = avancer(decalCiel, 0.001 * segJ.courbe * dt * vitesse / SEG, 1);
+      decalCollines = avancer(decalCollines, 0.002 * segJ.courbe * dt * vitesse / SEG, 1);
+      majVoitures(dt, segJ);
+    } else if (etat !== 'pause') {
+      maj(dt);
+    }
+    if (message) message.t -= dt;
+    dessiner();
+  });
+
+  // pour les tests automatiques
+  window.__turbo = { get etat() { return etat; }, get vitesse() { return vitesse; }, get tour() { return tour; }, get position() { return position; }, get rang() { return rangJoueur(); }, get x() { return joueurX; }, get temps() { return tempsCourse; }, get longueur() { return longueurPiste; },
+    triche(p) { position = p; } };
+})();
+</script>
+</body>
+</html>

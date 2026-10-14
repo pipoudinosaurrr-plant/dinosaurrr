@@ -140,7 +140,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -388,6 +388,18 @@ content:
                   label: "Jeu : Quiz battle"
                 - name: jeu-dessin
                   label: "Jeu : Dessine et devine"
+                - name: jeu-turbo
+                  label: "Jeu : Turbo Dino"
+                - name: jeu-blaster
+                  label: "Jeu : Dino Blaster"
+                - name: jeu-aventure
+                  label: "Jeu : Dino Aventure"
+                - name: jeu-blocs
+                  label: "Jeu : Blocs"
+                - name: jeu-serpent
+                  label: "Jeu : Serpent"
+                - name: jeu-briques
+                  label: "Jeu : Casse-briques"
                 - name: jeu-demineur
                   label: "Jeu : Démineur"
                 - name: jeu-meteorites

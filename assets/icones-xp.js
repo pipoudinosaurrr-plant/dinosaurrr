@@ -52,6 +52,55 @@
     <circle cx="20" cy="20" r="5.2" fill="url(#m)" stroke="#7c2d12" stroke-width=".8"/>
     <circle cx="9" cy="24" r=".8" fill="#fff"/><circle cx="25" cy="8" r=".7" fill="#fff"/><circle cx="24" cy="26" r=".5" fill="#fff"/></svg>`;
 
+  // Turbo Dino : voiture de course vue de face sur la route
+  D.turbo = `<svg viewBox="0 0 32 32"><defs>${lin('tbc', '#38bdf8', '#e0f2fe')}${lin('tbv', '#4ade80', '#15803d')}</defs>
+    <rect x="2.5" y="3.5" width="27" height="25" rx="4" fill="url(#tbc)" stroke="#0c4a6e"/>
+    <path d="M3 28.5 13 13h6l10 15.5z" fill="#525252"/><path d="M15.4 15h1.2l.6 4h-2.4zM15 21h2l.6 5h-3.2z" fill="#fafafa"/>
+    <path d="M3 28.5 13 13h1.2L5.5 28.5z" fill="#ef4444"/><path d="M29 28.5 19 13h-1.2l8.7 15.5z" fill="#ef4444"/>
+    <rect x="8.5" y="17.5" width="15" height="8" rx="2" fill="url(#tbv)" stroke="#14532d"/>
+    <rect x="11" y="14.5" width="10" height="4" rx="1" fill="#166534"/><rect x="12" y="15.3" width="8" height="2.4" fill="#1e293b"/>
+    <rect x="9.5" y="19.5" width="3" height="1.6" fill="#fde047"/><rect x="19.5" y="19.5" width="3" height="1.6" fill="#fde047"/>
+    <rect x="7.5" y="23.5" width="3" height="3" fill="#111"/><rect x="21.5" y="23.5" width="3" height="3" fill="#111"/></svg>`;
+  // Dino Blaster : vaisseau qui tire
+  D.blaster = `<svg viewBox="0 0 32 32"><defs>${lin('blc', '#1e1b4b', '#020617', 1, 1)}${lin('blv', '#86efac', '#15803d')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#blc)" stroke="#000"/>
+    <circle cx="8" cy="8" r=".8" fill="#fff"/><circle cx="24" cy="11" r=".6" fill="#fff"/><circle cx="6" cy="20" r=".6" fill="#fff"/>
+    <path d="M16 3.5v7" stroke="#4ade80" stroke-width="2" stroke-linecap="round"/>
+    <path d="M16 11l3 6 6 5v3l-6-2-3 2-3-2-6 2v-3l6-5z" fill="url(#blv)" stroke="#052e16" stroke-linejoin="round"/>
+    <path d="M16 14.5l1.4 3h-2.8z" fill="#e0f2fe"/><path d="M14 25.5h4l-2 3z" fill="#f97316"/>
+    <rect x="22" y="5" width="4" height="3" rx="1" fill="#ef4444"/><rect x="23" y="4" width="2" height="1" fill="#fde047"/></svg>`;
+  // Dino Aventure : collines, plateforme, pièce et drapeau
+  D.aventure = `<svg viewBox="0 0 32 32"><defs>${lin('avc', '#7dd3fc', '#e0f2fe')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#avc)" stroke="#0c4a6e"/>
+    <path d="M3 22c4-5 7-5 11 0s7-3 15 0v7H3z" fill="#4ade80"/>
+    <rect x="3" y="23" width="26" height="6" fill="#a16207"/><rect x="3" y="22" width="26" height="2" fill="#22c55e"/>
+    <rect x="12" y="13" width="9" height="3" fill="#c2410c" stroke="#7c2d12" stroke-width=".6"/>
+    <rect x="15" y="8" width="3" height="4" rx="1.2" fill="#facc15" stroke="#a16207" stroke-width=".6"/>
+    <path d="M25 9v13" stroke="#e5e5e5" stroke-width="1.3"/><path d="M25.5 9.5h4l-1 1.6 1 1.6h-4z" fill="#22c55e"/>
+    <path d="M6 21v-4h2v-2h3v2h-1v4z" fill="#16a34a"/><rect x="9" y="15.6" width=".9" height=".9" fill="#fff"/></svg>`;
+  // Serpent
+  D.serpent = `<svg viewBox="0 0 32 32"><defs>${lin('sec', '#1a1a1a', '#050505')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#sec)" stroke="#000"/>
+    <path d="M7 24h10a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h9" fill="none" stroke="#16a34a" stroke-width="4.4" stroke-linecap="round"/>
+    <path d="M7 24h10a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h9" fill="none" stroke="#4ade80" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1 3"/>
+    <circle cx="23" cy="8" r="2.6" fill="#22c55e"/><rect x="22.6" y="6.4" width="1.3" height="1.3" fill="#fff"/>
+    <circle cx="24" cy="20" r="2.4" fill="#ef4444"/><path d="M24 17.4v-1.4" stroke="#16a34a" stroke-width="1.2"/></svg>`;
+  // Blocs : pièces qui tombent
+  D.blocs = `<svg viewBox="0 0 32 32"><defs>${lin('boc', '#18181b', '#050505')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="3" fill="url(#boc)" stroke="#000"/>
+    <g stroke="#000" stroke-width=".7">
+      <rect x="11" y="4" width="5" height="5" fill="#a855f7"/><rect x="16" y="4" width="5" height="5" fill="#a855f7"/><rect x="21" y="4" width="5" height="5" fill="#a855f7"/><rect x="16" y="9" width="5" height="5" fill="#a855f7"/>
+      <rect x="4" y="19" width="5" height="5" fill="#22d3ee"/><rect x="4" y="24" width="5" height="5" fill="#22d3ee"/><rect x="9" y="24" width="5" height="5" fill="#3b82f6"/><rect x="14" y="24" width="5" height="5" fill="#3b82f6"/>
+      <rect x="19" y="24" width="5" height="5" fill="#facc15"/><rect x="24" y="24" width="4" height="5" fill="#facc15"/><rect x="19" y="19" width="5" height="5" fill="#facc15"/><rect x="24" y="19" width="4" height="5" fill="#ef4444"/>
+    </g></svg>`;
+  // Casse-briques
+  D.briques = `<svg viewBox="0 0 32 32"><defs>${lin('brc', '#111827', '#030712')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#brc)" stroke="#000"/>
+    <g stroke="#000" stroke-width=".6"><rect x="4" y="5" width="7" height="3.5" fill="#22c55e"/><rect x="12.5" y="5" width="7" height="3.5" fill="#22c55e"/><rect x="21" y="5" width="7" height="3.5" fill="#3b82f6"/>
+      <rect x="4" y="9.5" width="7" height="3.5" fill="#a855f7"/><rect x="21" y="9.5" width="7" height="3.5" fill="#facc15"/></g>
+    <circle cx="16" cy="18" r="2" fill="#fff"/><path d="M14 17l-5-4" stroke="#fff" stroke-width=".8" opacity=".4"/>
+    <rect x="9" y="24" width="14" height="3" rx="1.5" fill="#e5e5e5"/><rect x="11" y="25" width="10" height="1" fill="#22c55e"/></svg>`;
+
   // Data Clicker : une puce
   D.processeur = `<svg viewBox="0 0 32 32"><defs>${lin('k', '#555', '#141414')}${lin('v', '#7af08f', '#15803d')}</defs>
     <g stroke="#d4a82a" stroke-width="1.7"><path d="M11 3v5M16 3v5M21 3v5M11 24v5M16 24v5M21 24v5M3 11h5M3 16h5M3 21h5M24 11h5M24 16h5M24 21h5"/></g>

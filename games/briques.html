@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Casse-briques</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; cursor: none; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Casse-briques"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const W = 420, H = 600;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const { borne, hasard } = A;
+
+  const COLS = 10, BW = 38, BH = 16, GAP = 2, BX0 = (W - (COLS * (BW + GAP) - GAP)) / 2, BY0 = 76;
+  const PY = H - 46, PH = 12;
+
+  // . vide · 1 2 3 = solidité · X incassable · * bonus garanti
+  const NIVEAUX = [
+    ['..........', '1111111111', '1111111111', '2222222222', '1111111111', '1111111111'],
+    ['....**....', '...1221...', '..122221..', '.12233221.', '..122221..', '...1221...', '....11....'],
+    ['1.1.1.1.1.', '.2.2.2.2.2', '1.1*1.1.1.', '.2.2.2.2.2', '1.1.1.1*1.', '.3.3.3.3.3'],
+    ['3333333333', '1........1', '1.222222.1', '1.2*..*2.1', '1.222222.1', '1........1', 'XXXX..XXXX'],
+    ['..X....X..', '.1X2..2X1.', '11X2**2X11', '.1X2..2X1.', '..X3333X..', '..XXXXXX..'],
+    ['2.2.2.2.2.', '.3.3.3.3.3', '*.1.1.1.1*', '.3.3.3.3.3', '2.2.2.2.2.', 'X.X.X.X.X.', '1111111111'],
+    ['....33....', '...3223...', '..32112*..', '.32111123.', '..321123..', '...3223...', '....33....', 'XX......XX'],
+    ['3333333333', '3X1X1X1X13', '3*2222222*', '3X3X3X3X33', '3222222223', 'XXX.XX.XXX']
+  ];
+  const COULEURS = { 1: ['#22c55e', '#16a34a'], 2: ['#3b82f6', '#1d4ed8'], 3: ['#a855f7', '#7e22ce'], X: ['#71717a', '#3f3f46'], '*': ['#facc15', '#ca8a04'] };
+  const BONUS = {
+    L: { c: '#22c55e', t: 'LARGE' }, M: { c: '#3b82f6', t: 'MULTI' }, S: { c: '#a855f7', t: 'LENT' },
+    T: { c: '#ef4444', t: 'LASER' }, V: { c: '#f43f5e', t: '♥ VIE' }, C: { c: '#f59e0b', t: 'COLLE' }
+  };
+
+  let briques, balles, capsules, lasers, particules, raquette, score, vies, niveau, etat = 'menu', effets, message, cible = null, tirLaserT, boucle;
+
+  function chargerNiveau(n) {
+    niveau = n;
+    const plan = NIVEAUX[n % NIVEAUX.length];
+    boucle = Math.floor(n / NIVEAUX.length);
+    briques = [];
+    plan.forEach((ligne, y) => [...ligne].forEach((c, x) => {
+      if (c === '.') return;
+      const pv = c === 'X' ? Infinity : c === '*' ? 1 : Number(c) + (boucle > 0 && c !== '3' ? 1 : 0);
+      briques.push({ x: BX0 + x * (BW + GAP), y: BY0 + y * (BH + GAP), type: c, pv, pvMax: pv, flash: 0 });
+    }));
+    capsules = []; lasers = []; particules = [];
+    effets = { large: 0, lent: 0, laser: 0, colle: 0 };
+    raquette = { x: W / 2, w: 74, vx: 0 };
+    nouvelleBalle(true);
+    message = { t: 1.6, texte: 'NIVEAU ' + (n + 1) };
+  }
+  const vitesseBase = () => (330 + niveau * 12 + boucle * 40);
+  function nouvelleBalle(collee) {
+    balles = [{ x: raquette.x, y: PY - 8, vx: 0, vy: 0, r: 6, collee: collee ? 0 : null }];
+  }
+  function lancerBalle(b) {
+    const a = -Math.PI / 2 + hasard(-0.35, 0.35);
+    const v = vitesseBase();
+    b.vx = Math.cos(a) * v; b.vy = Math.sin(a) * v; b.collee = null;
+    A.son('rebond');
+  }
+
+  function nouvellePartie() { score = 0; vies = 3; cible = null; chargerNiveau(0); }
+
+  /* ---------- Collisions ---------- */
+  function casserBrique(br, b) {
+    if (br.pv === Infinity) { br.flash = 0.1; A.son('touche'); return; }
+    br.pv--; br.flash = 0.1;
+    if (br.pv > 0) { A.son('brique'); score += 10; return; }
+    br.morte = true;
+    score += br.type === '*' ? 150 : 50 * br.pvMax;
+    A.son('brique');
+    for (let i = 0; i < 8; i++) particules.push({ x: br.x + BW / 2, y: br.y + BH / 2, vx: hasard(-120, 120), vy: hasard(-120, 60), t: 0, vie: 0.5, c: (COULEURS[br.type] || COULEURS[1])[0] });
+    if (br.type === '*' || Math.random() < 0.11) {
+      const types = Object.keys(BONUS).filter(k => k !== 'V' || Math.random() < 0.3);
+      capsules.push({ x: br.x + BW / 2, y: br.y + BH / 2, type: types[Math.floor(Math.random() * types.length)] });
+    }
+  }
+
+  function majBalle(b, dt) {
+    if (b.collee !== null) {
+      b.x = raquette.x + b.collee; b.y = PY - b.r - 1;
+      return;
+    }
+    const lent = effets.lent > 0 ? 0.7 : 1;
+    const pas = Math.ceil(Math.hypot(b.vx, b.vy) * dt / 4);
+    for (let i = 0; i < pas; i++) {
+      b.x += b.vx * dt * lent / pas; b.y += b.vy * dt * lent / pas;
+      // murs
+      if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx); A.son('rebond'); }
+      if (b.x > W - b.r) { b.x = W - b.r; b.vx = -Math.abs(b.vx); A.son('rebond'); }
+      if (b.y < 48 + b.r) { b.y = 48 + b.r; b.vy = Math.abs(b.vy); A.son('rebond'); }
+      // raquette
+      const demi = raquette.w / 2;
+      if (b.vy > 0 && b.y + b.r >= PY && b.y + b.r <= PY + PH + 6 && b.x > raquette.x - demi - b.r && b.x < raquette.x + demi + b.r) {
+        const rel = borne((b.x - raquette.x) / demi, -1, 1);
+        const a = -Math.PI / 2 + rel * 1.05;
+        const v = Math.min(vitesseBase() * 1.6, Math.hypot(b.vx, b.vy) * 1.012);
+        b.vx = Math.cos(a) * v; b.vy = Math.sin(a) * v;
+        b.y = PY - b.r;
+        if (effets.colle > 0) { b.collee = b.x - raquette.x; b.vx = 0; b.vy = 0; }
+        A.son('rebond');
+      }
+      // briques
+      for (const br of briques) {
+        if (br.morte) continue;
+        const px = borne(b.x, br.x, br.x + BW), py = borne(b.y, br.y, br.y + BH);
+        const dx = b.x - px, dy = b.y - py;
+        if (dx * dx + dy * dy > b.r * b.r) continue;
+        // de quel côté on rebondit ?
+        const penX = Math.min(Math.abs(b.x + b.r - br.x), Math.abs(br.x + BW - (b.x - b.r)));
+        const penY = Math.min(Math.abs(b.y + b.r - br.y), Math.abs(br.y + BH - (b.y - b.r)));
+        if (penX < penY) { b.vx = b.x < br.x + BW / 2 ? -Math.abs(b.vx) : Math.abs(b.vx); }
+        else { b.vy = b.y < br.y + BH / 2 ? -Math.abs(b.vy) : Math.abs(b.vy); }
+        casserBrique(br, b);
+        break;
+      }
+      // éviter les balles presque horizontales
+      if (Math.abs(b.vy) < 60) b.vy = b.vy < 0 ? -60 : 60;
+    }
+    if (b.y > H + 20) b.perdue = true;
+  }
+
+  function maj(dt) {
+    const k = A.touches;
+    // raquette : clavier, ou souris / doigt
+    const largeur = effets.large > 0 ? 116 : 74;
+    raquette.w += (largeur - raquette.w) * Math.min(1, dt * 10);
+    if (k.gauche || k.droite) { raquette.x += ((k.droite ? 1 : 0) - (k.gauche ? 1 : 0)) * 480 * dt; cible = null; }
+    else if (cible !== null) raquette.x += (cible - raquette.x) * Math.min(1, dt * 25);
+    raquette.x = borne(raquette.x, raquette.w / 2, W - raquette.w / 2);
+
+    if (A.vient('action') || A.vient('haut')) lancer();
+
+    for (const b of balles) majBalle(b, dt);
+    balles = balles.filter(b => !b.perdue);
+    if (!balles.length) {
+      vies--;
+      A.son('perdu');
+      effets = { large: 0, lent: 0, laser: 0, colle: 0 };
+      capsules = [];
+      if (vies <= 0) return perdre();
+      nouvelleBalle(true);
+      message = { t: 1.2, texte: vies === 1 ? 'DERNIÈRE VIE' : vies + ' VIES' };
+    }
+
+    // capsules bonus
+    for (const c of capsules) {
+      c.y += 130 * dt;
+      if (c.y > PY - 6 && c.y < PY + PH + 6 && Math.abs(c.x - raquette.x) < raquette.w / 2 + 14) {
+        c.prise = true;
+        A.son('bonus');
+        if (c.type === 'L') effets.large = 15;
+        if (c.type === 'S') effets.lent = 12;
+        if (c.type === 'T') effets.laser = 10;
+        if (c.type === 'C') effets.colle = 12;
+        if (c.type === 'V') vies = Math.min(6, vies + 1);
+        if (c.type === 'M') {
+          const nouvelles = [];
+          for (const b of balles.slice(0, 3)) for (const s of [-0.4, 0.4]) {
+            const v = Math.max(vitesseBase(), Math.hypot(b.vx, b.vy)), a = Math.atan2(b.vy || -1, b.vx) + s;
+            nouvelles.push({ x: b.x, y: b.y, vx: Math.cos(a) * v, vy: -Math.abs(Math.sin(a) * v) || -v, r: 6, collee: null });
+          }
+          balles.push(...nouvelles);
+        }
+        message = { t: 0.9, texte: BONUS[c.type].t };
+      }
+    }
+    capsules = capsules.filter(c => !c.prise && c.y < H + 20);
+
+    // lasers
+    if (effets.laser > 0) {
+      tirLaserT -= dt;
+      if (tirLaserT <= 0 && (k.action || A.TACTILE || cible !== null)) {
+        lasers.push({ x: raquette.x - raquette.w / 2 + 6, y: PY }, { x: raquette.x + raquette.w / 2 - 6, y: PY });
+        tirLaserT = 0.35;
+        A.son('laser');
+      }
+    }
+    for (const l of lasers) {
+      l.y -= 560 * dt;
+      for (const br of briques) {
+        if (!br.morte && l.x > br.x && l.x < br.x + BW && l.y > br.y && l.y < br.y + BH) { l.fini = true; casserBrique(br); break; }
+      }
+    }
+    lasers = lasers.filter(l => !l.fini && l.y > 40);
+
+    for (const e of Object.keys(effets)) effets[e] = Math.max(0, effets[e] - dt);
+    for (const br of briques) br.flash = Math.max(0, br.flash - dt);
+    briques = briques.filter(b => !b.morte);
+
+    if (!briques.some(b => b.pv !== Infinity)) {
+      etat = 'gagne';
+      score += 500 + vies * 100;
+      A.son('gagne');
+      setTimeout(() => {
+        A.record('briques-score', score);
+        chargerNiveau(niveau + 1);
+        etat = 'jeu';
+      }, 1200);
+    }
+  }
+
+  function lancer() {
+    for (const b of balles) if (b.collee !== null) lancerBalle(b);
+  }
+
+  function perdre() {
+    etat = 'fin';
+    manette.montrer(false);
+    const r = A.record('briques-score', score);
+    const rn = A.record('briques-niveau', niveau + 1);
+    setTimeout(() => A.panneau({
+      pastille: 'Partie terminée',
+      titre: r.nouveau ? '🏅 Nouveau record !' : 'Perdu !',
+      lignes: [['Score', A.format(score)], ['Niveau atteint', String(niveau + 1)], ['Record', A.format(r.record)], ['Meilleur niveau', String(rn.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancerPartie }, { texte: 'Menu', action: menu }]
+    }), 400);
+  }
+
+  /* ---------- Dessin ---------- */
+  function dessiner(t) {
+    T.effacer('#000');
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0b0b14'); g.addColorStop(1, '#050505');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#18181b'; ctx.fillRect(0, 44, W, 4);
+    if (!briques) return;
+    for (const br of briques) {
+      const [c1, c2] = COULEURS[br.type] || COULEURS[1];
+      const usure = br.pv !== Infinity && br.pvMax > 1 ? br.pv / br.pvMax : 1;
+      ctx.fillStyle = br.flash > 0 ? '#fff' : c1;
+      ctx.globalAlpha = 0.55 + usure * 0.45;
+      ctx.fillRect(br.x, br.y, BW, BH);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(br.x, br.y, BW, 3);
+      ctx.fillStyle = c2; ctx.fillRect(br.x, br.y + BH - 3, BW, 3);
+      if (br.type === '*') { ctx.fillStyle = '#78350f'; ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('★', br.x + BW / 2, br.y + BH / 2 + 1); }
+      if (br.pv !== Infinity && br.pv < br.pvMax) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(br.x + 8, br.y + 6, 10, 2); ctx.fillRect(br.x + 22, br.y + 9, 8, 2); }
+    }
+    for (const c of capsules) {
+      const b = BONUS[c.type];
+      ctx.fillStyle = b.c; ctx.beginPath(); ctx.roundRect(c.x - 16, c.y - 7, 32, 14, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `800 9px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(c.type === 'V' ? '♥' : c.type, c.x, c.y + 1);
+    }
+    ctx.fillStyle = '#fca5a5';
+    for (const l of lasers) ctx.fillRect(l.x - 1.5, l.y - 10, 3, 12);
+    // raquette
+    const rx = raquette.x - raquette.w / 2;
+    ctx.fillStyle = effets.colle > 0 ? '#f59e0b' : '#e5e5e5';
+    ctx.beginPath(); ctx.roundRect(rx, PY, raquette.w, PH, 6); ctx.fill();
+    ctx.fillStyle = '#22c55e'; ctx.fillRect(rx + 6, PY + 3, raquette.w - 12, 3);
+    if (effets.laser > 0) { ctx.fillStyle = '#ef4444'; ctx.fillRect(rx + 2, PY - 6, 6, 8); ctx.fillRect(rx + raquette.w - 8, PY - 6, 6, 8); }
+    // balles
+    for (const b of balles) {
+      ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.beginPath(); ctx.arc(b.x - b.vx * 0.02, b.y - b.vy * 0.02, b.r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+    }
+    for (const p of particules) { ctx.globalAlpha = 1 - p.t / p.vie; ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 3, 3); }
+    ctx.globalAlpha = 1;
+    // HUD
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = `800 22px ${MONO}`; ctx.fillText(A.format(score), 12, 32);
+    ctx.fillStyle = '#a1a1aa'; ctx.font = `700 11px ${MONO}`;
+    ctx.fillText(`NIVEAU ${niveau + 1}`, 150, 30);
+    ctx.fillStyle = '#f43f5e'; ctx.font = `800 14px ${MONO}`; ctx.fillText('♥'.repeat(Math.max(0, vies)), 236, 31);
+    const actifs = Object.entries(effets).filter(([, v]) => v > 0);
+    actifs.forEach(([k, v], i) => {
+      const nom = { large: 'LARGE', lent: 'LENT', laser: 'LASER', colle: 'COLLE' }[k];
+      ctx.fillStyle = '#71717a'; ctx.font = `700 9px ${MONO}`; ctx.fillText(`${nom} ${Math.ceil(v)}s`, 12 + i * 78, H - 10);
+    });
+    if (balles.some(b => b.collee !== null) && etat === 'jeu') {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#d4d4d8'; ctx.font = `700 12px ${MONO}`;
+      ctx.fillText(A.TACTILE ? 'Touche l’écran pour lancer' : 'Clic ou Espace pour lancer', W / 2, H * 0.62);
+    }
+    if (message && message.t > 0) {
+      ctx.globalAlpha = Math.min(1, message.t * 2);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#facc15'; ctx.font = `900 28px ${MONO}`;
+      ctx.fillText(message.texte, W / 2, H * 0.55);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* ---------- Souris / doigt ---------- */
+  const toile = T.canvas;
+  toile.addEventListener('pointermove', e => { if (etat === 'jeu') cible = T.point(e).x; });
+  toile.addEventListener('pointerdown', e => {
+    if (etat !== 'jeu') return;
+    cible = T.point(e).x;
+    if (e.pointerType === 'mouse' || A.TACTILE) setTimeout(lancer, e.pointerType === 'mouse' ? 0 : 120);
+  });
+
+  /* ---------- Menus ---------- */
+  function lancerPartie() { A.fermerPanneau(); nouvellePartie(); etat = 'jeu'; manette.montrer(false); }
+  function menu() {
+    etat = 'menu';
+    nouvellePartie();
+    A.panneau({
+      pastille: '8 niveaux',
+      titre: 'Casse-briques',
+      texte: 'Casse toutes les briques sans laisser tomber la balle. Les briques grises sont incassables, les étoiles donnent un bonus.',
+      lignes: [['Record', A.format(A.record('briques-score') || 0)], ['Meilleur niveau', String(A.record('briques-niveau') || '–')],
+        ['Bonus', '<span style="color:#22c55e">L</span> <span style="color:#3b82f6">M</span> <span style="color:#a855f7">S</span> <span style="color:#ef4444">T</span> <span style="color:#f59e0b">C</span> <span style="color:#f43f5e">♥</span>']],
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancerPartie }],
+      aide: A.TACTILE ? 'Glisse le doigt pour bouger la raquette, touche pour lancer la balle.' : 'Souris ou ← → pour bouger · clic ou Espace pour lancer · P pause · M son'
+    });
+  }
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Score', A.format(score)], ['Niveau', String(niveau + 1)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancerPartie }, { texte: 'Menu', action: menu }] });
+  }
+  A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
+  const manette = A.manette([]);
+  A.boutonsCoin(pause);
+
+  tirLaserT = 0;
+  menu();
+  A.boucle((dt, t) => {
+    if (A.vient('pause') && !A.panneauOuvert) pause();
+    if (etat === 'jeu') maj(dt);
+    for (const p of particules || []) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
+    if (particules) particules = particules.filter(p => p.t < p.vie);
+    if (message) message.t -= dt;
+    dessiner(t);
+  });
+
+  window.__briques = { get etat() { return etat; }, get score() { return score; }, get niveau() { return niveau; }, get briques() { return briques.length; }, get vies() { return vies; },
+    get balles() { return balles; }, viderNiveau() { briques = briques.filter(b => b.pv === Infinity); } };
+})();
+</script>
+</body>
+</html>
