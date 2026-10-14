@@ -66,6 +66,8 @@
     .enligne.vide i { background: #525252; box-shadow: none; animation: none; }
     #salon .enligne, [data-ecran="salon"] .enligne { justify-content: center; margin: -4px 0 10px; }
     @keyframes pouls-enligne { 50% { opacity: .35; } }
+    .verifie { color: var(--accent); font-weight: 700; }
+    input.pseudo-compte { border-color: rgba(34, 197, 94, .45); cursor: default; }
     .parties-ouvertes { margin-top: 18px; }
     .parties-ouvertes[hidden] { display: none; }
     .parties-ouvertes ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 190px; overflow-y: auto; }
@@ -280,7 +282,7 @@
   <script src="../assets/config.js"></script>
   <script type="module">
     import * as M from './cercle/moteur.js';
-    import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes } from './multi/presence.js';
+    import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './multi/presence.js';
 
     const $ = id => document.getElementById(id);
     const toile = $('toile');
@@ -414,11 +416,12 @@
 
     function pseudo() {
       const p = $('pseudo').value.trim().slice(0, 14) || 'Joueur';
-      stock.ecrire('cercle-pseudo', p);
+      if (!$('pseudo').readOnly) stock.ecrire('cercle-pseudo', p);
       return p;
     }
 
     $('pseudo').value = stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900));
+    brancherPseudo($('pseudo'), () => stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900)));
 
     function retourAccueil(texte) {
       enLigne = false;
@@ -474,8 +477,10 @@
 
       try { ws = new WebSocket(urlSalle(code)); } catch (e) { return retourAccueil('Impossible de joindre le serveur.'); }
       const ceWs = ws;
-      ceWs.onopen = () => {
-        ceWs.send(JSON.stringify({ t: 'salut', nom: pseudo() }));
+      ceWs.onopen = async () => {
+        const jeton = await jetonCompte();
+        if (ceWs.readyState !== 1) return;
+        ceWs.send(JSON.stringify({ t: 'salut', nom: pseudo(), jeton }));
         clearInterval(minuteriePing);
         minuteriePing = setInterval(() => { if (ceWs.readyState === 1) ceWs.send('ping'); }, 25000);
       };
@@ -507,6 +512,7 @@
       switch (m.t) {
         case 'bienvenue':
           moi = m.id;
+          if (!$('pseudo').readOnly && /^Invité\d+$/.test(m.nom) && !/^Invité/.test(pseudo())) petitToast('Ce pseudo appartient à un compte : tu joues en « ' + m.nom + ' ».');
           if (annonceEnAttente === codeSalle) {
             annonceEnAttente = null;
             annoncerPartie('cercle', codeSalle, m.nom).then(n => {
@@ -553,7 +559,7 @@
       $('joueurs').innerHTML = salle.joueurs.map(j => `
         <li>
           <i style="background:${echapper(j.couleur)}"></i>
-          <span class="nom">${echapper(j.nom)}</span>
+          <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}</span>
           ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
           ${j.hote ? '<span class="tag">HÔTE</span>' : ''}
           ${j.bot ? '<span class="tag">BOT</span>' : ''}

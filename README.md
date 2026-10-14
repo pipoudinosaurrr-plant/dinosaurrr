@@ -163,6 +163,19 @@ Ensuite, chaque modification envoyée sur GitHub met aussi le serveur à jour to
 - **Pas de chat** : exprès. Les parties sont privées (code à 4 caractères) et on ne voit que les pseudos. Dans Dessine et devine, les mots proposés ne sont jamais montrés aux autres.
 - **Tous les jeux à plusieurs** passent par le même serveur : une fois l'étape 8 faite, ils marchent tous en ligne.
 
+## 9. Les comptes joueurs
+
+Les joueurs peuvent créer un compte (bureau : menu démarrer → **Mon compte** ; téléphone : onglet **Moi**).
+
+- **Pseudo réservé** : personne d'autre ne peut jouer avec. Un visiteur qui essaie devient « Invité123 ».
+- **Mot de passe** choisi par le joueur, modifiable dans *Mon compte → Réglages*. Il n'est jamais stocké en clair : seulement une empreinte (PBKDF2, 100 000 tours). Pas d'e-mail, donc **un mot de passe oublié ne peut pas être récupéré**.
+- 5 mauvais mots de passe = compte bloqué 5 minutes.
+- **Victoires par jeu** : seules les parties en ligne avec au moins 2 vrais joueurs comptent.
+- **Amis**, **Contacts en ligne** (façon MSN, avec ce que chacun fait), **invitations** à jouer, **mode invisible**, réglage « qui peut m'inviter ».
+- Le joueur peut **supprimer son compte** (tout est effacé).
+
+Tout est gardé par le serveur Cloudflare (objet `Comptes`, fichier `serveur/comptes.js`).
+
 ## Si quelque chose ne marche pas
 
 - **Le site ne change pas** : attends 2 minutes puis recharge avec **Ctrl + F5** (ou **Cmd + Maj + R** sur Mac).

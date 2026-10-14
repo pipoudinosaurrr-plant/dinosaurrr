@@ -10,6 +10,9 @@
 import { DurableObject } from 'cloudflare:workers';
 import * as M from '../games/cercle/moteur.js';
 import JEUX from '../games/multi/jeux/index.js';
+import { Comptes, ACTIONS_PUBLIQUES } from './comptes.js';
+
+export { Comptes };
 
 // Les sites qui ont le droit de se connecter au serveur
 const ORIGINES = ['https://dinosaurrr.com', 'https://www.dinosaurrr.com'];
@@ -35,6 +38,31 @@ export default {
       return new Response('Serveur de jeux dinosaurrr : en ligne.', {
         headers: { 'content-type': 'text/plain; charset=utf-8', 'access-control-allow-origin': '*' }
       });
+    }
+
+    // comptes des joueurs : /compte/inscription, /compte/connexion, /compte/mdp…
+    const compte = url.pathname.match(/^\/compte\/([a-z-]+)$/);
+    if (compte) {
+      const origine = requete.headers.get('Origin');
+      const cors = origineAutorisee(origine) ? {
+        'access-control-allow-origin': origine,
+        'access-control-allow-methods': 'POST, OPTIONS',
+        'access-control-allow-headers': 'content-type, authorization',
+        'access-control-max-age': '86400',
+        'vary': 'Origin'
+      } : {};
+      if (requete.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+      if (requete.method !== 'POST' || !ACTIONS_PUBLIQUES.has(compte[1])) return new Response('Introuvable', { status: 404, headers: cors });
+      if (!origineAutorisee(origine)) return new Response('Origine refusée', { status: 403 });
+      const texte = await requete.text();
+      if (texte.length > 2000) return new Response('Trop long', { status: 413, headers: cors });
+      let d = {};
+      try { d = texte ? JSON.parse(texte) : {}; } catch (e) { return Response.json({ erreur: 'Requête invalide.' }, { status: 400, headers: cors }); }
+      if (!d || typeof d !== 'object' || Array.isArray(d)) d = {};
+      const jeton = (requete.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      const corps = JSON.stringify({ ...d, action: compte[1], jeton, ip: requete.headers.get('CF-Connecting-IP') || '' });
+      const rep = await comptes(env).fetch('https://comptes/', { method: 'POST', body: corps });
+      return new Response(rep.body, { status: rep.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
     }
 
     // présence : qui est sur le site + annonces des nouvelles parties
@@ -67,6 +95,38 @@ function nettoyerNom(texte) {
     .trim()
     .slice(0, 14);
   return propre || 'Joueur';
+}
+
+// l'objet qui garde tous les comptes
+const comptes = env => env.COMPTES.get(env.COMPTES.idFromName('comptes'));
+
+async function appelComptes(env, donnees) {
+  try {
+    const r = await comptes(env).fetch('https://comptes/', { method: 'POST', body: JSON.stringify(donnees) });
+    return await r.json();
+  } catch (e) { return {}; }
+}
+
+// Un joueur arrive dans une salle : s'il est connecté à son compte, on prend
+// son vrai pseudo ; sinon, il n'a pas le droit d'utiliser le pseudo d'un compte.
+async function identifier(env, msg) {
+  const voulu = nettoyerNom(msg.nom);
+  const r = await appelComptes(env, { action: 'verifier', jeton: typeof msg.jeton === 'string' ? msg.jeton : '', nom: voulu });
+  if (r.compte) return { nom: r.compte.nom, compte: r.compte.cle };
+  if (r.reserve) return { nom: 'Invité' + Math.floor(100 + Math.random() * 900), compte: null };
+  return { nom: voulu, compte: null };
+}
+
+// fin de partie : on note les parties et victoires des joueurs qui ont un compte
+// (seulement s'il y avait au moins 2 vrais joueurs, pour éviter de gonfler ses victoires contre des bots)
+function noterResultats(objet, jeu, classement) {
+  const parId = new Map(objet.connectes().map(({ info }) => [info.id, info]));
+  const humains = classement.filter(c => !c.bot && parId.has(c.id));
+  if (humains.length < 2) return;
+  const joueurs = humains.map(c => ({ cle: parId.get(c.id).compte, gagne: c.place === 1 })).filter(j => j.cle);
+  if (!joueurs.length) return;
+  const envoi = appelComptes(objet.env, { action: 'resultats', jeu, joueurs });
+  try { objet.ctx.waitUntil(envoi); } catch (e) { /* rien */ }
 }
 
 // prévient l'objet Présence de l'état d'un salon (pour la liste des parties ouvertes)
@@ -158,7 +218,7 @@ export class Salle extends DurableObject {
   diffuserSalle() {
     const hote = this.hote();
     const humains = this.joueursHumains().map(({ info }) => ({
-      id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote
+      id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote, compte: !!info.compte
     }));
     const bots = this.bots.map(b => ({ ...b, victoires: this.victoiresBots[b.id] || 0 }));
     this.diffuser({ t: 'salle', phase: this.phase, hote, joueurs: [...humains, ...bots], max: M.MAX_JOUEURS });
@@ -206,7 +266,8 @@ export class Salle extends DurableObject {
           try { ws.close(4000, 'pleine'); } catch (e) { /* rien */ }
           return;
         }
-        let nom = nettoyerNom(msg.nom);
+        const ident = await identifier(this.env, msg);
+        let nom = ident.nom;
         const pris = new Set([...this.joueursHumains().filter(c => c.info.id !== info.id).map(c => c.info.nom), ...this.bots.map(b => b.nom)]);
         if (pris.has(nom)) {
           let i = 2;
@@ -214,6 +275,7 @@ export class Salle extends DurableObject {
           nom = nom.slice(0, 12) + i;
         }
         info.nom = nom;
+        info.compte = ident.compte;
         if (!info.couleur) info.couleur = this.couleurLibre(info.id);
         this.ecrireInfo(ws, info);
         // trop de monde avec les bots : on retire des bots
@@ -318,6 +380,7 @@ export class Salle extends DurableObject {
         if (info.id === gagnant.id) { info.victoires = (info.victoires || 0) + 1; this.ecrireInfo(ws, info); }
       }
     }
+    noterResultats(this, 'cercle', p.classement);
     this.diffuser({ t: 'fin', classement: p.classement });
     setTimeout(() => {
       this.partie = null;
@@ -405,7 +468,7 @@ export class Table extends DurableObject {
 
   diffuserSalle() {
     const hote = this.hote();
-    const humains = this.joueursHumains().map(({ info }) => ({ id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote }));
+    const humains = this.joueursHumains().map(({ info }) => ({ id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote, compte: !!info.compte }));
     const bots = this.mod.bots ? this.bots.map(b => ({ ...b, victoires: this.victoiresBots[b.id] || 0 })) : [];
     this.diffuser({ t: 'salle', jeu: this.jeu, phase: this.phase, hote, joueurs: [...humains, ...bots], max: this.mod.max, min: this.mod.min, bots: !!this.mod.bots });
     if (this.code && humains.length) {
@@ -440,10 +503,12 @@ export class Table extends DurableObject {
           try { ws.close(4000, 'pleine'); } catch (e) { /* rien */ }
           return;
         }
-        let nom = nettoyerNom(msg.nom);
+        const ident = await identifier(this.env, msg);
+        let nom = ident.nom;
         const pris = new Set([...this.joueursHumains().filter(c => c.info.id !== info.id).map(c => c.info.nom), ...this.bots.map(b => b.nom)]);
         if (pris.has(nom)) { let i = 2; while (pris.has(nom.slice(0, 12) + i)) i++; nom = nom.slice(0, 12) + i; }
         info.nom = nom;
+        info.compte = ident.compte;
         if (!info.couleur) info.couleur = this.couleurLibre(info.id);
         this.ecrireInfo(ws, info);
         while (this.bots.length && this.joueursHumains().length + this.bots.length > this.mod.max) this.bots.pop();
@@ -574,6 +639,7 @@ export class Table extends DurableObject {
       if (c.bot) this.victoiresBots[c.id] = (this.victoiresBots[c.id] || 0) + 1;
       for (const { ws, info } of this.connectes()) if (info.id === c.id) { info.victoires = (info.victoires || 0) + 1; this.ecrireInfo(ws, info); }
     }
+    noterResultats(this, this.jeu, p.classement);
     this.diffuser({ t: 'fin', classement: p.classement });
     setTimeout(() => {
       this.partie = null;
@@ -642,6 +708,7 @@ export class Presence extends DurableObject {
     this.ecrireInfo(serveur, { id: idAleatoire(), derniereAnnonce: 0 });
     this.envoyer(serveur, { t: 'compte', n: this.ouverts().length });
     this.envoyer(serveur, { t: 'parties', liste: this.listeParties() });
+    this.envoyer(serveur, this.contacts(this.ouverts()));
     this.prevoirCompte();
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -685,9 +752,27 @@ export class Presence extends DurableObject {
       this.minuterie = null;
       const liste = this.ouverts(sauf);
       const texte = JSON.stringify({ t: 'compte', n: liste.length });
-      for (const ws of liste) { try { ws.send(texte); } catch (e) { /* fermée */ } }
+      const contacts = JSON.stringify(this.contacts(liste));
+      for (const ws of liste) { try { ws.send(texte); ws.send(contacts); } catch (e) { /* fermée */ } }
     }, 400);
   }
+
+  // les joueurs connectés à leur compte (et pas invisibles), un seul par compte
+  contacts(liste) {
+    const parCle = new Map();
+    let visiteurs = 0;
+    for (const ws of liste) {
+      const info = this.lireInfo(ws);
+      const c = info.compte;
+      if (!c || c.invisible) { visiteurs++; continue; }
+      const deja = parCle.get(c.cle);
+      if (!deja) parCle.set(c.cle, { cle: c.cle, nom: c.nom, jeu: info.activite || null });
+      else if (!deja.jeu && info.activite) deja.jeu = info.activite;
+    }
+    return { t: 'contacts', liste: [...parCle.values()].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')), visiteurs };
+  }
+
+  appelComptes(donnees) { return appelComptes(this.env, donnees); }
 
   async webSocketMessage(ws, brut) {
     if (typeof brut !== 'string' || brut.length > 300) return;
@@ -704,15 +789,67 @@ export class Presence extends DurableObject {
       if (maintenant - (info.derniereAnnonce || 0) < PAUSE_ANNONCE) return;
       info.derniereAnnonce = maintenant;
       this.ecrireInfo(ws, info);
-      const annonce = JSON.stringify({ t: 'partie', jeu, code, nom: nettoyerNom(msg.nom) });
+      const annonce = JSON.stringify({ t: 'partie', jeu, code, nom: info.compte ? info.compte.nom : nettoyerNom(msg.nom) });
       const autres = this.ouverts(ws);
       for (const autre of autres) { try { autre.send(annonce); } catch (e) { /* fermée */ } }
       this.envoyer(ws, { t: 'annonce-ok', n: autres.length });
     }
+
+    // qui je suis : jeton de compte (ou rien pour un visiteur)
+    if (msg.t === 'moi') {
+      const avant = info.compte && info.compte.cle;
+      let compte = null;
+      if (typeof msg.jeton === 'string' && msg.jeton) {
+        const r = await this.appelComptes({ action: 'verifier', jeton: msg.jeton });
+        if (r.compte) compte = r.compte;
+      }
+      const info2 = this.lireInfo(ws);
+      info2.compte = compte;
+      this.ecrireInfo(ws, info2);
+      if (avant && avant !== (compte && compte.cle)) this.ctx.waitUntil(this.appelComptes({ action: 'vu', cle: avant }));
+      this.envoyer(ws, { t: 'moi-ok', nom: compte ? compte.nom : null });
+      this.prevoirCompte();
+    }
+
+    // ce que je fais : le jeu ouvert en ce moment (ou rien)
+    if (msg.t === 'activite') {
+      const jeu = JEUX_ANNONCABLES.has(msg.jeu) ? msg.jeu : null;
+      if (info.activite === jeu) return;
+      info.activite = jeu;
+      this.ecrireInfo(ws, info);
+      if (info.compte && !info.compte.invisible) this.prevoirCompte();
+    }
+
+    // inviter un joueur (il faut avoir un compte, 1 invitation toutes les 4 s)
+    if (msg.t === 'inviter') {
+      const jeu = String(msg.jeu || '');
+      const code = String(msg.code || '');
+      const repondre = (ok, raison) => this.envoyer(ws, { t: 'invite-ok', ok, raison: raison || '', cible: String(msg.cible || '') });
+      if (!info.compte) return repondre(false, 'Connecte-toi à ton compte pour inviter.');
+      if (!JEUX_ANNONCABLES.has(jeu) || !/^[A-Z0-9]{4}$/.test(code)) return repondre(false, 'Invitation invalide.');
+      const maintenant = Date.now();
+      if (maintenant - (info.dernierInvite || 0) < 4000) return repondre(false, 'Attends un peu avant d’inviter encore.');
+      info.dernierInvite = maintenant;
+      this.ecrireInfo(ws, info);
+      const cible = String(msg.cible || '');
+      const siens = this.ouverts(ws).filter(w => { const i = this.lireInfo(w); return i.compte && i.compte.cle === cible; });
+      if (!siens.length) return repondre(false, 'Ce joueur n’est plus en ligne.');
+      const reglage = this.lireInfo(siens[0]).compte.invitations || 'tous';
+      if (reglage === 'personne') return repondre(false, 'Ce joueur ne reçoit pas d’invitations.');
+      if (reglage === 'amis') {
+        const r = await this.appelComptes({ action: 'sont-amis', a: cible, b: info.compte.cle });
+        if (!r.amis) return repondre(false, 'Ce joueur accepte seulement les invitations de ses amis.');
+      }
+      const texte = JSON.stringify({ t: 'invitation', de: info.compte.nom, deCle: info.compte.cle, jeu, code });
+      for (const w of siens) { try { w.send(texte); } catch (e) { /* fermée */ } }
+      repondre(true);
+    }
   }
 
   async webSocketClose(ws, code) {
+    const info = this.lireInfo(ws);
     try { ws.close(code === 1005 || code === 1006 ? 1000 : code, 'au revoir'); } catch (e) { /* déjà fermée */ }
+    if (info.compte) this.ctx.waitUntil(this.appelComptes({ action: 'vu', cle: info.compte.cle }));
     this.prevoirCompte(ws);
   }
 

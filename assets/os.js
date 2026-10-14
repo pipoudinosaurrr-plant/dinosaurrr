@@ -51,6 +51,8 @@
     const v = Object.assign({ nom: NOM, pseudo: C.pseudo || NOM }, vars);
     return String(brut).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
   }
+  // code de partie (4 caractères, comme dans les jeux)
+  const nouveauCodePartie = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), x => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 32]).join('');
   const photoProfil = (taille = 46) => A.photo ? `<img src="${echapper(A.photo)}" width="${taille}" height="${taille}" alt="" style="object-fit:cover">` : logo(taille);
   const ACCENTS_BUREAU = { bleu: '#316ac5', vert: '#2e8b3e', orange: '#d9731e', rose: '#c2408a', violet: '#6a3fb5', rouge: '#c0392b', gris: '#5a5a6e' };
   const ACCENTS_MOBILE = { vert: ['#22c55e', '#4ade80'], bleu: ['#3b82f6', '#60a5fa'], orange: ['#f97316', '#fb923c'], rose: ['#ec4899', '#f472b6'], violet: ['#8b5cf6', '#a78bfa'], rouge: ['#ef4444', '#f87171'], jaune: ['#eab308', '#facc15'] };
@@ -237,7 +239,9 @@
       apropos: { titre: 'À propos de ' + NOM, icone: 'info', taille: [410, 430], adresse: 'apropos', ouvrir: contenuAPropos, dialogue: true },
       affichage: { titre: "Propriétés d'affichage", icone: 'image', taille: [404, 486], adresse: '', ouvrir: contenuAffichage, dialogue: true },
       contact: { titre: 'Contact', icone: 'mail', taille: [410, 196], adresse: 'contact', ouvrir: contenuContact, dialogue: true },
-      corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [720, 400], adresse: '', ouvrir: contenuCorbeille }
+      corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [720, 400], adresse: '', ouvrir: contenuCorbeille },
+      contacts: { titre: 'Contacts en ligne', icone: 'joueurs', taille: [320, 520], adresse: 'contacts', ouvrir: contenuContacts },
+      compte: { titre: 'Mon compte', icone: 'session', taille: [470, 640], adresse: 'compte', ouvrir: contenuCompte }
     };
 
     JEUX.forEach(jeu => {
@@ -271,7 +275,8 @@
       apropos: { nom: 'À propos', icone: 'info' }, contact: { nom: 'Contact', icone: 'mail' },
       cmd: { nom: 'Invite de commandes', icone: 'console' }, notepad: { nom: 'Bloc-notes', icone: 'blocnotes' },
       executer: { nom: 'Exécuter', icone: 'executer' }, dateheure: { nom: 'Date et heure', icone: 'horloge' },
-      affichage: { nom: 'Affichage', icone: 'image' }
+      affichage: { nom: 'Affichage', icone: 'image' },
+      contacts: { nom: 'Contacts en ligne', icone: 'joueurs' }, compte: { nom: 'Mon compte', icone: 'session' }
     };
     JEUX.forEach(j => { ICONES_BASE['jeu-' + j.id] = { nom: j.titre, icone: j.icone }; });
     const choixIcones = (Array.isArray(A.iconesBureau) ? A.iconesBureau : []).filter(x => x && ICONES_BASE[x.element] && APPS[x.element]);
@@ -281,6 +286,7 @@
         : [
           { app: 'blog', nom: 'Blog', icone: 'fichier' },
           { app: 'jeux', nom: 'Jeux', icone: 'manette' },
+          { app: 'contacts', nom: 'Contacts en ligne', icone: 'joueurs' },
           ...JEUX.filter(j => j.bureau).map(j => ({ app: 'jeu-' + j.id, nom: j.titre, icone: j.icone })),
           { app: 'apropos', nom: 'À propos', icone: 'info' },
           { app: 'contact', nom: 'Contact', icone: 'mail' }
@@ -876,6 +882,131 @@
       });
     }
 
+    // « Mon compte » : la page compte.html dans une fenêtre
+    function contenuCompte(corps, etat, options = {}) {
+      corps.classList.add('sans-defilement');
+      const src = () => 'compte.html' + (options && options.param ? '#' + options.param : '');
+      corps.innerHTML = `<iframe src="${echapper(src())}" title="Mon compte"></iframe>`;
+      const iframe = $('iframe', corps);
+      etat.reouvrir = o => { if (o && o.param) { options = o; iframe.src = src(); } };
+    }
+
+    // « Contacts en ligne » : comme MSN Messenger
+    function contenuContacts(corps) {
+      const P = window.DinoPresence, CO = window.DinoCompte;
+      corps.classList.add('msn-corps');
+      if (!P || !P.actif || !CO) { corps.innerHTML = '<p style="padding:12px">Le serveur des jeux n’est pas branché.</p>'; return; }
+      let contacts = P.contacts || { liste: [], visiteurs: 0 };
+
+      function ligne(x, ami, horsLigne) {
+        const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
+        const sous = horsLigne ? (x.vu ? 'vu ' + ilYa(x.vu) : 'hors ligne') : jeu ? 'joue à ' + jeu.titre : 'sur le site';
+        return `<div class="msn-contact${horsLigne ? ' hors-ligne' : ''}" data-cle="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">
+          <span class="msn-bonhomme">${xp('joueurs', 16)}</span>
+          <span class="msn-nom"><b>${echapper(x.nom)}${ami ? ' <i title="Ami">★</i>' : ''}</b><small>${echapper(sous)}</small></span>
+          ${!horsLigne && CO.connecte ? '<button class="btn msn-inviter" title="Inviter à jouer">Inviter</button>' : ''}
+        </div>`;
+      }
+
+      function groupe(titre, contenu, n) {
+        return `<div class="msn-groupe"><div class="msn-groupe-titre">${xp('suivant', 16)}${echapper(titre)} (${n})</div>${contenu}</div>`;
+      }
+
+      function dessiner() {
+        if (!corps.isConnected) return false;
+        const moi = CO.compte;
+        const cleMoi = moi ? cleNom(moi.nom) : '';
+        const amis = CO.amis || [];
+        const clesAmis = new Set(amis.filter(a => a.statut === 'ami').map(a => a.cle));
+        const enLigne = contacts.liste.filter(x => x.cle !== cleMoi);
+        const amisEnLigne = enLigne.filter(x => clesAmis.has(x.cle));
+        const autres = enLigne.filter(x => !clesAmis.has(x.cle));
+        const amisHors = amis.filter(a => a.statut === 'ami' && !enLigne.some(x => x.cle === a.cle));
+        const demandes = amis.filter(a => a.statut === 'recue').length;
+        corps.innerHTML = `
+          <div class="msn-tete">
+            <span class="msn-avatar">${xp('joueurs', 32)}</span>
+            ${moi ? `<div class="msn-moi"><b>${echapper(moi.nom)}</b>
+                <select class="msn-statut" aria-label="Statut"><option value="en-ligne">(En ligne)</option><option value="invisible" ${moi.invisible ? 'selected' : ''}>(Apparaître hors ligne)</option></select></div>`
+              : `<div class="msn-moi"><b>Tu n’es pas connecté</b><small>Crée un compte pour apparaître ici et inviter tes potes.</small></div>`}
+          </div>
+          ${moi ? '' : '<div class="msn-boutons"><button class="btn" data-compte="connexion">Se connecter</button><button class="btn" data-compte="creer">Créer un compte</button></div>'}
+          ${demandes ? `<button class="msn-alerte" data-compte="amis">${xp('info', 16)}${demandes === 1 ? '1 demande d’ami' : demandes + ' demandes d’ami'} en attente</button>` : ''}
+          <div class="msn-liste">
+            ${moi ? groupe('Amis en ligne', amisEnLigne.map(x => ligne(x, true)).join('') || '<p class="msn-vide">Aucun ami en ligne</p>', amisEnLigne.length) : ''}
+            ${groupe(moi ? 'Autres joueurs en ligne' : 'Joueurs en ligne', autres.map(x => ligne(x, false)).join('') || '<p class="msn-vide">Personne pour l’instant</p>', autres.length)}
+            ${moi && amisHors.length ? groupe('Amis hors ligne', amisHors.map(a => ligne(a, true, true)).join(''), amisHors.length) : ''}
+            ${contacts.visiteurs ? `<p class="msn-visiteurs">+ ${contacts.visiteurs} visiteur${contacts.visiteurs > 1 ? 's' : ''} sans compte</p>` : ''}
+          </div>
+          <div class="msn-pied">
+            <button class="bulle-lien" data-compte="${moi ? 'amis' : 'creer'}">${moi ? 'Ajouter un ami' : 'Créer un compte'}</button>
+            <button class="bulle-lien" data-compte="">Mon compte</button>
+            <label><input type="checkbox" class="msn-notifs" ${notifsParties() ? 'checked' : ''}> Me prévenir des nouvelles parties</label>
+          </div>`;
+        return true;
+      }
+
+      corps.addEventListener('click', e => {
+        const c = e.target.closest('[data-compte]');
+        if (c) { ouvrirApp('compte', { param: c.dataset.compte || 'x' }); return; }
+        const inv = e.target.closest('.msn-inviter');
+        if (inv) { const l = inv.closest('.msn-contact'); choisirJeuInvitation(inv, l.dataset.cle, l.dataset.nom); return; }
+        const contact = e.target.closest('.msn-contact');
+        if (contact && !e.target.closest('button')) ouvrirApp('compte', { param: 'profil/' + encodeURIComponent(contact.dataset.nom) });
+      });
+      corps.addEventListener('change', async e => {
+        if (e.target.matches('.msn-notifs')) stockage.ecrire('site-notifs-parties', e.target.checked ? 'oui' : 'non');
+        if (e.target.matches('.msn-statut')) {
+          await CO.reglages({ invisible: e.target.value === 'invisible' });
+          P.rafraichir();
+        }
+      });
+      const arreterP = P.ecouter(m => { if (m.t === 'contacts') { contacts = m; if (!dessiner()) arreterP(); } });
+      const arreterC = CO.ecouter(() => { if (!dessiner()) arreterC(); });
+      if (CO.connecte) CO.chargerAmis();
+      dessiner();
+    }
+
+    const cleNom = nom => String(nom || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+    function ilYa(t) {
+      const m = Math.round((Date.now() - t) / 60000);
+      if (m < 2) return 'à l’instant';
+      if (m < 60) return `il y a ${m} min`;
+      const h = Math.round(m / 60);
+      if (h < 24) return `il y a ${h} h`;
+      const j = Math.round(h / 24);
+      return j === 1 ? 'hier' : j < 30 ? `il y a ${j} jours` : 'il y a longtemps';
+    }
+
+    // petit menu pour choisir à quel jeu inviter
+    function choisirJeuInvitation(bouton, cle, nom) {
+      $$('.menu-invitation').forEach(x => x.remove());
+      const r = bouton.getBoundingClientRect();
+      const m = creer(`<div class="menu-contextuel menu-invitation" role="menu"><div class="menu-invitation-titre">Inviter ${echapper(nom)} à…</div>${JEUX.filter(j => j.multi).map(j => `<button data-jeu="${echapper(j.id)}">${xp(j.icone, 16)}${echapper(j.titre)}</button>`).join('')}</div>`);
+      document.body.append(m);
+      const h = m.offsetHeight, w = m.offsetWidth;
+      m.style.left = Math.max(4, Math.min(innerWidth - w - 4, r.right - w)) + 'px';
+      m.style.top = (r.bottom + h + 4 < innerHeight - 30 ? r.bottom + 2 : Math.max(4, r.top - h - 2)) + 'px';
+      const fermerMenu = e => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('pointerdown', fermerMenu, true); } };
+      setTimeout(() => document.addEventListener('pointerdown', fermerMenu, true), 0);
+      m.addEventListener('click', e => {
+        const b = e.target.closest('[data-jeu]');
+        if (!b) return;
+        m.remove();
+        document.removeEventListener('pointerdown', fermerMenu, true);
+        inviter(cle, nom, b.dataset.jeu);
+      });
+    }
+
+    async function inviter(cle, nom, jeuId) {
+      const jeu = JEUX.find(j => j.id === jeuId);
+      const code = nouveauCodePartie();
+      ouvrirApp('jeu-' + jeuId, { param: code + '!' });
+      await new Promise(res => setTimeout(res, 1200));   // le temps de créer le salon
+      const r = await window.DinoPresence.inviter(cle, jeuId, code);
+      bulle(r.ok ? 'Invitation envoyée' : 'Invitation impossible', r.ok ? `${nom} est invité à jouer à ${jeu.titre} (code ${code}).` : r.raison, 6000, { icone: 'joueurs' });
+    }
+
     // « À propos » : une vraie boîte de dialogue XP
     function contenuAPropos(corps, etat) {
       const fond = FONDS.find(f => f.id === document.documentElement.dataset.fond) || FONDS[0];
@@ -1004,6 +1135,9 @@
             <button class="tous-programmes" aria-haspopup="menu">Tous les programmes ${xp('programmes', 18)}</button>
           </div>
           <div class="menu-droite">
+            ${item('data-app="compte" data-menu-compte', 'session', 'Mon compte', 24)}
+            ${item('data-app="contacts"', 'joueurs', 'Contacts en ligne', 24)}
+            <hr>
             ${item('data-app="apropos"', 'info', 'À propos', 24)}
             ${item('data-app="contact"', 'mail', 'Contact', 24)}
             ${item('data-app="corbeille"', 'corbeille', 'Corbeille', 24)}
@@ -1200,6 +1334,21 @@
       const P = window.DinoPresence;
       const icone = $('.notif-enligne');
       if (!P || !P.actif) return;
+      // ce que je fais : le jeu de la fenêtre du dessus (vu par mes contacts)
+      setInterval(() => {
+        let jeu = null, z = -1;
+        for (const [id, e] of fenetres) {
+          if (!id.startsWith('jeu-') || e.el.classList.contains('minimisee')) continue;
+          const zi = Number(e.el.style.zIndex) || 0;
+          if (zi > z) { z = zi; jeu = id.slice(4); }
+        }
+        P.activite(jeu);
+      }, 2000);
+      // le nom du compte dans le menu démarrer
+      if (window.DinoCompte) window.DinoCompte.ecouter(c => {
+        const el = $('[data-menu-compte] span', menu);
+        if (el) el.textContent = c ? c.nom + ' (mon compte)' : 'Mon compte';
+      });
       const texteCompte = () => {
         const autres = Math.max(0, (enLigne || 1) - 1);
         return autres === 0 ? 'Personne d’autre sur le site' : autres === 1 ? '1 autre personne sur le site' : `${autres} autres personnes sur le site`;
@@ -1212,6 +1361,17 @@
           $('span', icone).textContent = autres > 0 ? autres : '';
           icone.classList.toggle('seul', autres === 0);
           icone.title = texteCompte() + (notifsParties() ? '' : ' · notifications coupées');
+        }
+        if (m.t === 'invitation') {
+          const jeu = JEUX.find(j => j.id === m.jeu);
+          if (!jeu) return;
+          bulle(`${m.de} t’invite à jouer`, `${jeu.titre} · code ${m.code}`, 30000, {
+            icone: jeu.icone,
+            boutons: [
+              { texte: 'Rejoindre', faire: () => ouvrirApp('jeu-' + jeu.id, { param: m.code + '!' }) },
+              { texte: 'Non merci', lien: true }
+            ]
+          });
         }
         if (m.t === 'partie' && notifsParties()) {
           const jeu = JEUX.find(j => j.id === m.jeu);
@@ -1229,7 +1389,9 @@
             });
         }
       });
-      icone.addEventListener('click', () => {
+      icone.addEventListener('click', () => ouvrirApp('contacts'));
+      icone.addEventListener('contextmenu', e => {
+        e.preventDefault();
         const actives = notifsParties();
         const ouvertes = (P.parties || []).filter(p => p.phase === 'salon' && p.n < p.max).length;
         const texteParties = ouvertes === 0 ? 'Aucune partie en attente.' : ouvertes === 1 ? '1 partie attend des joueurs.' : `${ouvertes} parties attendent des joueurs.`;
@@ -1329,7 +1491,7 @@
     function suivreAdresse() {
       const h = lireHash();
       if (!h) return false;
-      if (['blog', 'jeux', 'apropos', 'contact'].includes(h)) ouvrirApp(h);
+      if (['blog', 'jeux', 'apropos', 'contact', 'contacts', 'compte'].includes(h)) ouvrirApp(h);
       else if (h.startsWith('jeu/')) {
         const [id, param] = h.slice(4).split('/');
         ouvrirApp('jeu-' + id, param ? { param } : {});
@@ -1485,6 +1647,10 @@
         <h1 class="m-titre-vue">Jeux</h1>
         <p class="m-sous-titre">${JEUX.length} mini-jeux codés à la main.</p>
         <p class="m-sous-titre" style="margin-top:-6px"><span class="m-enligne" hidden><i></i><span></span></span></p>
+        <div class="m-joueurs" hidden>
+          <div class="m-section-tete"><h2>Joueurs en ligne</h2><span class="m-compte"></span></div>
+          <div class="m-liste-joueurs"></div>
+        </div>
         <div class="m-parties" hidden>
           <div class="m-section-tete"><h2>Parties ouvertes</h2><span class="m-compte"></span></div>
           <div class="m-liste-parties"></div>
@@ -1512,6 +1678,7 @@
             <button class="btn" data-a="copier-mail">${svg('copier', 16)}Copier</button>
           </div>
         </div>
+        <div class="m-carte m-carte-compte"></div>
         <div class="m-carte">
           <h3>Jeux en ligne</h3>
           <p class="bio" style="margin:0 0 12px"><span class="m-enligne" hidden><i></i><span></span></span></p>
@@ -1520,6 +1687,7 @@
           </div>
         </div>
         <p class="m-pied">Sur ordinateur, le site s'ouvre en mode bureau.</p>`;
+      majCarteCompte();
       $('.m-bascule-notifs', vues.moi).addEventListener('click', () => {
         const coupees = stockage.lire('site-notifs-parties', 'oui') === 'non';
         stockage.ecrire('site-notifs-parties', coupees ? 'oui' : 'non');
@@ -1529,7 +1697,110 @@
       });
     }
 
-    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); majParties(); }
+    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); majParties(); majJoueurs(); }
+
+    /* ----- Compte, joueurs en ligne, invitations ----- */
+
+    const CO = window.DinoCompte;
+    let contactsM = { liste: [], visiteurs: 0 };
+
+    function ouvrirCompte(param, pousser) {
+      ouvrirEcran('Mon compte', `<iframe src="compte.html${param ? '#' + echapper(param) : ''}" title="Mon compte"></iframe>`, null, 'compte', true, pousser);
+    }
+
+    function majCarteCompte() {
+      const zone = $('.m-carte-compte', vues.moi);
+      if (!zone || !CO || !CO.actif) { if (zone) zone.hidden = true; return; }
+      const c = CO.compte;
+      zone.innerHTML = c ? `
+          <h3>Mon compte</h3>
+          <p class="bio" style="margin:0 0 12px">Connecté en tant que <b>${echapper(c.nom)}</b>${c.invisible ? ' · invisible' : ''}</p>
+          <div class="actions"><button class="btn btn-primaire" data-ouvrir-compte="">Voir mon compte</button><button class="btn" data-ouvrir-compte="amis">Mes amis</button></div>`
+        : `
+          <h3>Compte joueur</h3>
+          <p class="bio" style="margin:0 0 12px">Réserve ton pseudo, garde tes victoires et ajoute tes potes en amis.</p>
+          <div class="actions"><button class="btn btn-primaire" data-ouvrir-compte="creer">Créer un compte</button><button class="btn" data-ouvrir-compte="connexion">Se connecter</button></div>`;
+    }
+
+    function majJoueurs() {
+      const boite = $('.m-joueurs', vues.jeux);
+      if (!boite) return;
+      const moi = CO && CO.compte ? cleNomM(CO.compte.nom) : '';
+      const clesAmis = new Set(((CO && CO.amis) || []).filter(a => a.statut === 'ami').map(a => a.cle));
+      const liste = contactsM.liste.filter(x => x.cle !== moi).sort((a, b) => clesAmis.has(b.cle) - clesAmis.has(a.cle));
+      boite.hidden = !liste.length && !contactsM.visiteurs;
+      $('.m-compte', boite).textContent = contactsM.visiteurs ? `+ ${contactsM.visiteurs} sans compte` : '';
+      $('.m-liste-joueurs', boite).innerHTML = liste.length ? liste.map(x => {
+        const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
+        return `<div class="m-partie m-joueur">
+          <div class="icone">${svg('utilisateur', 20)}</div>
+          <div class="texte"><b>${echapper(x.nom)}${clesAmis.has(x.cle) ? ' <span class="m-etoile">★</span>' : ''}</b><span>${jeu ? 'joue à ' + echapper(jeu.titre) : 'sur le site'}</span></div>
+          ${CO && CO.connecte ? `<button class="btn petit" data-inviter="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">Inviter</button>` : ''}
+        </div>`;
+      }).join('') : `<p class="m-vide-joueurs">Personne avec un compte en ligne pour l’instant.</p>`;
+    }
+
+    const cleNomM = nom => String(nom || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+
+    function choisirJeuMobile(cle, nom) {
+      $$('.m-feuille').forEach(x => x.remove());
+      const f = creer(`
+        <div class="m-feuille" role="dialog" aria-label="Inviter">
+          <div class="m-feuille-boite">
+            <h3>Inviter ${echapper(nom)} à…</h3>
+            <div class="m-feuille-liste">${JEUX.filter(j => j.multi).map(j => `<button data-jeu-invite="${echapper(j.id)}">${svg(j.icone, 20)}<span>${echapper(j.titre)}</span></button>`).join('')}</div>
+            <button class="btn" data-fermer-feuille>Annuler</button>
+          </div>
+        </div>`);
+      document.body.append(f);
+      f.addEventListener('click', async e => {
+        if (e.target === f || e.target.closest('[data-fermer-feuille]')) { f.remove(); return; }
+        const b = e.target.closest('[data-jeu-invite]');
+        if (!b) return;
+        e.stopPropagation();
+        f.remove();
+        const jeuId = b.dataset.jeuInvite;
+        const code = nouveauCodePartie();
+        ouvrirJeu(jeuId + '/' + code + '!', true);
+        await new Promise(res => setTimeout(res, 1200));
+        const r = await window.DinoPresence.inviter(cle, jeuId, code);
+        toast(r.ok ? `Invitation envoyée à ${nom}` : r.raison);
+      });
+    }
+
+    function notifInvitation(m) {
+      const jeu = JEUX.find(j => j.id === m.jeu);
+      if (!jeu) return;
+      $$('.m-notif-partie').forEach(x => x.remove());
+      const n = creer(`
+        <div class="m-notif-partie" role="status">
+          <div class="texte"><b>${echapper(m.de)} t’invite à jouer</b><span>${echapper(jeu.titre)} · code ${echapper(m.code)}</span></div>
+          <button class="btn btn-primaire petit">Rejoindre</button>
+          <button class="fermer" aria-label="Refuser">✕</button>
+        </div>`);
+      document.body.append(n);
+      const fin = setTimeout(() => n.remove(), 30000);
+      $('.btn', n).addEventListener('click', () => { clearTimeout(fin); n.remove(); ouvrirJeu(jeu.id + '/' + m.code + '!', true); });
+      $('.fermer', n).addEventListener('click', () => { clearTimeout(fin); n.remove(); });
+    }
+
+    document.addEventListener('click', e => {
+      const oc = e.target.closest('[data-ouvrir-compte]');
+      if (oc) { e.stopPropagation(); ouvrirCompte(oc.dataset.ouvrirCompte, true); return; }
+      const inv = e.target.closest('[data-inviter]');
+      if (inv) { e.stopPropagation(); choisirJeuMobile(inv.dataset.inviter, inv.dataset.nom); }
+    }, true);
+
+    if (CO) CO.ecouter(() => { majCarteCompte(); majJoueurs(); });
+
+    // ce que je fais (vu par les autres) : le jeu ouvert à l'écran
+    setInterval(() => {
+      if (!window.DinoPresence) return;
+      const f = ecran.classList.contains('ouvert') && $('iframe', ecranCorps);
+      const src = f ? f.getAttribute('src') || '' : '';
+      const jeu = JEUX.find(j => src.split('#')[0] === j.fichier);
+      window.DinoPresence.activite(jeu ? jeu.id : null);
+    }, 2000);
 
     /* ----- Qui est en ligne + « Untel a créé une partie » (assets/presence.js) ----- */
 
@@ -1587,6 +1858,8 @@
         if (m.t === 'compte') { enLigneM = m.n; majEnLigne(); }
         if (m.t === 'partie') notifPartie(m);
         if (m.t === 'parties') { partiesM = m.liste || []; majParties(); }
+        if (m.t === 'contacts') { contactsM = m; majJoueurs(); }
+        if (m.t === 'invitation') notifInvitation(m);
       });
     }
 
@@ -1669,13 +1942,14 @@
 
     function suivreAdresse(evenement) {
       const h = lireHash();
-      const ecranDemande = h.startsWith('jeu/') || h.startsWith('article/');
+      const ecranDemande = h.startsWith('jeu/') || h.startsWith('article/') || h === 'compte';
       // Lien direct vers un jeu ou un article : on glisse d'abord l'accueil
       // dans l'historique, pour que « retour » ramène bien sur le site
       if (ecranDemande && !evenement && !(history.state && history.state.ecran)) {
         try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* rien */ }
       }
       if (h.startsWith('jeu/')) { ouvrirJeu(h.slice(4)); return; }
+      if (h === 'compte') { ouvrirCompte(''); return; }
       if (h.startsWith('article/')) {
         const url = h.slice(8);
         if (articles.length) ouvrirArticle(url);

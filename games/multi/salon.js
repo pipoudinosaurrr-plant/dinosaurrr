@@ -7,7 +7,7 @@
    En solo, le moteur tourne dans le navigateur ; en ligne, sur le serveur.
    ========================================================== */
 
-import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes } from './presence.js';
+import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './presence.js';
 
 export const COULEURS = ['#22c55e', '#3b82f6', '#f97316', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
 const NOMS_BOTS = ['Atlas', 'Nova', 'Orion', 'Echo', 'Volt', 'Nyx', 'Zéro', 'Pixel'];
@@ -136,9 +136,10 @@ export function demarrerJeu(cfg) {
   champPseudo.value = stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900));
   function pseudo() {
     const p = champPseudo.value.trim().slice(0, 14) || 'Joueur';
-    stock.ecrire('cercle-pseudo', p);
+    if (!champPseudo.readOnly) stock.ecrire('cercle-pseudo', p);
     return p;
   }
+  brancherPseudo(champPseudo, () => stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900)));
 
   /* ---------- État ---------- */
 
@@ -149,6 +150,7 @@ export function demarrerJeu(cfg) {
   let enLigne = false;
   let spectateur = false;
   let annonceEnAttente = null;
+  let renomme = false;
 
   const ctx = {
     get moi() { return moi; },
@@ -273,8 +275,10 @@ export function demarrerJeu(cfg) {
     annonceEnAttente = nouvelle ? code : null;
     try { ws = new WebSocket(urlTable(code)); } catch (e) { return retourAccueil('Impossible de joindre le serveur.'); }
     const ceWs = ws;
-    ceWs.onopen = () => {
-      ceWs.send(JSON.stringify({ t: 'salut', nom: pseudo() }));
+    ceWs.onopen = async () => {
+      const jeton = await jetonCompte();
+      if (ceWs.readyState !== 1) return;
+      ceWs.send(JSON.stringify({ t: 'salut', nom: pseudo(), jeton }));
       clearInterval(minuteriePing);
       minuteriePing = setInterval(() => { if (ceWs.readyState === 1) ceWs.send('ping'); }, 25000);
     };
@@ -295,10 +299,14 @@ export function demarrerJeu(cfg) {
     switch (m.t) {
       case 'bienvenue':
         moi = m.id;
+        if (!champPseudo.readOnly && /^Invité\d+$/.test(m.nom) && !/^Invité/.test(pseudo())) {
+          toast('Ce pseudo appartient à un compte : tu joues en « ' + m.nom + ' ». Connecte-toi pour l’utiliser.', 4500);
+          renomme = true;
+        }
         if (annonceEnAttente === codeSalle) {
           annonceEnAttente = null;
           annoncerPartie(cfg.idSite || id, codeSalle, m.nom).then(n => {
-            if (n > 0) toast(n === 1 ? '1 personne en ligne a été prévenue' : `${n} personnes en ligne ont été prévenues`, 3200);
+            if (n > 0 && !renomme) toast(n === 1 ? '1 personne en ligne a été prévenue' : `${n} personnes en ligne ont été prévenues`, 3200);
           });
         }
         break;
@@ -336,7 +344,7 @@ export function demarrerJeu(cfg) {
     $('.joueurs').innerHTML = salle.joueurs.map(j => `
       <li>
         <i style="background:${echapper(j.couleur)}"></i>
-        <span class="nom">${echapper(j.nom)}</span>
+        <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}</span>
         ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
         ${j.hote ? '<span class="tag">HÔTE</span>' : ''}
         ${j.bot ? '<span class="tag">BOT</span>' : ''}

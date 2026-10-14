@@ -366,6 +366,10 @@ content:
                   label: "Date et heure"
                 - name: affichage
                   label: "Propriétés d'affichage"
+                - name: contacts
+                  label: "Contacts en ligne"
+                - name: compte
+                  label: "Mon compte"
                 - name: jeu-cercle
                   label: "Jeu : Le Cercle"
                 - name: jeu-puissance4

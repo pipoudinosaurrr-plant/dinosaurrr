@@ -4,6 +4,56 @@
 
 let promesse = null;
 
+function charger(chemin) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = new URL(chemin, import.meta.url).href;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.append(s);
+  });
+}
+
+// le compte du joueur (celui de la page du site si le jeu est dans une fenêtre)
+export async function obtenirCompte() {
+  try {
+    if (window.parent !== window && window.parent.DinoCompte) return window.parent.DinoCompte;
+  } catch (e) { /* rien */ }
+  if (!window.DinoCompte) { try { await charger('../../assets/compte.js'); } catch (e) { return null; } }
+  return window.DinoCompte || null;
+}
+
+// branche le champ « pseudo » d'un jeu sur le compte : connecté = pseudo du compte, non modifiable
+export function brancherPseudo(champ, valeurInvite) {
+  obtenirCompte().then(c => {
+    if (!c) return;
+    const etiquette = champ.id ? document.querySelector(`label[for="${champ.id}"]`) : null;
+    const texteEtiquette = etiquette ? etiquette.textContent : '';
+    const arreter = c.ecouter(compte => {
+      if (compte && c.jeton) {
+        champ.value = compte.nom;
+        champ.readOnly = true;
+        champ.title = 'Pseudo de ton compte';
+        champ.classList.add('pseudo-compte');
+        if (etiquette) etiquette.textContent = 'Connecté en tant que';
+      } else {
+        if (champ.readOnly && valeurInvite) champ.value = valeurInvite();
+        champ.readOnly = false;
+        champ.title = '';
+        champ.classList.remove('pseudo-compte');
+        if (etiquette) etiquette.textContent = texteEtiquette;
+      }
+    });
+    window.addEventListener('pagehide', arreter, { once: true });
+  });
+}
+
+// jeton à envoyer au serveur de jeu (ou '')
+export async function jetonCompte() {
+  const c = await obtenirCompte();
+  return (c && c.jeton) || '';
+}
+
 function obtenir() {
   if (!promesse) {
     promesse = new Promise(resolve => {
@@ -11,11 +61,9 @@ function obtenir() {
         if (window.parent !== window && window.parent.DinoPresence) return resolve(window.parent.DinoPresence);
       } catch (e) { /* page parente d'un autre site */ }
       if (window.DinoPresence) return resolve(window.DinoPresence);
-      const s = document.createElement('script');
-      s.src = new URL('../../assets/presence.js', import.meta.url).href;
-      s.onload = () => resolve(window.DinoPresence || null);
-      s.onerror = () => resolve(null);
-      document.head.append(s);
+      charger('../../assets/compte.js')
+        .then(() => charger('../../assets/presence.js'))
+        .then(() => resolve(window.DinoPresence || null), () => resolve(null));
     });
   }
   return promesse;

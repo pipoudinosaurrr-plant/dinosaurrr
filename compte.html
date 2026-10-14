@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Mon compte</title>
+  <link rel="stylesheet" href="games/jeu.css">
+  <style>
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      -webkit-user-select: text; user-select: text;
+      background:
+        radial-gradient(700px 360px at 50% -80px, rgba(255, 255, 255, .06), transparent 70%),
+        linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 40px 40px,
+        linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 40px 40px,
+        #000;
+    }
+    main { display: flex; justify-content: center; padding: 20px 16px 40px; }
+    .carte { width: 100%; max-width: 440px; padding: 24px; border: 1px solid var(--bord2); border-radius: 18px; background: rgba(8, 8, 8, .9); box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(255, 255, 255, .05); }
+    h1 { margin: 12px 0 4px; font-size: 30px; font-weight: 800; letter-spacing: -.05em; overflow-wrap: anywhere; }
+    h2 { margin: 22px 0 10px; font-size: 15px; letter-spacing: -.01em; }
+    .sous { margin: 0 0 18px; color: var(--doux); font-size: 13.5px; line-height: 1.5; }
+    .pastille { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border: 1px solid var(--bord2); border-radius: 999px; color: var(--doux); font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .point-vert { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+    .onglets { display: flex; gap: 4px; margin: 0 0 18px; padding: 4px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); }
+    .onglets button { flex: 1; height: 34px; border: 0; border-radius: 9px; background: none; color: var(--doux); font: 600 13px inherit; font-family: inherit; cursor: pointer; }
+    .onglets button.actif { background: #fafafa; color: #000; }
+    .onglets .pastille-n { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 4px; padding: 0 4px; border-radius: 9px; background: var(--accent); color: #000; font: 700 10px var(--mono); }
+
+    label { display: block; margin: 12px 0 6px; color: var(--tres-doux); font: 500 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    input[type="text"], input[type="password"], select {
+      width: 100%; height: 44px; padding: 0 13px; border: 1px solid var(--bord2); border-radius: 10px;
+      background: rgba(255, 255, 255, .03); color: #fafafa; font: 15px inherit; font-family: inherit; outline: none; box-sizing: border-box;
+    }
+    input:focus, select:focus { border-color: var(--bord3); box-shadow: 0 0 0 3px rgba(255, 255, 255, .06); }
+    select option { background: #111; }
+    .aide { margin: 6px 0 0; color: var(--tres-doux); font-size: 12px; line-height: 1.45; }
+    .aide.ok { color: var(--accent); }
+    .aide.ko { color: #f87171; }
+    .btn.grand { width: 100%; height: 46px; margin-top: 16px; border-radius: 11px; font-size: 14.5px; }
+    .message { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; }
+    .message.ko { border: 1px solid rgba(239, 68, 68, .35); background: rgba(239, 68, 68, .08); color: #fca5a5; }
+    .message.ok { border: 1px solid rgba(34, 197, 94, .35); background: rgba(34, 197, 94, .08); color: #86efac; }
+    .message[hidden], [hidden] { display: none !important; }
+    .note { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--bord); border-radius: 10px; color: var(--doux); font-size: 12.5px; line-height: 1.5; }
+
+    .chiffres { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .chiffre { padding: 12px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); }
+    .chiffre b { display: block; font-size: 24px; letter-spacing: -.03em; }
+    .chiffre span { color: var(--tres-doux); font: 500 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .lignes { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .lignes li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 12px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 14px; }
+    .lignes .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lignes .nom small { display: block; color: var(--tres-doux); font-size: 12px; }
+    .lignes .vide { justify-content: center; color: var(--tres-doux); font-size: 13px; }
+    .lignes .chiffres-jeu { color: var(--doux); font: 500 12px var(--mono); white-space: nowrap; }
+    .rond { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #525252; }
+    .rond.en-ligne { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .ligne { display: flex; gap: 8px; }
+    .ligne > input { flex: 1; min-width: 0; }
+    .ligne > .btn { flex: none; height: 44px; }
+    .interrupteur { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--bord); font-size: 14px; }
+    .interrupteur small { display: block; color: var(--tres-doux); font-size: 12px; }
+    .interrupteur input { flex: none; width: 20px; height: 20px; accent-color: #22c55e; }
+    .danger { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--bord); }
+    a.lien { color: var(--accent); }
+    button.lien { padding: 0; border: 0; background: none; color: var(--doux); font: inherit; text-decoration: underline; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main><div class="carte" id="carte"><p class="sous">Chargement…</p></div></main>
+
+  <script src="assets/config.js"></script>
+  <script src="assets/jeux.js"></script>
+  <script>
+  (function () {
+    const $ = s => document.querySelector(s);
+    const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const carte = $('#carte');
+    const JEUX = window.JEUX || [];
+    const titreJeu = id => (JEUX.find(j => j.id === id) || {}).titre || id;
+    const date = t => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    function ilYa(t) {
+      if (!t) return '';
+      const m = Math.round((Date.now() - t) / 60000);
+      if (m < 2) return 'à l’instant';
+      if (m < 60) return `il y a ${m} min`;
+      const h = Math.round(m / 60);
+      if (h < 24) return `il y a ${h} h`;
+      const j = Math.round(h / 24);
+      return j === 1 ? 'hier' : j < 30 ? `il y a ${j} jours` : 'il y a longtemps';
+    }
+
+    // le compte et la présence de la page du site (si on est dans une fenêtre du site)
+    function parent(nom) { try { return window.parent !== window ? window.parent[nom] : null; } catch (e) { return null; } }
+    function chargerScript(src) {
+      return new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = res; document.head.append(s); });
+    }
+
+    let C = null, P = null;
+    let onglet = 'connexion';
+    let ongletCompte = 'profil';
+    let enLigne = new Set();
+
+    async function demarrer() {
+      C = parent('DinoCompte');
+      if (!C) { await chargerScript('assets/compte.js'); C = window.DinoCompte; }
+      P = parent('DinoPresence');
+      if (!C) { carte.innerHTML = '<p class="sous">Impossible de charger les comptes.</p>'; return; }
+      const arrets = [];
+      window.addEventListener('pagehide', () => arrets.forEach(f => f()), { once: true });
+      if (P) arrets.push(P.ecouter(m => {
+        if (m.t !== 'contacts') return;
+        enLigne = new Set((m.liste || []).map(x => x.cle));
+        if (C.connecte && ongletCompte === 'amis' && !lireProfil()) afficherAmis();
+      }));
+      let dernier = undefined;
+      arrets.push(C.ecouter(c => {
+        const etat = c ? c.nom + '|' + c.invisible + '|' + c.invitations : null;
+        if (etat === dernier) { if (c && ongletCompte === 'amis' && !lireProfil()) afficherAmis(); return; }
+        const changementPersonne = (dernier ? dernier.split('|')[0] : null) !== (c ? c.nom : null);
+        dernier = etat;
+        if (changementPersonne || !c) afficher();
+      }));
+      window.addEventListener('hashchange', afficher);
+    }
+
+    const lireProfil = () => { const m = location.hash.match(/^#profil\/(.+)$/); return m ? decodeURIComponent(m[1]) : null; };
+
+    function afficher() {
+      const profil = lireProfil();
+      if (profil) return afficherProfilPublic(profil);
+      if (C.connecte) afficherCompte();
+      else afficherAccueil();
+    }
+
+    function message(el, texte, ok) {
+      el.textContent = texte || '';
+      el.className = 'message ' + (ok ? 'ok' : 'ko');
+      el.hidden = !texte;
+    }
+
+    function occupe(btn, oui, texte) {
+      btn.disabled = oui;
+      if (oui) { btn.dataset.texte = btn.textContent; btn.textContent = texte || 'Patiente…'; }
+      else if (btn.dataset.texte) btn.textContent = btn.dataset.texte;
+    }
+
+    /* ---------- Pas connecté : se connecter / créer un compte ---------- */
+
+    function afficherAccueil() {
+      const creer = onglet === 'creer';
+      carte.innerHTML = `
+        <span class="pastille"><span class="point-vert"></span>Compte joueur</span>
+        <h1>${creer ? 'Créer un compte' : 'Se connecter'}</h1>
+        <p class="sous">${creer ? 'Ton pseudo sera réservé : personne d’autre ne pourra jouer avec. Tes victoires et tes amis sont gardés, sur tous tes appareils.' : 'Retrouve ton pseudo, tes victoires et tes amis.'}</p>
+        <div class="onglets" role="tablist">
+          <button data-onglet="connexion" class="${creer ? '' : 'actif'}">Se connecter</button>
+          <button data-onglet="creer" class="${creer ? 'actif' : ''}">Créer un compte</button>
+        </div>
+        <form id="formulaire" autocomplete="on">
+          <label for="nom">Pseudo</label>
+          <input type="text" id="nom" name="username" maxlength="14" autocomplete="username" spellcheck="false" autocapitalize="off" required>
+          ${creer ? '<p class="aide" id="aide-nom">3 à 14 caractères : lettres, chiffres, _ . -</p>' : ''}
+          <label for="mdp">Mot de passe</label>
+          <input type="password" id="mdp" name="password" maxlength="100" autocomplete="${creer ? 'new-password' : 'current-password'}" required>
+          ${creer ? `<p class="aide">Au moins 6 caractères. Choisis-en un que tu n’utilises nulle part ailleurs.</p>
+          <label for="mdp2">Mot de passe (encore)</label>
+          <input type="password" id="mdp2" maxlength="100" autocomplete="new-password" required>` : ''}
+          <button class="btn primaire grand" type="submit">${creer ? 'Créer mon compte' : 'Se connecter'}</button>
+          <p class="message" id="msg" hidden></p>
+        </form>
+        ${creer ? '<p class="note">Il n’y a pas d’e-mail : <b>si tu oublies ton mot de passe, il ne peut pas être récupéré</b>. Note-le quelque part. Tu pourras le changer quand tu veux.</p>' : ''}`;
+
+      carte.querySelectorAll('[data-onglet]').forEach(b => b.addEventListener('click', () => { onglet = b.dataset.onglet; afficherAccueil(); }));
+      const nom = $('#nom');
+      try { const ancien = localStorage.getItem('cercle-pseudo'); if (ancien && creer && !/^Joueur\d+$/.test(ancien)) nom.value = ancien; } catch (e) { /* rien */ }
+
+      if (creer) {
+        let minuterie = null;
+        const aide = $('#aide-nom');
+        nom.addEventListener('input', () => {
+          clearTimeout(minuterie);
+          const v = nom.value.trim();
+          if (v.length < 3) { aide.className = 'aide'; aide.textContent = '3 à 14 caractères : lettres, chiffres, _ . -'; return; }
+          minuterie = setTimeout(async () => {
+            const d = await C.api('existe', { nom: v });
+            if (nom.value.trim() !== v) return;
+            if (d.libre) { aide.className = 'aide ok'; aide.textContent = '✓ Ce pseudo est libre'; }
+            else { aide.className = 'aide ko'; aide.textContent = d.existe ? 'Ce pseudo est déjà pris' : 'Ce pseudo n’est pas autorisé (3 à 14 caractères : lettres, chiffres, _ . -)'; }
+          }, 350);
+        });
+      }
+
+      $('#formulaire').addEventListener('submit', async e => {
+        e.preventDefault();
+        const msg = $('#msg');
+        const btn = carte.querySelector('button[type="submit"]');
+        if (creer && $('#mdp').value !== $('#mdp2').value) return message(msg, 'Les deux mots de passe ne sont pas pareils.');
+        occupe(btn, true);
+        const d = creer ? await C.inscription(nom.value.trim(), $('#mdp').value) : await C.connexion(nom.value.trim(), $('#mdp').value);
+        occupe(btn, false);
+        if (d.erreur) return message(msg, d.erreur);
+        ongletCompte = 'profil';
+        afficher();
+        C.chargerAmis();
+      });
+    }
+
+    /* ---------- Connecté ---------- */
+
+    function afficherCompte() {
+      const c = C.compte;
+      const recues = C.amis.filter(a => a.statut === 'recue').length;
+      carte.innerHTML = `
+        <span class="pastille"><span class="point-vert"></span>${c.invisible ? 'Invisible' : 'En ligne'}</span>
+        <h1>${echapper(c.nom)}</h1>
+        <p class="sous">Membre depuis le ${date(c.cree)}</p>
+        <div class="onglets" role="tablist">
+          <button data-o="profil" class="${ongletCompte === 'profil' ? 'actif' : ''}">Victoires</button>
+          <button data-o="amis" class="${ongletCompte === 'amis' ? 'actif' : ''}">Amis${recues ? `<span class="pastille-n">${recues}</span>` : ''}</button>
+          <button data-o="reglages" class="${ongletCompte === 'reglages' ? 'actif' : ''}">Réglages</button>
+        </div>
+        <div id="contenu"></div>`;
+      carte.querySelectorAll('[data-o]').forEach(b => b.addEventListener('click', () => { ongletCompte = b.dataset.o; afficherCompte(); }));
+      if (ongletCompte === 'profil') afficherStats();
+      else if (ongletCompte === 'amis') { afficherAmis(); C.chargerAmis(); }
+      else afficherReglages();
+    }
+
+    function htmlStats(stats) {
+      const parties = stats.reduce((s, x) => s + x.parties, 0);
+      const victoires = stats.reduce((s, x) => s + x.victoires, 0);
+      return `
+        <div class="chiffres">
+          <div class="chiffre"><b>${victoires}</b><span>Victoires</span></div>
+          <div class="chiffre"><b>${parties}</b><span>Parties</span></div>
+          <div class="chiffre"><b>${parties ? Math.round(victoires / parties * 100) : 0}%</b><span>Gagnées</span></div>
+        </div>
+        <h2>Par jeu</h2>
+        <ul class="lignes">${stats.length ? stats.map(s => `
+          <li><span class="nom">${echapper(titreJeu(s.jeu))}</span><span class="chiffres-jeu">${s.victoires} V · ${s.parties} parties</span></li>`).join('')
+          : '<li class="vide">Pas encore de partie en ligne. Joue avec au moins une autre personne pour que ça compte !</li>'}</ul>`;
+    }
+
+    async function afficherStats() {
+      const zone = $('#contenu');
+      zone.innerHTML = '<p class="sous">Chargement…</p>';
+      const d = await C.moi();
+      if (!$('#contenu') || ongletCompte !== 'profil') return;
+      if (!d || d.erreur) { zone.innerHTML = `<p class="message ko">${echapper((d && d.erreur) || 'Erreur')}</p>`; return; }
+      zone.innerHTML = htmlStats(d.stats || []) + '<p class="aide" style="margin-top:12px">Seules les parties en ligne avec au moins 2 vrais joueurs comptent (pas contre les bots tout seul).</p>';
+    }
+
+    function afficherAmis() {
+      const zone = $('#contenu');
+      if (!zone) return;
+      const amis = C.amis;
+      const recues = amis.filter(a => a.statut === 'recue');
+      const confirmes = amis.filter(a => a.statut === 'ami').sort((a, b) => (enLigne.has(b.cle) - enLigne.has(a.cle)) || a.nom.localeCompare(b.nom, 'fr'));
+      const envoyees = amis.filter(a => a.statut === 'envoyee');
+      const champ = $('#ajout') ? $('#ajout').value : '';
+      zone.innerHTML = `
+        <form class="ligne" id="form-ajout">
+          <input type="text" id="ajout" maxlength="14" placeholder="Pseudo d’un joueur" autocomplete="off" spellcheck="false" autocapitalize="off">
+          <button class="btn primaire" type="submit">Ajouter</button>
+        </form>
+        <p class="message" id="msg-amis" hidden></p>
+        ${recues.length ? `<h2>Demandes reçues</h2><ul class="lignes">${recues.map(a => `
+          <li><span class="nom">${echapper(a.nom)}<small>veut être ton ami</small></span>
+            <button class="btn petit primaire" data-act="ami-accepter" data-nom="${echapper(a.nom)}">Accepter</button>
+            <button class="btn petit" data-act="ami-retirer" data-nom="${echapper(a.nom)}">Refuser</button></li>`).join('')}</ul>` : ''}
+        <h2>Mes amis (${confirmes.length})</h2>
+        <ul class="lignes">${confirmes.length ? confirmes.map(a => {
+          const co = enLigne.has(a.cle);
+          return `<li><i class="rond ${co ? 'en-ligne' : ''}"></i>
+            <span class="nom"><a class="lien" href="#profil/${encodeURIComponent(a.nom)}">${echapper(a.nom)}</a><small>${co ? 'en ligne' : a.vu ? 'vu ' + ilYa(a.vu) : 'hors ligne'}</small></span>
+            <button class="btn petit" data-act="ami-retirer" data-nom="${echapper(a.nom)}" data-confirmer="1">Retirer</button></li>`;
+        }).join('') : '<li class="vide">Ajoute tes potes avec leur pseudo de compte.</li>'}</ul>
+        ${envoyees.length ? `<h2>Demandes envoyées</h2><ul class="lignes">${envoyees.map(a => `
+          <li><span class="nom">${echapper(a.nom)}<small>en attente</small></span>
+            <button class="btn petit" data-act="ami-retirer" data-nom="${echapper(a.nom)}">Annuler</button></li>`).join('')}</ul>` : ''}`;
+      $('#ajout').value = champ;
+      $('#form-ajout').addEventListener('submit', async e => {
+        e.preventDefault();
+        const nom = $('#ajout').value.trim();
+        if (!nom) return;
+        const d = await C.ami('ami-demande', nom);
+        if (d.erreur) return message($('#msg-amis'), d.erreur);
+        $('#ajout').value = '';
+        const ami = (d.amis || []).find(a => a.nom.toLowerCase() === nom.toLowerCase());
+        afficherAmis();
+        message($('#msg-amis'), ami && ami.statut === 'ami' ? `Vous êtes maintenant amis avec ${ami.nom} !` : 'Demande envoyée. Elle devra l’accepter.', true);
+      });
+      zone.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', async () => {
+        if (b.dataset.confirmer && !confirm(`Retirer ${b.dataset.nom} de tes amis ?`)) return;
+        b.disabled = true;
+        const d = await C.ami(b.dataset.act, b.dataset.nom);
+        if (d.erreur) { b.disabled = false; message($('#msg-amis'), d.erreur); }
+        else afficherCompte();
+      }));
+    }
+
+    function afficherReglages() {
+      const c = C.compte;
+      const zone = $('#contenu');
+      zone.innerHTML = `
+        <div class="interrupteur"><span>Mode invisible<small>Tu n’apparais pas dans la liste des joueurs en ligne.</small></span><input type="checkbox" id="invisible" ${c.invisible ? 'checked' : ''}></div>
+        <label for="invitations">Qui peut m’inviter à jouer</label>
+        <select id="invitations">
+          <option value="tous" ${c.invitations === 'tous' ? 'selected' : ''}>Tout le monde</option>
+          <option value="amis" ${c.invitations === 'amis' ? 'selected' : ''}>Seulement mes amis</option>
+          <option value="personne" ${c.invitations === 'personne' ? 'selected' : ''}>Personne</option>
+        </select>
+        <p class="message" id="msg-reglages" hidden></p>
+
+        <h2>Changer de mot de passe</h2>
+        <form id="form-mdp" autocomplete="on">
+          <input type="text" name="username" value="${echapper(c.nom)}" autocomplete="username" hidden>
+          <label for="ancien">Mot de passe actuel</label>
+          <input type="password" id="ancien" autocomplete="current-password" maxlength="100" required>
+          <label for="nouveau">Nouveau mot de passe</label>
+          <input type="password" id="nouveau" autocomplete="new-password" maxlength="100" required>
+          <p class="aide">Au moins 6 caractères.</p>
+          <label for="nouveau2">Nouveau mot de passe (encore)</label>
+          <input type="password" id="nouveau2" autocomplete="new-password" maxlength="100" required>
+          <button class="btn primaire grand" type="submit">Changer le mot de passe</button>
+          <p class="message" id="msg-mdp" hidden></p>
+        </form>
+
+        <button class="btn grand" id="deconnexion" style="margin-top:28px">Se déconnecter</button>
+        <div class="danger">
+          <button class="lien" id="supprimer">Supprimer mon compte…</button>
+          <div id="zone-supprimer" hidden>
+            <p class="aide">Ton pseudo, tes victoires et tes amis seront effacés pour toujours.</p>
+            <label for="mdp-supprimer">Ton mot de passe pour confirmer</label>
+            <input type="password" id="mdp-supprimer" autocomplete="current-password" maxlength="100">
+            <button class="btn rouge grand" id="confirmer-supprimer">Supprimer définitivement</button>
+            <p class="message" id="msg-supprimer" hidden></p>
+          </div>
+        </div>`;
+
+      const reglage = async r => {
+        const d = await C.reglages(r);
+        if (d.erreur) return message($('#msg-reglages'), d.erreur);
+        if (P && P.rafraichir) P.rafraichir();
+        message($('#msg-reglages'), 'Enregistré.', true);
+        setTimeout(() => { const m = $('#msg-reglages'); if (m) m.hidden = true; }, 1500);
+      };
+      $('#invisible').addEventListener('change', e => reglage({ invisible: e.target.checked }));
+      $('#invitations').addEventListener('change', e => reglage({ invitations: e.target.value }));
+
+      $('#form-mdp').addEventListener('submit', async e => {
+        e.preventDefault();
+        const msg = $('#msg-mdp');
+        if ($('#nouveau').value !== $('#nouveau2').value) return message(msg, 'Les deux nouveaux mots de passe ne sont pas pareils.');
+        const btn = e.target.querySelector('button');
+        occupe(btn, true);
+        const d = await C.api('mdp', { ancien: $('#ancien').value, nouveau: $('#nouveau').value });
+        occupe(btn, false);
+        if (d.erreur) return message(msg, d.erreur);
+        e.target.reset();
+        message(msg, 'Mot de passe changé ! Tes autres appareils ont été déconnectés.', true);
+      });
+
+      $('#deconnexion').addEventListener('click', async () => { await C.deconnexion(); onglet = 'connexion'; afficher(); });
+      $('#supprimer').addEventListener('click', () => { $('#zone-supprimer').hidden = false; $('#supprimer').hidden = true; });
+      $('#confirmer-supprimer').addEventListener('click', async () => {
+        const d = await C.supprimer($('#mdp-supprimer').value);
+        if (d.erreur) return message($('#msg-supprimer'), d.erreur);
+        onglet = 'creer';
+        afficher();
+      });
+    }
+
+    /* ---------- Profil d'un autre joueur (#profil/Nom) ---------- */
+
+    async function afficherProfilPublic(nom) {
+      carte.innerHTML = '<p class="sous">Chargement…</p>';
+      const d = await C.api('profil', { nom });
+      if (lireProfil() !== nom) return;
+      if (d.erreur) {
+        carte.innerHTML = `<p class="message ko">${echapper(d.erreur)}</p><button class="btn grand" id="retour">← Retour</button>`;
+      } else {
+        const ami = C.amis.find(a => a.nom.toLowerCase() === d.profil.nom.toLowerCase());
+        const moi = C.connecte && C.compte.nom.toLowerCase() === d.profil.nom.toLowerCase();
+        carte.innerHTML = `
+          <span class="pastille">Profil joueur</span>
+          <h1>${echapper(d.profil.nom)}</h1>
+          <p class="sous">Membre depuis le ${date(d.profil.cree)}</p>
+          ${htmlStats(d.stats || [])}
+          ${C.connecte && !moi ? (ami ? `<p class="aide" style="margin-top:14px">${ami.statut === 'ami' ? '✓ Vous êtes amis' : ami.statut === 'envoyee' ? 'Demande d’ami envoyée' : 'Il/elle veut être ton ami (va dans Amis)'}</p>`
+            : '<button class="btn primaire grand" id="ajouter">Ajouter en ami</button><p class="message" id="msg-profil" hidden></p>') : ''}
+          <button class="btn grand" id="retour">← Mon compte</button>`;
+        const ajouter = $('#ajouter');
+        if (ajouter) ajouter.addEventListener('click', async () => {
+          const r = await C.ami('ami-demande', d.profil.nom);
+          if (r.erreur) return message($('#msg-profil'), r.erreur);
+          afficherProfilPublic(nom);
+        });
+      }
+      $('#retour').addEventListener('click', () => { history.replaceState(null, '', location.pathname + location.search); afficher(); });
+    }
+
+    // liens directs : #creer, #connexion, #amis
+    function lireAncre() {
+      const h = location.hash.slice(1);
+      if (h === 'creer' || h === 'connexion') onglet = h;
+      if (h === 'amis' || h === 'reglages') ongletCompte = h;
+      if (['creer', 'connexion', 'amis', 'reglages'].includes(h)) history.replaceState(null, '', location.pathname + location.search);
+    }
+    lireAncre();
+    window.addEventListener('hashchange', () => { lireAncre(); });
+    demarrer();
+  })();
+  </script>
+</body>
+</html>

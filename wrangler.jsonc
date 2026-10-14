@@ -10,13 +10,15 @@
     "bindings": [
       { "name": "SALLES", "class_name": "Salle" },
       { "name": "TABLES", "class_name": "Table" },
-      { "name": "PRESENCE", "class_name": "Presence" }
+      { "name": "PRESENCE", "class_name": "Presence" },
+      { "name": "COMPTES", "class_name": "Comptes" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Salle"] },
     { "tag": "v2", "new_sqlite_classes": ["Table"] },
-    { "tag": "v3", "new_sqlite_classes": ["Presence"] }
+    { "tag": "v3", "new_sqlite_classes": ["Presence"] },
+    { "tag": "v4", "new_sqlite_classes": ["Comptes"] }
   ],
   "observability": { "enabled": true }
 }
