@@ -30,7 +30,7 @@ export const clePseudo = nom => String(nom || '').normalize('NFD').replace(/\p{M
    Personne ne peut créer un compte qui en contient une. */
 export const PROPRIO = { cle: 'pipou_dinosaur', nom: 'Pipou_Dinosaur' };
 // empreinte du code secret qui permet au propriétaire de créer / reprendre son compte
-const CODE_PROPRIO = '33a439d27e0bb52df10aff7ee2af5f3301b742193e81dc59617d1c037e558ae4';
+const CODE_PROPRIO = 'a136f0086169d1566b924ec868db421b25bd93477c2f9ef65c8b83f70f03b9a6';
 const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 6: 'g', 7: 't', 8: 'b', 9: 'g', '@': 'a', $: 's', '!': 'i', '|': 'i', y: 'i', z: 's', k: 'c', q: 'c', w: 'v' };
 const MOTS_PROPRIO = ['pipou', 'pipu', 'dinosaur', 'dinosor', 'dinosaor', 'dinausor', 'dinausaur'];
 export function formeProprio(nom) {
