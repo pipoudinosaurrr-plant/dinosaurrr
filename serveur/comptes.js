@@ -24,6 +24,23 @@ const aleatoire = n => hex(crypto.getRandomValues(new Uint8Array(n)));
 // « Pipou », « pipou » et « Pípou » sont le même pseudo
 export const clePseudo = nom => String(nom || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 
+/* ----- Le compte du propriétaire du site -----
+   Toutes les formes de « pipou » et « dinosaur » (majuscules, accents, chiffres
+   à la place des lettres, lettres doublées, séparateurs…) mènent à ce compte.
+   Personne ne peut créer un compte qui en contient une. */
+export const PROPRIO = { cle: 'pipou_dinosaur', nom: 'Pipou_Dinosaur' };
+// empreinte du code secret qui permet au propriétaire de créer / reprendre son compte
+const CODE_PROPRIO = '33a439d27e0bb52df10aff7ee2af5f3301b742193e81dc59617d1c037e558ae4';
+const LEET = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 6: 'g', 7: 't', 8: 'b', 9: 'g', '@': 'a', $: 's', '!': 'i', '|': 'i', y: 'i', z: 's', k: 'c', q: 'c', w: 'v' };
+const MOTS_PROPRIO = ['pipou', 'pipu', 'dinosaur', 'dinosor', 'dinosaor', 'dinausor', 'dinausaur'];
+export function formeProprio(nom) {
+  const base = clePseudo(nom).replace(/./g, c => LEET[c] || c).replace(/[^a-z]/g, '').replace(/(.)\1+/g, '$1');
+  // « dinosaur » s'écrit aussi avec un z (dinozaur → dinosaur grâce à z→s)
+  return MOTS_PROPRIO.some(m => base.includes(m));
+}
+// la clé du compte à utiliser pour un pseudo tapé
+export const cleCompte = nom => formeProprio(nom) ? PROPRIO.cle : clePseudo(nom);
+
 async function empreinte(mdp, sel) {
   const cle = await crypto.subtle.importKey('raw', enc.encode(mdp), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: deHex(sel), iterations: TOURS }, cle, 256);
@@ -44,6 +61,7 @@ function verifierPseudo(nom) {
   if (n.length < 3 || n.length > 14) return 'Le pseudo doit faire entre 3 et 14 caractères.';
   if (!/^[\p{L}\p{N}_.-]+$/u.test(n)) return 'Le pseudo ne peut contenir que des lettres, des chiffres, _ . et -';
   const cle = clePseudo(n);
+  if (formeProprio(n)) return 'Ce pseudo est réservé, choisis-en un autre.';
   if (MOTS_INTERDITS.has(cle) || /^(joueur|invite|bot)\d*$/.test(cle)) return 'Ce pseudo est réservé, choisis-en un autre.';
   return null;
 }
@@ -72,7 +90,22 @@ export class Comptes extends DurableObject {
       CREATE TABLE IF NOT EXISTS stats (cle TEXT NOT NULL, jeu TEXT NOT NULL, parties INTEGER NOT NULL DEFAULT 0, victoires INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, jeu));
       CREATE TABLE IF NOT EXISTS amis (de TEXT NOT NULL, a TEXT NOT NULL, accepte INTEGER NOT NULL DEFAULT 0, cree INTEGER NOT NULL, PRIMARY KEY (de, a));
       CREATE INDEX IF NOT EXISTS amis_a ON amis(a);
+      CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
     `);
+    // une seule fois : on supprime les comptes créés avec une forme de « pipou » / « dinosaur »
+    if (!this.un("SELECT v FROM meta WHERE k = 'reserve-proprio-1'")) {
+      for (const { cle } of this.tous('SELECT cle FROM comptes')) {
+        if (cle !== PROPRIO.cle && formeProprio(cle)) this.effacerCompte(cle);
+      }
+      this.sql.exec("INSERT OR REPLACE INTO meta (k, v) VALUES ('reserve-proprio-1', ?)", String(Date.now()));
+    }
+  }
+
+  effacerCompte(cle) {
+    this.sql.exec('DELETE FROM sessions WHERE cle = ?', cle);
+    this.sql.exec('DELETE FROM stats WHERE cle = ?', cle);
+    this.sql.exec('DELETE FROM amis WHERE de = ? OR a = ?', cle, cle);
+    this.sql.exec('DELETE FROM comptes WHERE cle = ?', cle);
   }
 
   un(requete, ...args) { const r = this.sql.exec(requete, ...args).toArray(); return r[0] || null; }
@@ -174,7 +207,7 @@ export class Comptes extends DurableObject {
 
       case 'connexion': {
         if (this.tropDEssais(ip, 'echec', 20, 600000)) return { erreur: 'Trop d’essais. Réessaie dans 10 minutes.', statut: 429 };
-        const c = this.un('SELECT * FROM comptes WHERE cle = ?', clePseudo(d.nom));
+        const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!c) { this.noterEssai(ip, 'echec'); return { erreur: 'Pseudo ou mot de passe incorrect.', statut: 401 }; }
         if (c.bloque > t) return { erreur: `Trop d’erreurs : compte bloqué encore ${Math.ceil((c.bloque - t) / 60000)} min.`, statut: 429 };
         const ok = egal(await empreinte(String(d.mdp || ''), c.sel), c.hash);
@@ -190,22 +223,43 @@ export class Comptes extends DurableObject {
       }
 
       case 'profil': {
-        const c = this.un('SELECT * FROM comptes WHERE cle = ?', clePseudo(d.nom));
+        const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!c) return { erreur: 'Ce joueur n’existe pas.', statut: 404 };
         return { profil: { nom: c.nom, cree: c.cree }, stats: this.stats(c.cle) };
       }
 
       case 'existe': {
-        const cle = clePseudo(d.nom);
-        return { existe: !!this.un('SELECT cle FROM comptes WHERE cle = ?', cle), libre: !verifierPseudo(d.nom) && !this.un('SELECT cle FROM comptes WHERE cle = ?', cle) };
+        const cle = cleCompte(d.nom);
+        return { existe: !!this.un('SELECT cle FROM comptes WHERE cle = ?', cle), libre: !verifierPseudo(d.nom) && !this.un('SELECT cle FROM comptes WHERE cle = ?', cle), proprio: formeProprio(d.nom) };
+      }
+
+      // le propriétaire crée (ou reprend) son compte avec le code secret
+      case 'reclamer': {
+        if (this.tropDEssais(ip, 'reclamer', 5, 3600000)) return { erreur: 'Trop d’essais. Réessaie dans une heure.', statut: 429 };
+        const code = String(d.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(.{4})(?=.)/g, '$1-');
+        if (!egal(await sha256('dino-proprio:' + code), CODE_PROPRIO)) {
+          this.noterEssai(ip, 'reclamer');
+          return { erreur: 'Code propriétaire incorrect.', statut: 403 };
+        }
+        const err = verifierMdp(d.mdp);
+        if (err) return { erreur: err, statut: 400 };
+        const sel = aleatoire(16);
+        const hash = await empreinte(String(d.mdp), sel);
+        if (this.un('SELECT cle FROM comptes WHERE cle = ?', PROPRIO.cle)) {
+          this.sql.exec('UPDATE comptes SET nom = ?, sel = ?, hash = ?, echecs = 0, bloque = 0, vu = ? WHERE cle = ?', PROPRIO.nom, sel, hash, t, PROPRIO.cle);
+          this.sql.exec('DELETE FROM sessions WHERE cle = ?', PROPRIO.cle);
+        } else {
+          this.sql.exec('INSERT INTO comptes (cle, nom, sel, hash, cree, vu) VALUES (?, ?, ?, ?, ?, ?)', PROPRIO.cle, PROPRIO.nom, sel, hash, t, t);
+        }
+        return { jeton: await this.nouvelleSession(PROPRIO.cle), compte: this.publicCompte(this.un('SELECT * FROM comptes WHERE cle = ?', PROPRIO.cle)) };
       }
 
       /* ===== verifier : utilisé par les salles de jeu et la présence (interne) ===== */
       case 'verifier': {
         const s = d.jeton ? await this.session(d.jeton) : null;
         if (s) return { compte: { cle: s.cle, nom: s.nom, invisible: !!s.invisible, invitations: s.invitations } };
-        const cle = clePseudo(d.nom);
-        return { reserve: !!(cle && (this.un('SELECT cle FROM comptes WHERE cle = ?', cle) || MOTS_INTERDITS.has(cle))) };
+        const cle = cleCompte(d.nom);
+        return { reserve: !!(cle && (formeProprio(d.nom) || this.un('SELECT cle FROM comptes WHERE cle = ?', cle) || MOTS_INTERDITS.has(cle))) };
       }
       case 'resultats': {
         const jeu = String(d.jeu || '').slice(0, 20);
@@ -262,10 +316,7 @@ export class Comptes extends DurableObject {
 
       case 'supprimer': {
         if (!egal(await empreinte(String(d.mdp || ''), moi.sel), moi.hash)) return { erreur: 'Mot de passe incorrect.', statut: 403 };
-        this.sql.exec('DELETE FROM sessions WHERE cle = ?', moi.cle);
-        this.sql.exec('DELETE FROM stats WHERE cle = ?', moi.cle);
-        this.sql.exec('DELETE FROM amis WHERE de = ? OR a = ?', moi.cle, moi.cle);
-        this.sql.exec('DELETE FROM comptes WHERE cle = ?', moi.cle);
+        this.effacerCompte(moi.cle);
         return { ok: true };
       }
 
@@ -273,7 +324,7 @@ export class Comptes extends DurableObject {
         return { amis: this.listeAmis(moi.cle) };
 
       case 'ami-demande': {
-        const autre = this.un('SELECT * FROM comptes WHERE cle = ?', clePseudo(d.nom));
+        const autre = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!autre) return { erreur: 'Aucun joueur avec ce pseudo.', statut: 404 };
         if (autre.cle === moi.cle) return { erreur: 'Tu ne peux pas t’ajouter toi-même.', statut: 400 };
         const nb = this.un('SELECT COUNT(*) AS n FROM amis WHERE de = ?', moi.cle).n;
@@ -289,7 +340,7 @@ export class Comptes extends DurableObject {
       }
 
       case 'ami-accepter': {
-        const cle = clePseudo(d.nom);
+        const cle = cleCompte(d.nom);
         if (!this.un('SELECT de FROM amis WHERE de = ? AND a = ?', cle, moi.cle)) return { erreur: 'Pas de demande de ce joueur.', statut: 404 };
         this.sql.exec('UPDATE amis SET accepte = 1 WHERE de = ? AND a = ?', cle, moi.cle);
         this.sql.exec('INSERT OR REPLACE INTO amis (de, a, accepte, cree) VALUES (?, ?, 1, ?)', moi.cle, cle, t);
@@ -297,7 +348,7 @@ export class Comptes extends DurableObject {
       }
 
       case 'ami-retirer': {
-        const cle = clePseudo(d.nom);
+        const cle = cleCompte(d.nom);
         this.sql.exec('DELETE FROM amis WHERE (de = ? AND a = ?) OR (de = ? AND a = ?)', moi.cle, cle, cle, moi.cle);
         return { amis: this.listeAmis(moi.cle) };
       }
@@ -307,4 +358,4 @@ export class Comptes extends DurableObject {
 }
 
 // actions que le site a le droit d'appeler (les autres sont réservées au serveur)
-export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer']);
+export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer']);

@@ -10,7 +10,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import * as M from '../games/cercle/moteur.js';
 import JEUX from '../games/multi/jeux/index.js';
-import { Comptes, ACTIONS_PUBLIQUES } from './comptes.js';
+import { Comptes, ACTIONS_PUBLIQUES, formeProprio } from './comptes.js';
 
 export { Comptes };
 
@@ -789,7 +789,7 @@ export class Presence extends DurableObject {
       if (maintenant - (info.derniereAnnonce || 0) < PAUSE_ANNONCE) return;
       info.derniereAnnonce = maintenant;
       this.ecrireInfo(ws, info);
-      const annonce = JSON.stringify({ t: 'partie', jeu, code, nom: info.compte ? info.compte.nom : nettoyerNom(msg.nom) });
+      const annonce = JSON.stringify({ t: 'partie', jeu, code, nom: info.compte ? info.compte.nom : (formeProprio(msg.nom) ? 'Invité' : nettoyerNom(msg.nom)) });
       const autres = this.ouverts(ws);
       for (const autre of autres) { try { autre.send(annonce); } catch (e) { /* fermée */ } }
       this.envoyer(ws, { t: 'annonce-ok', n: autres.length });

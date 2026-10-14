@@ -81,6 +81,12 @@
       if (d.jeton) enregistrer(d.jeton, d.compte);
       return d;
     },
+    // le propriétaire du site crée / reprend son compte avec son code secret
+    async reclamer(code, mdp) {
+      const d = await api('reclamer', { code, mdp });
+      if (d.jeton) enregistrer(d.jeton, d.compte);
+      return d;
+    },
     async connexion(nom, mdp) {
       const d = await api('connexion', { nom, mdp });
       if (d.jeton) enregistrer(d.jeton, d.compte);

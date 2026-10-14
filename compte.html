@@ -167,7 +167,12 @@
           ${creer ? '<p class="aide" id="aide-nom">3 à 14 caractères : lettres, chiffres, _ . -</p>' : ''}
           <label for="mdp">Mot de passe</label>
           <input type="password" id="mdp" name="password" maxlength="100" autocomplete="${creer ? 'new-password' : 'current-password'}" required>
-          ${creer ? `<p class="aide">Au moins 6 caractères. Choisis-en un que tu n’utilises nulle part ailleurs.</p>
+          ${creer ? `<div id="zone-code" hidden>
+            <label for="code">Code propriétaire</label>
+            <input type="text" id="code" maxlength="20" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXX-XXXX-XXXX">
+            <p class="aide">Ce pseudo est réservé au propriétaire du site. Avec le code secret, tu crées (ou reprends) le compte « Pipou_Dinosaur ».</p>
+          </div>
+          <p class="aide">Au moins 6 caractères. Choisis-en un que tu n’utilises nulle part ailleurs.</p>
           <label for="mdp2">Mot de passe (encore)</label>
           <input type="password" id="mdp2" maxlength="100" autocomplete="new-password" required>` : ''}
           <button class="btn primaire grand" type="submit">${creer ? 'Créer mon compte' : 'Se connecter'}</button>
@@ -189,7 +194,9 @@
           minuterie = setTimeout(async () => {
             const d = await C.api('existe', { nom: v });
             if (nom.value.trim() !== v) return;
-            if (d.libre) { aide.className = 'aide ok'; aide.textContent = '✓ Ce pseudo est libre'; }
+            $('#zone-code').hidden = !d.proprio;
+            if (d.proprio) { aide.className = 'aide'; aide.textContent = 'Pseudo du propriétaire du site'; }
+            else if (d.libre) { aide.className = 'aide ok'; aide.textContent = '✓ Ce pseudo est libre'; }
             else { aide.className = 'aide ko'; aide.textContent = d.existe ? 'Ce pseudo est déjà pris' : 'Ce pseudo n’est pas autorisé (3 à 14 caractères : lettres, chiffres, _ . -)'; }
           }, 350);
         });
@@ -201,7 +208,9 @@
         const btn = carte.querySelector('button[type="submit"]');
         if (creer && $('#mdp').value !== $('#mdp2').value) return message(msg, 'Les deux mots de passe ne sont pas pareils.');
         occupe(btn, true);
-        const d = creer ? await C.inscription(nom.value.trim(), $('#mdp').value) : await C.connexion(nom.value.trim(), $('#mdp').value);
+        const proprio = creer && !$('#zone-code').hidden;
+        const d = proprio ? await C.reclamer($('#code').value, $('#mdp').value)
+          : creer ? await C.inscription(nom.value.trim(), $('#mdp').value) : await C.connexion(nom.value.trim(), $('#mdp').value);
         occupe(btn, false);
         if (d.erreur) return message(msg, d.erreur);
         ongletCompte = 'profil';
