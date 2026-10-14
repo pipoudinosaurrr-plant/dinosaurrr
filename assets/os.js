@@ -193,18 +193,27 @@
       petit: '<svg viewBox="0 0 15 15" width="11" height="11" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7" stroke="#fff" stroke-width="1.8"/></svg>'
     };
 
+    // fonds d'écran en pixel art (dessinés pour le site, dans assets/fonds/)
     const FONDS = [
-      { id: 'pixel', nom: 'Colline en pixels' },
-      { id: 'bleu', nom: 'Bleu' },
-      { id: 'colline', nom: 'Colline la nuit' },
-      { id: 'vert', nom: 'Vert' },
-      { id: 'noir', nom: 'Noir' }
+      { id: 'pixel', nom: 'Colline en pixels', image: 'colline', couleur: '#3d7de6' },
+      { id: 'coucher', nom: 'Coucher de soleil', image: 'coucher', couleur: '#2a1458' },
+      { id: 'nuit', nom: 'Nuit et aurore', image: 'nuit', couleur: '#071433' },
+      { id: 'plage', nom: 'Plage', image: 'plage', couleur: '#4d97ea' },
+      { id: 'volcan', nom: 'Volcan', image: 'volcan', couleur: '#5a1612' },
+      { id: 'hiver', nom: 'Hiver', image: 'hiver', couleur: '#8fb6e2' },
+      { id: 'espace', nom: "Dino dans l'espace", image: 'espace', couleur: '#0d0727' },
+      { id: 'retro', nom: 'Rétro 80', image: 'retro', couleur: '#1d0a45' },
+      { id: 'bleu', nom: '(Aucun) Bleu', couleur: '#3a6ea5' },
+      { id: 'noir', nom: '(Aucun) Noir', couleur: '#000000' }
     ];
+    const imageFond = f => f.image ? `assets/fonds/${f.image}.png` : '';
+    const styleFond = f => f.image ? `${f.couleur} url("${imageFond(f)}") center bottom / cover no-repeat` : f.couleur;
 
     const APPS = {
       blog: { titre: 'Blog', icone: 'fichier', taille: [1060, 690], adresse: 'blog', ouvrir: contenuBlog },
       jeux: { titre: 'Jeux', icone: 'manette', taille: [840, 560], adresse: 'jeux', ouvrir: contenuJeux },
       apropos: { titre: 'À propos de ' + NOM, icone: 'info', taille: [410, 430], adresse: 'apropos', ouvrir: contenuAPropos, dialogue: true },
+      affichage: { titre: "Propriétés d'affichage", icone: 'image', taille: [404, 486], adresse: '', ouvrir: contenuAffichage, dialogue: true },
       contact: { titre: 'Contact', icone: 'mail', taille: [410, 196], adresse: 'contact', ouvrir: contenuContact, dialogue: true },
       corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [620, 380], adresse: '', ouvrir: contenuCorbeille }
     };
@@ -267,6 +276,7 @@
     const actions = {
       hasard() { if (JEUX.length) ouvrirApp('jeu-' + JEUX[Math.floor(Math.random() * JEUX.length)].id); },
       fond() { changerFond(); },
+      affichage() { ouvrirApp('affichage'); },
       eteindre() { arreter(); },
       arreter() { arreter(); },
       session() { fermerSession(); },
@@ -366,7 +376,7 @@
       return [
         ['Fichier', [['app:blog', 'Ouvrir le blog', 'fichier'], ['app:jeux', 'Ouvrir les jeux', 'manette'], null, ['fermer', 'Fermer']]],
         ['Édition', [['copier', "Copier l'adresse", 'copier']]],
-        ['Affichage', [['max', 'Agrandir / Restaurer', 'agrandir'], ['fond', "Fond d'écran suivant", 'image']]],
+        ['Affichage', [['max', 'Agrandir / Restaurer', 'agrandir'], ['fond', "Fond d'écran suivant", 'image'], null, ['affichage', "Propriétés d'affichage…", 'image']]],
         ['Favoris', [['app:blog', 'Blog', 'fichier'], ['app:jeux', 'Jeux', 'manette'], ...(APPS['jeu-cercle'] ? [['app:jeu-cercle', 'Le Cercle', 'cercle']] : [])]],
         ['Outils', [['hasard', 'Jeu au hasard', 'hasard'], ['pageBlog', 'Blog en pleine page', 'internet']]],
         aPropos
@@ -794,7 +804,7 @@
             <dl class="specs-xp">
               <dt>Articles :</dt><dd data-nb>…</dd>
               <dt>Jeux :</dt><dd>${JEUX.length}</dd>
-              <dt>Fond d'écran :</dt><dd data-fond>${echapper(fond.nom)}</dd>
+              <dt>Fond d'écran :</dt><dd data-nom-fond>${echapper(fond.nom)}</dd>
               <dt>Adresse :</dt><dd>${hote()}</dd>
             </dl>
           </fieldset>
@@ -808,7 +818,7 @@
       corps.addEventListener('click', e => {
         const a = e.target.closest('button')?.dataset.a;
         if (a === 'contact') ouvrirApp('contact');
-        if (a === 'fond') $('[data-fond]', corps).textContent = changerFond().nom;
+        if (a === 'fond') ouvrirApp('affichage');
         if (a === 'ok') fermer(etat.id);
       });
     }
@@ -905,7 +915,7 @@
             ${item('data-app="contact"', 'mail', 'Contact', 24)}
             ${item('data-app="corbeille"', 'corbeille', 'Corbeille', 24)}
             <hr>
-            ${item('data-action="fond"', 'image', "Fond d'écran", 24)}
+            ${item('data-action="affichage"', 'image', "Fond d'écran", 24)}
             ${item('data-action="hasard"', 'hasard', 'Jeu au hasard', 24)}
             <hr>
             ${item('data-action="pageBlog"', 'internet', 'Blog en pleine page', 24)}
@@ -971,7 +981,7 @@
         <button data-app="jeux">${xp('manette', 16)}Ouvrir les jeux</button>
         <button data-action="hasard">${xp('hasard', 16)}Jeu au hasard</button>
         <hr>
-        <button data-app="apropos" class="gras">${xp('info', 16)}Propriétés</button>`;
+        <button data-app="affichage" class="gras">${xp('image', 16)}Propriétés</button>`;
       basculerMenu(false);
       menuCtx.hidden = false;
       const r = menuCtx.getBoundingClientRect();
@@ -983,10 +993,74 @@
       const actuel = document.documentElement.dataset.fond || FONDS[0].id;
       const i = FONDS.findIndex(f => f.id === actuel);
       const suivant = FONDS[(i + 1) % FONDS.length];
-      document.documentElement.dataset.fond = suivant.id;
-      stockage.ecrire('site-fond-xp2', suivant.id);
+      appliquerFond(suivant.id);
       bulle("Fond d'écran", suivant.nom, 2500);
       return suivant;
+    }
+
+    function appliquerFond(id, enregistrer = true) {
+      const f = FONDS.find(x => x.id === id) || FONDS[0];
+      document.documentElement.dataset.fond = f.id;
+      $('.fond').style.background = styleFond(f);
+      if (enregistrer) stockage.ecrire('site-fond-xp2', f.id);
+      $$('[data-nom-fond]').forEach(el => { el.textContent = f.nom; });
+      return f;
+    }
+
+    /* ----- Propriétés d'affichage (choisir le fond d'écran) ----- */
+
+    function contenuAffichage(corps, etat) {
+      const actuel = () => document.documentElement.dataset.fond || FONDS[0].id;
+      let choix = actuel();
+      corps.innerHTML = `
+        <div class="dialogue-xp affichage">
+          <div class="onglets-xp" role="tablist"><button class="actif" role="tab" aria-selected="true">Bureau</button></div>
+          <div class="onglet-corps">
+            <div class="moniteur" aria-hidden="true"><div class="ecran-apercu"></div></div>
+            <label class="etiquette-xp" id="lbl-fonds">Arrière-plan :</label>
+            <div class="liste-fonds" role="listbox" aria-labelledby="lbl-fonds" tabindex="0">
+              ${FONDS.map(f => `<button role="option" data-id="${f.id}">${f.image
+                ? `<img src="${imageFond(f)}" width="24" height="15" alt="">`
+                : `<i style="background:${f.couleur}"></i>`}<span>${echapper(f.nom)}</span></button>`).join('')}
+            </div>
+            <p class="astuce-xp">Tous les fonds sont dessinés en pixels pour ${echapper(NOM)}. Double-clique pour appliquer.</p>
+          </div>
+          <div class="boutons-dialogue">
+            <button class="btn btn-primaire" data-a="ok">OK</button>
+            <button class="btn" data-a="annuler">Annuler</button>
+            <button class="btn" data-a="appliquer" disabled>Appliquer</button>
+          </div>
+        </div>`;
+      const apercu = $('.ecran-apercu', corps);
+      const liste = $('.liste-fonds', corps);
+      const btnAppliquer = $('[data-a="appliquer"]', corps);
+      function montrer(id) {
+        choix = id;
+        const f = FONDS.find(x => x.id === id) || FONDS[0];
+        apercu.style.background = styleFond(f);
+        $$('[role="option"]', liste).forEach(b => b.setAttribute('aria-selected', String(b.dataset.id === id)));
+        btnAppliquer.disabled = id === actuel();
+      }
+      montrer(choix);
+      const sel = $(`[data-id="${choix}"]`, liste);
+      if (sel) setTimeout(() => sel.scrollIntoView({ block: 'nearest' }), 0);
+      liste.addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) montrer(b.dataset.id); });
+      liste.addEventListener('dblclick', e => { const b = e.target.closest('[data-id]'); if (b) { appliquerFond(b.dataset.id); fermer(etat.id); } });
+      liste.addEventListener('keydown', e => {
+        if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) return;
+        e.preventDefault();
+        if (e.key === 'Enter') { appliquerFond(choix); fermer(etat.id); return; }
+        const i = FONDS.findIndex(f => f.id === choix);
+        const j = Math.max(0, Math.min(FONDS.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+        montrer(FONDS[j].id);
+        $(`[data-id="${FONDS[j].id}"]`, liste).scrollIntoView({ block: 'nearest' });
+      });
+      corps.addEventListener('click', e => {
+        const a = e.target.closest('[data-a]')?.dataset.a;
+        if (a === 'appliquer') { appliquerFond(choix); btnAppliquer.disabled = true; }
+        if (a === 'ok') { appliquerFond(choix); fermer(etat.id); }
+        if (a === 'annuler') fermer(etat.id);
+      });
     }
 
     let minuterieBulle = null;
@@ -1094,8 +1168,7 @@
 
     /* ----- C'est parti ----- */
 
-    const fondEnregistre = stockage.lire('site-fond-xp2', FONDS[0].id);
-    document.documentElement.dataset.fond = FONDS.some(f => f.id === fondEnregistre) ? fondEnregistre : FONDS[0].id;
+    appliquerFond(stockage.lire('site-fond-xp2', FONDS[0].id), false);
 
     dessinerIcones();
     construireMenu();
