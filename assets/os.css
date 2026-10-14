@@ -891,6 +891,16 @@ body.mode-bureau .console::-webkit-scrollbar { background: #f4f3ee; }
 .zone-notif .icone-notif.muet::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle, #fff 0 1.5px, transparent 2px), #e2311d; box-shadow: 0 0 0 1px #7a0e06; }
 .zone-notif .icone-notif.muet::before { content: ""; position: absolute; right: 2px; bottom: 2px; z-index: 1; width: 7px; height: 1.5px; background: #fff; transform: translate(2px, -1px) rotate(-45deg); }
 
+/* Coffre secret */
+.console-jaune { color: #ffff55; }
+.coffre-xp { gap: 10px; }
+.coffre-tete { display: flex; align-items: center; gap: 12px; }
+.coffre-tete b { font-size: 13px; }
+.coffre-tete span { color: #6d6d6d; }
+.coffre-contenu { flex: 1; min-height: 60px; padding: 10px 12px; overflow: auto; border: 1px solid #7f9db9; background: #fff; color: #000; font: 12px/1.6 var(--xp-lecture); }
+.coffre-contenu img { max-width: 100%; height: auto; }
+.coffre-contenu p { margin: 0 0 .8em; }
+
 /* boutons XP (beiges arrondis, liseré orange au survol) */
 body.mode-bureau .btn {
   display: inline-flex;

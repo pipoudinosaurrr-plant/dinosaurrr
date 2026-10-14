@@ -265,6 +265,14 @@
     <g fill="#fff"><rect x="9" y="9" width="1" height="1"/><rect x="20" y="10" width="1" height="1"/><rect x="14" y="15" width="1" height="1"/><rect x="23" y="17" width="1" height="1"/></g>
     <path d="M10 18c2-4 4-4 6-2s3-2 6-4" stroke="#3fae4f" stroke-width="1.6" fill="none"/><path d="M12 22.5h8l2 4H10z" fill="#bdbdbd" stroke="#555"/></svg>`;
 
+  // Coffre secret : un coffre en bois cerclé d'or
+  D.coffre = `<svg viewBox="0 0 32 32"><defs>${lin('cf', '#c98a4a', '#7a4a1e')}${lin('cc', '#e0a35e', '#9a5f28')}${lin('co', '#ffe680', '#d39a12')}</defs>
+    <path d="M4.5 14.5h23v13h-23z" fill="url(#cf)" stroke="#4a2a0c"/>
+    <path d="M4.5 14.5c0-6 3-9 11.5-9s11.5 3 11.5 9z" fill="url(#cc)" stroke="#4a2a0c"/>
+    <path d="M4.5 14.5h23" stroke="#4a2a0c" stroke-width="1.5"/>
+    <g fill="url(#co)" stroke="#8a5a00"><path d="M8.5 6.8v20.7h2.5V6.2zM21 6.2v21.3h2.5V6.8z"/><rect x="13.5" y="12.5" width="5" height="6" rx="1"/></g>
+    <rect x="15.4" y="14.6" width="1.2" height="2.4" fill="#4a2a0c"/><path d="M6 9.5l1-1M26 9.5l-1-1" stroke="#fff6c2"/></svg>`;
+
   // Petit dino en pixels (bouton « démarrer ») : un caractère = un pixel
   const pixels = (lignes, couleurs) => {
     const n = lignes.length;

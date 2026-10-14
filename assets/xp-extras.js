@@ -451,6 +451,100 @@ window.XP_EXTRAS = function (api) {
       });
     }
 
+    /* ----- le coffre secret : la commande et le contenu sont chiffrés (assets/coffre.json) ----- */
+    let coffre = null;
+    let attenteCode = null;
+    const COFFRE_ART = [
+      '     .---------------------.',
+      '    /  ___    _____    ___  \\',
+      '   |==[___]==[__@__]==[___]==|',
+      '   |      COFFRE SECRET      |',
+      '   |_________________________|'
+    ];
+    const chargerCoffre = () => coffre || (coffre = fetch('assets/coffre.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null));
+    const hexa = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    const deB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+    async function estCoffre(texte) {
+      if (!window.crypto || !crypto.subtle) return false;
+      const c = await chargerCoffre();
+      if (!c) return false;
+      return hexa(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('dino:' + normaliser(texte)))) === c.commande;
+    }
+    async function dechiffrer(code) {
+      const c = await chargerCoffre();
+      const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(normaliser(code)), 'PBKDF2', false, ['deriveKey']);
+      const cle = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: deB64(c.sel), iterations: 200000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      const clair = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: deB64(c.iv) }, cle, deB64(c.donnees));
+      return JSON.parse(new TextDecoder().decode(clair));
+    }
+    const demanderCode = () => new Promise(r => {
+      invite.textContent = 'Code : ';
+      saisie.type = 'password';
+      saisie.disabled = false;
+      saisie.focus();
+      attenteCode = v => { attenteCode = null; saisie.type = 'text'; majInvite(); r(v); };
+    });
+    const lireBlocage = () => { try { return Number(sessionStorage.getItem('site-coffre-bloque')) || 0; } catch (e) { return 0; } };
+    const ecrireBlocage = t => { try { sessionStorage.setItem('site-coffre-bloque', String(t)); } catch (e) { /* rien */ } };
+
+    async function ouvrirCoffre() {
+      ecrire('');
+      COFFRE_ART.forEach(l => ecrire(l, 'console-jaune'));
+      ecrire('');
+      const reste = Math.ceil((lireBlocage() - Date.now()) / 1000);
+      if (reste > 0) { ecrire(`Le coffre est verrouillé. Réessaie dans ${reste} s.`, 'console-rouge'); return; }
+      for (let essai = 1; essai <= 3; essai++) {
+        ecrire(`Entre le code secret (essai ${essai}/3, Échap pour annuler) :`);
+        const code = await demanderCode();
+        if (code === null) { ecrire('Annulé. Le coffre reste fermé.'); return; }
+        ecrire('Code : ' + '*'.repeat(code.length));
+        saisie.disabled = true;
+        let tresor = null;
+        try { tresor = await dechiffrer(code); } catch (e) { tresor = null; }
+        if (tresor) {
+          for (let k = 1; k <= 10; k++) {
+            sortie.lastChild && sortie.lastChild.dataset && sortie.lastChild.dataset.barre && sortie.lastChild.remove();
+            const s = document.createElement('span');
+            s.dataset.barre = '1'; s.className = 'console-vert';
+            s.textContent = `Ouverture [${'#'.repeat(k)}${'.'.repeat(10 - k)}] ${k * 10} %\n`;
+            sortie.append(s); ecran.scrollTop = ecran.scrollHeight;
+            await pause(90);
+          }
+          ecrire('ACCÈS AUTORISÉ. Le coffre est ouvert !', 'console-vert');
+          son('demarrage');
+          afficherTresor(tresor);
+          return;
+        }
+        son('erreur');
+        ecrire('CODE INCORRECT.', 'console-rouge');
+        await pause(500);
+      }
+      ecrireBlocage(Date.now() + 30000);
+      ecrire("Trop d'essais : le coffre se verrouille pendant 30 secondes.", 'console-rouge');
+    }
+
+    function afficherTresor(t) {
+      if (api.APPS.coffre) api.fermer('coffre');
+      api.APPS.coffre = {
+        titre: t.titre || 'Coffre secret', icone: 'coffre', taille: t.taille || [460, 340], dialogue: true, adresse: '',
+        ouvrir(corps, etatCoffre) {
+          corps.innerHTML = `
+            <div class="dialogue-xp coffre-xp">
+              <div class="coffre-tete">${xp('coffre', 48)}<div><b>${echapper(t.titre || 'Coffre secret')}</b><br><span>Ouvert avec le bon code</span></div></div>
+              <hr class="grave">
+              <div class="coffre-contenu selectionnable">${t.html || ''}</div>
+              <div class="boutons-dialogue"><button class="btn btn-primaire" data-a="ok">Refermer le coffre</button></div>
+            </div>`;
+          requestAnimationFrame(() => {
+            const manque = corps.scrollHeight - corps.clientHeight;
+            if (manque > 0) etatCoffre.el.style.height = Math.min(innerHeight - 80, etatCoffre.el.offsetHeight + manque) + 'px';
+          });
+          corps.addEventListener('click', e => { if (e.target.closest('[data-a="ok"]')) api.fermer('coffre'); });
+        }
+      };
+      api.ouvrirApp('coffre');
+    }
+
     async function executer(ligne) {
       ecrire(chemin() + '>' + ligne);
       const texte = ligne.trim();
@@ -462,12 +556,14 @@ window.XP_EXTRAS = function (api) {
       const nomSansExe = nom.replace(/\.exe$/, '');
       if (commandes[nomSansExe]) { saisie.disabled = true; try { await commandes[nomSansExe](arg); } finally { saisie.disabled = false; saisie.focus(); } }
       else if (lancer(texte)) ecrire(`Ouverture de ${texte}…`);
+      else if (await estCoffre(texte)) { historique.shift(); saisie.disabled = true; try { await ouvrirCoffre(); } finally { saisie.disabled = false; saisie.focus(); } }
       else { ecrire(`'${texte.split(/\s/)[0]}' n'est pas reconnu en tant que commande interne`); ecrire('ou externe, un programme exécutable ou un fichier de commandes.'); }
       ecrire('');
     }
 
     saisie.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); const v = saisie.value; saisie.value = ''; executer(v); }
+      if (e.key === 'Enter') { e.preventDefault(); const v = saisie.value; saisie.value = ''; if (attenteCode) attenteCode(v); else executer(v); return; }
+      if (attenteCode) { if (e.key === 'Escape') { e.preventDefault(); saisie.value = ''; attenteCode(null); } return; }
       if (e.key === 'ArrowUp' && historique.length) { e.preventDefault(); iHisto = Math.min(historique.length - 1, iHisto + 1); saisie.value = historique[iHisto]; }
       if (e.key === 'ArrowDown') { e.preventDefault(); iHisto = Math.max(-1, iHisto - 1); saisie.value = iHisto < 0 ? '' : historique[iHisto]; }
       if (e.key === 'Tab') {
