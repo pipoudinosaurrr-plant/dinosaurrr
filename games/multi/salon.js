@@ -7,7 +7,7 @@
    En solo, le moteur tourne dans le navigateur ; en ligne, sur le serveur.
    ========================================================== */
 
-import { suivrePresence, annoncerPartie, texteEnLigne } from './presence.js';
+import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes } from './presence.js';
 
 export const COULEURS = ['#22c55e', '#3b82f6', '#f97316', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
 const NOMS_BOTS = ['Atlas', 'Nova', 'Orion', 'Echo', 'Volt', 'Nyx', 'Zéro', 'Pixel'];
@@ -57,6 +57,7 @@ export function demarrerJeu(cfg) {
           ${moteur.bots ? `<button class="btn grand" data-a="solo">${echapper(cfg.texteSolo || 'Jouer contre l’ordinateur')}</button>` : ''}
         </div>
         <p class="message" hidden></p>
+        <div class="parties-ouvertes" hidden><span class="etiquette">Parties ouvertes</span><ul></ul></div>
         ${regles.length ? `<div class="regles">${regles.map(([b, s]) => `<div class="regle"><b>${echapper(b)}</b><span>${echapper(s)}</span></div>`).join('')}</div>` : ''}
         <div class="serveur"><i></i><span>Vérification du serveur…</span></div>
         <div class="enligne" hidden><i></i><span></span></div>
@@ -457,6 +458,7 @@ export function demarrerJeu(cfg) {
 
   montrer('accueil');
   verifierServeur();
+  brancherPartiesOuvertes(document.querySelector('.parties-ouvertes'), cfg.idSite || id, code => { if (ecran === 'accueil' && SERVEUR) connecter(code); });
   suivrePresence(n => {
     const texte = texteEnLigne(n);
     for (const el of document.querySelectorAll('.enligne')) {

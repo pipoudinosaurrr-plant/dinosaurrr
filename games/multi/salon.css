@@ -143,3 +143,12 @@ body {
   .regle span { font-size: 11px; }
 }
 @media (max-height: 640px) { .regles { display: none; } }
+
+.parties-ouvertes { margin-top: 18px; }
+.parties-ouvertes[hidden] { display: none; }
+.parties-ouvertes ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 190px; overflow-y: auto; }
+.parties-ouvertes li { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 6px 0 12px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 14px; }
+.parties-ouvertes li i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #737373; }
+.parties-ouvertes li i.attend { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.parties-ouvertes .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parties-ouvertes .btn.petit { flex: none; height: 30px; padding: 0 12px; font-size: 13px; }

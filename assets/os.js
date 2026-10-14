@@ -798,6 +798,7 @@
           </aside>
           <div class="principal">
             <div class="mosaique">
+              <div class="parties-xp" hidden><h4 class="groupe-xp">Parties ouvertes en ce moment</h4><div class="liste-parties-xp"></div></div>
               ${[['Jeux à plusieurs (en ligne)', JEUX.filter(j => j.multi)], ['Jeux en solo', JEUX.filter(j => !j.multi)]].map(([titre, liste]) => `
                 <h4 class="groupe-xp">${titre}</h4>
                 ${liste.map(j => `
@@ -809,7 +810,26 @@
           </div>
         </div>
         <div class="barre-etat"><span>${JEUX.length} objets</span><span>${xp('ordinateur', 16)}Poste de travail</span></div>`;
+      if (window.DinoPresence && window.DinoPresence.actif) {
+        const arreter = window.DinoPresence.ecouter(m => {
+          if (!corps.isConnected) { arreter(); return; }
+          if (m.t !== 'parties') return;
+          const liste = (m.liste || []).filter(p => JEUX.some(j => j.id === p.jeu));
+          $('.parties-xp', corps).hidden = !liste.length;
+          $('.liste-parties-xp', corps).innerHTML = liste.map(p => {
+            const j = JEUX.find(x => x.id === p.jeu);
+            const attend = p.phase === 'salon' && p.n < p.max;
+            return `<div class="partie-xp">
+              ${xp(j.icone, 32)}
+              <span><b>${echapper(j.titre)}</b><small>Partie de ${echapper(p.hote)} · ${p.phase === 'jeu' ? 'en cours' : `${p.n}/${p.max} joueurs`}</small></span>
+              <button class="btn" data-rejoindre="${echapper(p.jeu)}/${echapper(p.code)}">${attend ? 'Rejoindre' : 'Regarder'}</button>
+            </div>`;
+          }).join('');
+        });
+      }
       corps.addEventListener('click', e => {
+        const r = e.target.closest('[data-rejoindre]');
+        if (r) { const [jeu, code] = r.dataset.rejoindre.split('/'); ouvrirApp('jeu-' + jeu, { param: code + '!' }); return; }
         const b = e.target.closest('[data-jeu], [data-action], [data-app]');
         if (!b) return;
         if (b.dataset.jeu) ouvrirApp('jeu-' + b.dataset.jeu);
@@ -1211,13 +1231,15 @@
       });
       icone.addEventListener('click', () => {
         const actives = notifsParties();
-        bulle(texteCompte(), actives ? 'Tu es prévenu quand quelqu’un crée une partie en ligne.' : 'Les notifications de nouvelles parties sont coupées.', 8000, {
+        const ouvertes = (P.parties || []).filter(p => p.phase === 'salon' && p.n < p.max).length;
+        const texteParties = ouvertes === 0 ? 'Aucune partie en attente.' : ouvertes === 1 ? '1 partie attend des joueurs.' : `${ouvertes} parties attendent des joueurs.`;
+        bulle(texteCompte(), texteParties + ' ' + (actives ? 'Tu es prévenu quand quelqu’un crée une partie.' : 'Les notifications de nouvelles parties sont coupées.'), 8000, {
           icone: 'joueurs',
           boutons: [
             actives
               ? { texte: 'Couper les notifications', lien: true, faire: () => { stockage.ecrire('site-notifs-parties', 'non'); icone.title = texteCompte() + ' · notifications coupées'; } }
               : { texte: 'Me prévenir', faire: () => { stockage.ecrire('site-notifs-parties', 'oui'); icone.title = texteCompte(); } },
-            { texte: 'Jouer', lien: !actives, faire: () => ouvrirApp('jeux') }
+            { texte: ouvertes ? 'Voir les parties' : 'Jouer', lien: !actives, faire: () => ouvrirApp('jeux') }
           ]
         });
       });
@@ -1463,6 +1485,10 @@
         <h1 class="m-titre-vue">Jeux</h1>
         <p class="m-sous-titre">${JEUX.length} mini-jeux codés à la main.</p>
         <p class="m-sous-titre" style="margin-top:-6px"><span class="m-enligne" hidden><i></i><span></span></span></p>
+        <div class="m-parties" hidden>
+          <div class="m-section-tete"><h2>Parties ouvertes</h2><span class="m-compte"></span></div>
+          <div class="m-liste-parties"></div>
+        </div>
         <div class="m-section-tete"><h2>À plusieurs</h2><span class="m-compte">${JEUX.filter(j => j.multi).length} jeux · en ligne</span></div>
         <div class="m-grille-jeux">${JEUX.filter(j => j.multi).map(htmlCarteJeu).join('')}</div>
         <div class="m-section-tete" style="margin-top:28px"><h2>En solo</h2><span class="m-compte">${JEUX.filter(j => !j.multi).length} jeux</span></div>
@@ -1503,11 +1529,33 @@
       });
     }
 
-    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); }
+    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); majParties(); }
 
     /* ----- Qui est en ligne + « Untel a créé une partie » (assets/presence.js) ----- */
 
     let enLigneM = null;
+    let partiesM = [];
+    function majParties() {
+      const boite = $('.m-parties', vues.jeux);
+      if (!boite) return;
+      const liste = partiesM.filter(p => JEUX.some(j => j.id === p.jeu));
+      boite.hidden = !liste.length;
+      const enAttente = liste.filter(p => p.phase === 'salon' && p.n < p.max).length;
+      $('.m-compte', boite).textContent = enAttente ? `${enAttente} en attente` : 'en cours';
+      $('.m-liste-parties', boite).innerHTML = liste.map(p => {
+        const j = JEUX.find(x => x.id === p.jeu);
+        const attend = p.phase === 'salon' && p.n < p.max;
+        return `<div class="m-partie">
+          <div class="icone">${svg(j.icone, 22)}</div>
+          <div class="texte"><b>${echapper(j.titre)}</b><span>Partie de ${echapper(p.hote)} · ${p.phase === 'jeu' ? 'en cours' : `${p.n}/${p.max} joueurs`}</span></div>
+          <button class="btn ${attend ? 'btn-primaire' : ''} petit" data-rejoindre="${echapper(p.jeu)}/${echapper(p.code)}">${attend ? 'Rejoindre' : 'Regarder'}</button>
+        </div>`;
+      }).join('');
+    }
+    vues.jeux.addEventListener('click', e => {
+      const b = e.target.closest('[data-rejoindre]');
+      if (b) { e.stopPropagation(); ouvrirJeu(b.dataset.rejoindre + '!', true); }
+    });
     function majEnLigne() {
       const autres = enLigneM === null ? null : Math.max(0, enLigneM - 1);
       const texte = autres === null ? '' : autres === 0 ? 'Personne d’autre en ligne pour l’instant' : autres === 1 ? '1 autre personne en ligne sur le site' : `${autres} autres personnes en ligne sur le site`;
@@ -1538,6 +1586,7 @@
       window.DinoPresence.ecouter(m => {
         if (m.t === 'compte') { enLigneM = m.n; majEnLigne(); }
         if (m.t === 'partie') notifPartie(m);
+        if (m.t === 'parties') { partiesM = m.liste || []; majParties(); }
       });
     }
 

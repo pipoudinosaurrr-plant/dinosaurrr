@@ -3,7 +3,8 @@
    et les annonces « Untel a créé une partie de … ».
    - une seule connexion par onglet (les jeux ouverts dans une fenêtre
      du site utilisent celle de la page, via window.parent.DinoPresence)
-   - DinoPresence.ecouter(fn) : fn({ t: 'compte', n }) ou fn({ t: 'partie', jeu, code, nom })
+   - DinoPresence.ecouter(fn) : fn({ t: 'compte', n }), fn({ t: 'partie', jeu, code, nom })
+     ou fn({ t: 'parties', liste: [{ jeu, code, hote, n, max, phase }] })
    - DinoPresence.annoncer(jeu, code, nom) : prévient tous les autres
    ========================================================== */
 (function () {
@@ -16,7 +17,7 @@
   const SECURISE = !/^(localhost|127\.)/.test(SERVEUR);
 
   const ecouteurs = new Set();
-  let ws = null, n = null, attente = 2000, minuteriePing = null, relance = null;
+  let ws = null, n = null, parties = [], attente = 2000, minuteriePing = null, relance = null;
 
   function prevenir(msg) {
     for (const fn of [...ecouteurs]) {
@@ -38,6 +39,7 @@
       let m;
       try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (m.t === 'compte') n = m.n;
+      if (m.t === 'parties') parties = Array.isArray(m.liste) ? m.liste : [];
       prevenir(m);
     };
     ceWs.onclose = () => {
@@ -45,7 +47,9 @@
       ws = null;
       clearInterval(minuteriePing);
       n = null;
+      parties = [];
       prevenir({ t: 'compte', n: null });
+      prevenir({ t: 'parties', liste: [] });
       // on réessaie de plus en plus doucement (2 s, 4 s, 8 s… jusqu'à 1 min)
       clearTimeout(relance);
       relance = setTimeout(connecter, attente);
@@ -60,10 +64,11 @@
 
   window.DinoPresence = {
     get n() { return n; },
+    get parties() { return parties; },
     get actif() { return !!SERVEUR; },
     ecouter(fn) {
       ecouteurs.add(fn);
-      if (n !== null) { try { fn({ t: 'compte', n }); } catch (e) { /* rien */ } }
+      if (n !== null) { try { fn({ t: 'compte', n }); fn({ t: 'parties', liste: parties }); } catch (e) { /* rien */ } }
       return () => ecouteurs.delete(fn);
     },
     // renvoie (plus tard) le nombre de personnes prévenues, ou null

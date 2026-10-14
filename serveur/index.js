@@ -69,6 +69,17 @@ function nettoyerNom(texte) {
   return propre || 'Joueur';
 }
 
+// prévient l'objet Présence de l'état d'un salon (pour la liste des parties ouvertes)
+// on n'envoie que si quelque chose a changé
+function signalerPartie(objet, donnees) {
+  const texte = JSON.stringify(donnees);
+  if (objet.dernierSignal === texte) return;
+  objet.dernierSignal = texte;
+  const stub = objet.env.PRESENCE.get(objet.env.PRESENCE.idFromName('site'));
+  const envoi = stub.fetch('https://presence/partie', { method: 'POST', body: texte }).catch(() => {});
+  try { objet.ctx.waitUntil(envoi); } catch (e) { /* rien */ }
+}
+
 const TIC = 1000 / 30;
 const PAS = 1 / 60;
 const MAX_HUMAINS = 8;
@@ -89,10 +100,13 @@ export class Salle extends DurableObject {
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
     ctx.blockConcurrencyWhile(async () => {
       this.bots = (await ctx.storage.get('bots')) || [];
+      this.code = (await ctx.storage.get('code')) || null;
     });
   }
 
-  async fetch() {
+  async fetch(requete) {
+    const mc = new URL(requete.url).pathname.match(/\/([A-Z0-9]{4})$/);
+    if (mc && mc[1] !== this.code) { this.code = mc[1]; await this.ctx.storage.put("code", this.code); }
     const paire = new WebSocketPair();
     const [client, serveur] = Object.values(paire);
     this.ctx.acceptWebSocket(serveur);
@@ -148,6 +162,10 @@ export class Salle extends DurableObject {
     }));
     const bots = this.bots.map(b => ({ ...b, victoires: this.victoiresBots[b.id] || 0 }));
     this.diffuser({ t: 'salle', phase: this.phase, hote, joueurs: [...humains, ...bots], max: M.MAX_JOUEURS });
+    if (this.code && humains.length) {
+      const h = humains.find(x => x.hote) || humains[0];
+      signalerPartie(this, { jeu: 'cercle', code: this.code, hote: h.nom, n: humains.length + bots.length, max: M.MAX_JOUEURS, phase: this.phase === 'salon' ? 'salon' : 'jeu' });
+    }
   }
 
   couleurLibre(sauf) {
@@ -240,6 +258,7 @@ export class Salle extends DurableObject {
     try { ws.close(code === 1005 || code === 1006 ? 1000 : code, 'au revoir'); } catch (e) { /* déjà fermée */ }
     if (this.partie && this.phase === 'jeu' && info.id) M.retirer(this.partie, info.id);
     if (this.joueursHumains().length === 0) {
+      if (this.code) signalerPartie(this, { jeu: 'cercle', code: this.code, fin: true });
       this.arreter();
       this.bots = [];
       this.victoiresBots = {};
@@ -335,6 +354,7 @@ export class Table extends DurableObject {
     ctx.blockConcurrencyWhile(async () => {
       this.bots = (await ctx.storage.get('bots')) || [];
       this.choisirJeu(await ctx.storage.get('jeu'));
+      this.code = (await ctx.storage.get('code')) || null;
     });
   }
 
@@ -349,6 +369,8 @@ export class Table extends DurableObject {
       if (!this.mod) return new Response('Jeu inconnu', { status: 404 });
       await this.ctx.storage.put('jeu', this.jeu);
     }
+    const m = new URL(requete.url).pathname.match(/\/([A-Z0-9]{4})$/);
+    if (m && m[1] !== this.code) { this.code = m[1]; await this.ctx.storage.put('code', this.code); }
     const paire = new WebSocketPair();
     const [client, serveur] = Object.values(paire);
     this.ctx.acceptWebSocket(serveur);
@@ -386,6 +408,10 @@ export class Table extends DurableObject {
     const humains = this.joueursHumains().map(({ info }) => ({ id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote }));
     const bots = this.mod.bots ? this.bots.map(b => ({ ...b, victoires: this.victoiresBots[b.id] || 0 })) : [];
     this.diffuser({ t: 'salle', jeu: this.jeu, phase: this.phase, hote, joueurs: [...humains, ...bots], max: this.mod.max, min: this.mod.min, bots: !!this.mod.bots });
+    if (this.code && humains.length) {
+      const h = humains.find(x => x.hote) || humains[0];
+      signalerPartie(this, { jeu: this.jeu, code: this.code, hote: h.nom, n: humains.length + bots.length, max: this.mod.max, phase: this.phase === 'salon' ? 'salon' : 'jeu' });
+    }
   }
 
   couleurLibre(sauf) {
@@ -468,6 +494,7 @@ export class Table extends DurableObject {
       this.publier(change);
     }
     if (this.joueursHumains().length === 0) {
+      if (this.code) signalerPartie(this, { jeu: this.jeu, code: this.code, fin: true });
       this.arreter();
       this.partie = null;
       this.phase = 'salon';
@@ -570,22 +597,71 @@ export class Table extends DurableObject {
 const JEUX_ANNONCABLES = new Set(['cercle', ...Object.keys(JEUX)]);
 const PAUSE_ANNONCE = 20000;  // une annonce toutes les 20 s maximum par personne
 
+const DUREE_MAX_PARTIE = 3 * 3600 * 1000;  // une partie oubliée disparaît de la liste après 3 h
+
 export class Presence extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.infos = new WeakMap();
     this.minuterie = null;
+    this.minuterieParties = null;
+    this.parties = {};
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+    ctx.blockConcurrencyWhile(async () => {
+      this.parties = (await ctx.storage.get('parties')) || {};
+    });
   }
 
-  async fetch() {
+  async fetch(requete) {
+    // un salon de jeu nous donne de ses nouvelles
+    if (requete.method === 'POST' && new URL(requete.url).pathname === '/partie') {
+      let d;
+      try { d = await requete.json(); } catch (e) { return new Response('?', { status: 400 }); }
+      if (!d || !JEUX_ANNONCABLES.has(d.jeu) || !/^[A-Z0-9]{4}$/.test(d.code || '')) return new Response('?', { status: 400 });
+      const cle = d.jeu + ':' + d.code;
+      if (d.fin) delete this.parties[cle];
+      else {
+        const avant = this.parties[cle];
+        this.parties[cle] = {
+          jeu: d.jeu, code: d.code, hote: nettoyerNom(d.hote),
+          n: Math.max(0, Number(d.n) || 0), max: Math.max(1, Number(d.max) || 2),
+          phase: d.phase === 'jeu' ? 'jeu' : 'salon',
+          debut: avant ? avant.debut : Date.now(), maj: Date.now()
+        };
+      }
+      const limite = Date.now() - DUREE_MAX_PARTIE;
+      for (const [k, p] of Object.entries(this.parties)) if (p.maj < limite) delete this.parties[k];
+      await this.ctx.storage.put('parties', this.parties);
+      this.prevoirParties();
+      return new Response('ok');
+    }
+
     const paire = new WebSocketPair();
     const [client, serveur] = Object.values(paire);
     this.ctx.acceptWebSocket(serveur);
     this.ecrireInfo(serveur, { id: idAleatoire(), derniereAnnonce: 0 });
     this.envoyer(serveur, { t: 'compte', n: this.ouverts().length });
+    this.envoyer(serveur, { t: 'parties', liste: this.listeParties() });
     this.prevoirCompte();
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  // d'abord les parties qui attendent des joueurs, les plus récentes en premier
+  listeParties() {
+    const attend = p => (p.phase === 'salon' && p.n < p.max) ? 0 : 1;
+    return Object.values(this.parties)
+      .sort((a, b) => attend(a) - attend(b) || b.debut - a.debut)
+      .slice(0, 30)
+      .map(({ jeu, code, hote, n, max, phase }) => ({ jeu, code, hote, n, max, phase }));
+  }
+
+  prevoirParties() {
+    if (this.minuterieParties) return;
+    this.minuterieParties = setTimeout(() => {
+      this.minuterieParties = null;
+      const texte = JSON.stringify({ t: 'parties', liste: this.listeParties() });
+      for (const ws of this.ouverts()) { try { ws.send(texte); } catch (e) { /* fermée */ } }
+    }, 300);
   }
 
   lireInfo(ws) {

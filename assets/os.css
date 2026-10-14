@@ -1594,3 +1594,24 @@ body.mode-mobile { overflow-x: hidden; background: #000; }
 .m-enligne i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
 .m-enligne.vide { color: #a1a1aa; }
 .m-enligne.vide i { background: #52525b; box-shadow: none; }
+
+/* Parties ouvertes : fenêtre Jeux (bureau) */
+.parties-xp[hidden] { display: none; }
+.parties-xp { grid-column: 1 / -1; }
+.liste-parties-xp { display: grid; gap: 4px; margin-bottom: 10px; }
+.partie-xp { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: 1px solid #c4d5f0; border-radius: 3px; background: linear-gradient(180deg, #fff, #eef3fc); }
+.partie-xp > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.partie-xp b { font: bold calc(11px * var(--t, 1)) var(--xp); color: #000; }
+.partie-xp small { font: calc(11px * var(--t, 1)) var(--xp); color: #555; }
+
+/* Parties ouvertes : onglet Jeux (téléphone) */
+.m-parties[hidden] { display: none; }
+.m-parties { margin-bottom: 26px; }
+.m-liste-parties { display: grid; gap: 8px; }
+.m-partie { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.m-partie .icone { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: rgba(255, 255, 255, .06); color: var(--accent); }
+.m-partie .texte { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.m-partie .texte b { font-size: 15px; }
+.m-partie .texte span { color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-partie .btn { flex: none; }
+.parties-xp[hidden] + .groupe-xp { margin-top: 4px; }

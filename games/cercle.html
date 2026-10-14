@@ -66,6 +66,14 @@
     .enligne.vide i { background: #525252; box-shadow: none; animation: none; }
     #salon .enligne, [data-ecran="salon"] .enligne { justify-content: center; margin: -4px 0 10px; }
     @keyframes pouls-enligne { 50% { opacity: .35; } }
+    .parties-ouvertes { margin-top: 18px; }
+    .parties-ouvertes[hidden] { display: none; }
+    .parties-ouvertes ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-height: 190px; overflow-y: auto; }
+    .parties-ouvertes li { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 6px 0 12px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 14px; }
+    .parties-ouvertes li i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #737373; }
+    .parties-ouvertes li i.attend { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .parties-ouvertes .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .parties-ouvertes .btn.petit { flex: none; height: 30px; padding: 0 12px; font-size: 13px; }
     .petit-toast { position: fixed; left: 50%; bottom: 24px; z-index: 50; transform: translateX(-50%); padding: 9px 14px; border-radius: 10px; background: rgba(20,20,20,.92); color: #fff; font: 600 12px var(--mono); }
 
     /* salon */
@@ -209,6 +217,7 @@
       </div>
 
       <p class="message" id="message" hidden></p>
+      <div class="parties-ouvertes" hidden><span class="etiquette">Parties ouvertes</span><ul></ul></div>
 
       <div class="regles">
         <div class="regle"><b>Bouger</b><span id="regle-bouger">Ton curseur suit la souris.</span></div>
@@ -268,7 +277,7 @@
   <script src="../assets/config.js"></script>
   <script type="module">
     import * as M from './cercle/moteur.js';
-    import { suivrePresence, annoncerPartie, texteEnLigne } from './multi/presence.js';
+    import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes } from './multi/presence.js';
 
     const $ = id => document.getElementById(id);
     const toile = $('toile');
@@ -1085,6 +1094,7 @@
 
     requestAnimationFrame(boucle);
     verifierServeur();
+    brancherPartiesOuvertes(document.querySelector('.parties-ouvertes'), 'cercle', code => { if (ecran === 'accueil' && SERVEUR) connecter(code); });
     suivrePresence(n => {
       const texte = texteEnLigne(n);
       for (const el of document.querySelectorAll('.enligne')) {

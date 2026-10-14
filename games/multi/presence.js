@@ -30,6 +30,15 @@ export function suivrePresence(fn) {
   });
 }
 
+// fn(liste) : les parties ouvertes du site [{ jeu, code, hote, n, max, phase }]
+export function suivreParties(fn) {
+  obtenir().then(p => {
+    if (!p) return fn([]);
+    const arreter = p.ecouter(m => { if (m.t === 'parties') fn(m.liste || []); });
+    window.addEventListener('pagehide', arreter, { once: true });
+  });
+}
+
 // renvoie le nombre de personnes prévenues (ou null)
 export async function annoncerPartie(jeu, code, nom) {
   const p = await obtenir();
@@ -42,4 +51,28 @@ export function texteEnLigne(n) {
   const autres = Math.max(0, n - 1);
   if (autres === 0) return 'Personne d’autre sur le site pour l’instant';
   return autres === 1 ? '1 autre personne en ligne sur le site' : `${autres} autres personnes en ligne sur le site`;
+}
+
+const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// Remplit la boîte « Parties ouvertes » d'un jeu. rejoindre(code) est appelé au clic.
+export function brancherPartiesOuvertes(boite, jeu, rejoindre) {
+  const ul = boite.querySelector('ul');
+  ul.addEventListener('click', e => {
+    const b = e.target.closest('button[data-code]');
+    if (b) rejoindre(b.dataset.code);
+  });
+  suivreParties(liste => {
+    const miennes = liste.filter(p => p.jeu === jeu);
+    boite.hidden = !miennes.length;
+    ul.innerHTML = miennes.map(p => {
+      const attend = p.phase === 'salon' && p.n < p.max;
+      return `<li>
+        <i class="${attend ? 'attend' : ''}"></i>
+        <span class="nom">Partie de ${echapper(p.hote)}</span>
+        <span class="tag">${p.phase === 'jeu' ? 'EN COURS' : `${p.n}/${p.max}`}</span>
+        <button class="btn petit${attend ? ' primaire' : ''}" data-code="${echapper(p.code)}">${attend ? 'Rejoindre' : 'Regarder'}</button>
+      </li>`;
+    }).join('');
+  });
 }
