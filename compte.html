@@ -67,6 +67,19 @@
     .interrupteur input { flex: none; width: 20px; height: 20px; accent-color: #22c55e; }
     .danger { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--bord); }
     a.lien { color: var(--accent); }
+    .onglet-admin { color: #fde047 !important; }
+    .onglets .onglet-admin.actif { background: #fde047; color: #000 !important; }
+    .bloc-admin { margin-bottom: 8px; }
+    .compte-admin { display: block !important; padding: 0 !important; }
+    .compte-admin summary { display: flex; align-items: center; min-height: 44px; padding: 6px 12px; cursor: pointer; list-style: none; }
+    .compte-admin summary::-webkit-details-marker { display: none; }
+    .compte-admin summary::after { content: '▾'; color: var(--tres-doux); margin-left: 8px; }
+    .actions-admin { display: grid; gap: 8px; padding: 4px 12px 12px; }
+    .actions-admin .ligne > input, .actions-admin .ligne > select { height: 36px; font-size: 13px; padding: 0 9px; }
+    .actions-admin .ligne > select { flex: 1.4; min-width: 0; }
+    .actions-admin .ligne > .btn { height: 36px; }
+    .actions-admin a.btn { justify-self: start; text-decoration: none; }
+    .badge-rouge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(239, 68, 68, .2); color: #fca5a5; font: 600 10px var(--mono); vertical-align: middle; }
     button.lien { padding: 0; border: 0; background: none; color: var(--doux); font: inherit; text-decoration: underline; cursor: pointer; }
   </style>
 </head>
@@ -119,7 +132,7 @@
       }));
       let dernier = undefined;
       arrets.push(C.ecouter(c => {
-        const etat = c ? c.nom + '|' + c.invisible + '|' + c.invitations : null;
+        const etat = c ? c.nom + (c.admin ? '*' : '') + '|' + c.invisible + '|' + c.invitations : null;
         if (etat === dernier) { if (c && ongletCompte === 'amis' && !lireProfil()) afficherAmis(); return; }
         const changementPersonne = (dernier ? dernier.split('|')[0] : null) !== (c ? c.nom : null);
         dernier = etat;
@@ -193,7 +206,7 @@
           if (v.length < 3) { aide.className = 'aide'; aide.textContent = '3 à 14 caractères : lettres, chiffres, _ . -'; return; }
           minuterie = setTimeout(async () => {
             const d = await C.api('existe', { nom: v });
-            if (nom.value.trim() !== v) return;
+            if (nom.value.trim() !== v || !$('#zone-code')) return;   // (le formulaire a peut-être déjà été envoyé)
             $('#zone-code').hidden = !d.proprio;
             if (d.proprio) { aide.className = 'aide'; aide.textContent = 'Pseudo du propriétaire du site'; }
             else if (d.libre) { aide.className = 'aide ok'; aide.textContent = '✓ Ce pseudo est libre'; }
@@ -232,11 +245,13 @@
           <button data-o="profil" class="${ongletCompte === 'profil' ? 'actif' : ''}">Victoires</button>
           <button data-o="amis" class="${ongletCompte === 'amis' ? 'actif' : ''}">Amis${recues ? `<span class="pastille-n">${recues}</span>` : ''}</button>
           <button data-o="reglages" class="${ongletCompte === 'reglages' ? 'actif' : ''}">Réglages</button>
+          ${c.admin ? `<button data-o="admin" class="onglet-admin ${ongletCompte === 'admin' ? 'actif' : ''}">⚡ Admin</button>` : ''}
         </div>
         <div id="contenu"></div>`;
       carte.querySelectorAll('[data-o]').forEach(b => b.addEventListener('click', () => { ongletCompte = b.dataset.o; afficherCompte(); }));
       if (ongletCompte === 'profil') afficherStats();
       else if (ongletCompte === 'amis') { afficherAmis(); C.chargerAmis(); }
+      else if (ongletCompte === 'admin' && c.admin) afficherAdmin();
       else afficherReglages();
     }
 
@@ -385,6 +400,144 @@
       });
     }
 
+    /* ---------- Console admin (compte du propriétaire seulement) ----------
+       Le serveur vérifie le compte à chaque action : cet onglet ne sert à rien aux autres. */
+
+    function afficherAdmin() {
+      const zone = $('#contenu');
+      zone.innerHTML = `
+        <div class="bloc-admin">
+          <h2>📢 Message à tout le site</h2>
+          <form class="ligne" id="form-annonce">
+            <input type="text" id="annonce" maxlength="200" placeholder="Ex : nouveau jeu en ligne ce soir !" autocomplete="off">
+            <button class="btn primaire" type="submit">Envoyer</button>
+          </form>
+          <p class="aide">Tous ceux qui sont sur le site le reçoivent en notification.</p>
+          <p class="message" id="msg-annonce" hidden></p>
+        </div>
+        <div class="bloc-admin">
+          <h2>🟢 En ligne maintenant <button class="btn petit" id="rafraichir-admin" style="float:right">Actualiser</button></h2>
+          <div id="admin-site"><p class="sous">Chargement…</p></div>
+        </div>
+        <div class="bloc-admin">
+          <h2 id="titre-comptes">👥 Comptes</h2>
+          <input type="text" id="filtre-comptes" placeholder="Chercher un pseudo" autocomplete="off" spellcheck="false">
+          <p class="message" id="msg-comptes" hidden></p>
+          <ul class="lignes" id="admin-comptes" style="margin-top:8px"><li class="vide">Chargement…</li></ul>
+        </div>
+        <p class="aide">Dans les jeux à plusieurs, le bouton <b>⚡ Admin</b> apparaît en haut à gauche pendant la partie.</p>`;
+
+      $('#form-annonce').addEventListener('submit', async e => {
+        e.preventDefault();
+        const texte = $('#annonce').value.trim();
+        if (!texte) return;
+        const btn = e.target.querySelector('button');
+        occupe(btn, true, 'Envoi…');
+        const d = await C.api('admin-annonce', { texte });
+        occupe(btn, false);
+        if (d.erreur) return message($('#msg-annonce'), d.erreur);
+        $('#annonce').value = '';
+        message($('#msg-annonce'), `Envoyé à ${d.n} écran${d.n > 1 ? 's' : ''} ouvert${d.n > 1 ? 's' : ''}.`, true);
+      });
+      $('#rafraichir-admin').addEventListener('click', chargerSite);
+      $('#filtre-comptes').addEventListener('input', dessinerComptes);
+      chargerSite();
+      chargerComptes();
+    }
+
+    async function chargerSite() {
+      const boite = $('#admin-site');
+      if (!boite) return;
+      const d = await C.api('admin-site');
+      if (!$('#admin-site')) return;
+      if (d.erreur) { boite.innerHTML = `<p class="message ko">${echapper(d.erreur)}</p>`; return; }
+      boite.innerHTML = `
+        <div class="chiffres">
+          <div class="chiffre"><b>${d.n}</b><span>Écrans ouverts</span></div>
+          <div class="chiffre"><b>${d.comptes.length}</b><span>Comptes</span></div>
+          <div class="chiffre"><b>${d.parties.length}</b><span>Parties</span></div>
+        </div>
+        <ul class="lignes" style="margin-top:8px">${d.comptes.length ? d.comptes.map(c => `
+          <li><i class="rond en-ligne"></i><span class="nom">${echapper(c.nom)}<small>${c.jeu ? 'joue à ' + echapper(titreJeu(c.jeu)) : 'sur le site'}${c.invisible ? ' · invisible' : ''}</small></span></li>`).join('')
+          : '<li class="vide">Aucun compte connecté</li>'}</ul>
+        ${d.parties.length ? `<h2>Parties ouvertes</h2><ul class="lignes">${d.parties.map(p => `
+          <li><span class="nom">${echapper(p.jeu === 'cercle' ? 'Le Cercle' : titreJeu(p.jeu))} · ${echapper(p.code)}<small>hôte ${echapper(p.hote)} · ${p.n}/${p.max} · ${p.phase === 'jeu' ? 'en cours' : 'dans le salon'}</small></span>
+            <button class="btn petit rouge" data-fermer="${echapper(p.jeu)}/${echapper(p.code)}">Fermer</button></li>`).join('')}</ul>` : ''}`;
+      boite.querySelectorAll('[data-fermer]').forEach(b => b.addEventListener('click', async () => {
+        const [jeu, code] = b.dataset.fermer.split('/');
+        if (!confirm(`Fermer la partie ${code} ? Tout le monde sera renvoyé à l’accueil du jeu.`)) return;
+        b.disabled = true;
+        const r = await C.api('admin-fermer', { jeu, code });
+        if (r.erreur) { b.disabled = false; alert(r.erreur); return; }
+        chargerSite();
+      }));
+    }
+
+    let comptesAdmin = [];
+    async function chargerComptes() {
+      const d = await C.api('admin-liste');
+      if (!$('#admin-comptes')) return;
+      if (d.erreur) return message($('#msg-comptes'), d.erreur);
+      comptesAdmin = d.comptes || [];
+      dessinerComptes();
+    }
+
+    function dessinerComptes() {
+      const ul = $('#admin-comptes');
+      if (!ul) return;
+      const f = ($('#filtre-comptes').value || '').trim().toLowerCase();
+      const liste = comptesAdmin.filter(c => !f || c.nom.toLowerCase().includes(f));
+      $('#titre-comptes').textContent = `👥 Comptes (${comptesAdmin.length})`;
+      const options = JEUX.filter(j => j.multi).map(j => `<option value="${echapper(j.id)}">${echapper(j.titre)}</option>`).join('');
+      ul.innerHTML = liste.length ? liste.map(c => `
+        <li class="compte-admin">
+          <details>
+            <summary><span class="nom">${echapper(c.nom)}${c.bloque ? ' <span class="badge-rouge">bloqué</span>' : ''}<small>vu ${ilYa(c.vu)} · créé le ${date(c.cree)} · ${c.victoires} V / ${c.parties} parties</small></span></summary>
+            <div class="actions-admin" data-nom="${echapper(c.nom)}">
+              <a class="btn petit" href="#profil/${encodeURIComponent(c.nom)}">Voir le profil</a>
+              <form class="ligne" data-form="victoires">
+                <select name="jeu" aria-label="Jeu">${options}</select>
+                <input type="text" name="victoires" inputmode="numeric" placeholder="Victoires" aria-label="Victoires">
+                <input type="text" name="parties" inputmode="numeric" placeholder="Parties" aria-label="Parties">
+                <button class="btn petit" type="submit">OK</button>
+              </form>
+              ${c.cle !== 'pipou_dinosaur' ? `<form class="ligne" data-form="mdp">
+                <input type="text" name="nouveau" placeholder="Nouveau mot de passe" autocomplete="off" aria-label="Nouveau mot de passe">
+                <button class="btn petit" type="submit">Changer</button>
+              </form>
+              <button class="btn petit rouge" data-supprimer>Supprimer ce compte</button>` : ''}
+            </div>
+          </details>
+        </li>`).join('') : '<li class="vide">Aucun compte</li>';
+
+      ul.querySelectorAll('[data-form="victoires"]').forEach(f => f.addEventListener('submit', async e => {
+        e.preventDefault();
+        const nom = f.closest('[data-nom]').dataset.nom;
+        const v = f.victoires.value.trim(), p = f.parties.value.trim();
+        const r = await C.api('admin-victoires', { nom, jeu: f.jeu.value, victoires: v || 0, parties: p || v || 0 });
+        if (r.erreur) return message($('#msg-comptes'), r.erreur);
+        message($('#msg-comptes'), `Victoires de ${nom} en ${titreJeu(f.jeu.value)} : ${v || 0}.`, true);
+        chargerComptes();
+      }));
+      ul.querySelectorAll('[data-form="mdp"]').forEach(f => f.addEventListener('submit', async e => {
+        e.preventDefault();
+        const nom = f.closest('[data-nom]').dataset.nom;
+        const r = await C.api('admin-mdp', { nom, nouveau: f.nouveau.value });
+        if (r.erreur) return message($('#msg-comptes'), r.erreur);
+        f.reset();
+        message($('#msg-comptes'), `Mot de passe de ${nom} changé (et compte débloqué). Il/elle a été déconnecté(e) partout.`, true);
+        chargerComptes();
+      }));
+      ul.querySelectorAll('[data-supprimer]').forEach(b => b.addEventListener('click', async () => {
+        const nom = b.closest('[data-nom]').dataset.nom;
+        if (!confirm(`Supprimer le compte « ${nom} » pour toujours ? Ses victoires et ses amis seront effacés.`)) return;
+        const r = await C.api('admin-supprimer', { nom });
+        if (r.erreur) return message($('#msg-comptes'), r.erreur);
+        message($('#msg-comptes'), `Compte ${nom} supprimé.`, true);
+        chargerComptes();
+      }));
+    }
+
     /* ---------- Profil d'un autre joueur (#profil/Nom) ---------- */
 
     async function afficherProfilPublic(nom) {
@@ -418,8 +571,8 @@
     function lireAncre() {
       const h = location.hash.slice(1);
       if (h === 'creer' || h === 'connexion') onglet = h;
-      if (h === 'amis' || h === 'reglages') ongletCompte = h;
-      if (['creer', 'connexion', 'amis', 'reglages'].includes(h)) history.replaceState(null, '', location.pathname + location.search);
+      if (h === 'amis' || h === 'reglages' || h === 'admin') ongletCompte = h;
+      if (['creer', 'connexion', 'amis', 'reglages', 'admin'].includes(h)) history.replaceState(null, '', location.pathname + location.search);
     }
     lireAncre();
     window.addEventListener('hashchange', () => { lireAncre(); });

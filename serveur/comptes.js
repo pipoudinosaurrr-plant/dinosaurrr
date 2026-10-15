@@ -155,7 +155,7 @@ export class Comptes extends DurableObject {
   }
 
   publicCompte(c) {
-    return { nom: c.nom, cree: c.cree, invisible: !!c.invisible, invitations: c.invitations };
+    return { nom: c.nom, cree: c.cree, invisible: !!c.invisible, invitations: c.invitations, admin: c.cle === PROPRIO.cle };
   }
 
   stats(cle) {
@@ -347,6 +347,53 @@ export class Comptes extends DurableObject {
         return { amis: this.listeAmis(moi.cle) };
       }
 
+      /* ===== console admin : seulement le compte du propriétaire ===== */
+      case 'admin-liste': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const comptes = this.tous(`SELECT c.cle, c.nom, c.cree, c.vu, c.bloque,
+            COALESCE(SUM(s.parties), 0) AS parties, COALESCE(SUM(s.victoires), 0) AS victoires
+          FROM comptes c LEFT JOIN stats s ON s.cle = c.cle GROUP BY c.cle ORDER BY c.vu DESC`);
+        return { comptes: comptes.map(c => ({ ...c, bloque: c.bloque > t })) };
+      }
+      case 'admin-compte': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
+        if (!c) return { erreur: 'Ce compte n’existe pas.', statut: 404 };
+        return { compte: { nom: c.nom, cle: c.cle, cree: c.cree, vu: c.vu, invisible: !!c.invisible }, stats: this.stats(c.cle), amis: this.listeAmis(c.cle).length };
+      }
+      case 'admin-supprimer': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const cle = cleCompte(d.nom);
+        if (cle === PROPRIO.cle) return { erreur: 'Tu ne peux pas supprimer ton propre compte d’ici.', statut: 400 };
+        if (!this.un('SELECT cle FROM comptes WHERE cle = ?', cle)) return { erreur: 'Ce compte n’existe pas.', statut: 404 };
+        this.effacerCompte(cle);
+        return { ok: true };
+      }
+      case 'admin-mdp': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
+        if (!c) return { erreur: 'Ce compte n’existe pas.', statut: 404 };
+        if (c.cle === PROPRIO.cle) return { erreur: 'Change ton mot de passe dans l’onglet Réglages.', statut: 400 };
+        const err = verifierMdp(d.nouveau);
+        if (err) return { erreur: err, statut: 400 };
+        const sel = aleatoire(16);
+        this.sql.exec('UPDATE comptes SET sel = ?, hash = ?, echecs = 0, bloque = 0 WHERE cle = ?', sel, await empreinte(String(d.nouveau), sel), c.cle);
+        this.sql.exec('DELETE FROM sessions WHERE cle = ?', c.cle);
+        return { ok: true };
+      }
+      case 'admin-victoires': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const c = this.un('SELECT cle FROM comptes WHERE cle = ?', cleCompte(d.nom));
+        if (!c) return { erreur: 'Ce compte n’existe pas.', statut: 404 };
+        const jeu = String(d.jeu || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+        if (!jeu) return { erreur: 'Choisis un jeu.', statut: 400 };
+        const v = Math.max(0, Math.min(1000000, Math.floor(Number(d.victoires) || 0)));
+        const p = Math.max(v, Math.min(1000000, Math.floor(Number(d.parties) || 0)));
+        if (!v && !p) this.sql.exec('DELETE FROM stats WHERE cle = ? AND jeu = ?', c.cle, jeu);
+        else this.sql.exec('INSERT OR REPLACE INTO stats (cle, jeu, parties, victoires) VALUES (?, ?, ?, ?)', c.cle, jeu, p, v);
+        return { stats: this.stats(c.cle) };
+      }
+
       case 'ami-retirer': {
         const cle = cleCompte(d.nom);
         this.sql.exec('DELETE FROM amis WHERE (de = ? AND a = ?) OR (de = ? AND a = ?)', moi.cle, cle, cle, moi.cle);
@@ -358,4 +405,4 @@ export class Comptes extends DurableObject {
 }
 
 // actions que le site a le droit d'appeler (les autres sont réservées au serveur)
-export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer']);
+export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires']);

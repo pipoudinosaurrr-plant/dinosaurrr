@@ -107,6 +107,7 @@
         ctxJeu.envoyer({ t: 'y', y: dernierEnvoye });
       }
       autreY += (vue.p[1 - mi] - autreY) * (1 - Math.exp(-dt * 18));
+      if (vue.gel && vue.gel[mi] > 0) moi.y = vue.p[mi];
       const mesY = ctxJeu && ctxJeu.spectateur ? vue.p[mi] : moi.y;
 
       // balle : on prolonge sa trajectoire depuis la dernière image reçue
@@ -149,8 +150,9 @@
       ctx2.fillText(vue.s[1 - mi], sax, say);
 
       // raquettes
-      const raquette = (x, y, couleur, lueur) => {
-        const [a, b] = ecran(R, x - RAQ_EP / 2, y - RAQ_DEMI), [c, e] = ecran(R, x + RAQ_EP / 2, y + RAQ_DEMI);
+      const raquette = (x, y, couleur, lueur, dm = RAQ_DEMI, gele = false) => {
+        if (gele) { couleur = '#bae6fd'; lueur = '#38bdf8'; }
+        const [a, b] = ecran(R, x - RAQ_EP / 2, y - dm), [c, e] = ecran(R, x + RAQ_EP / 2, y + dm);
         ctx2.shadowColor = lueur;
         ctx2.shadowBlur = 14;
         ctx2.fillStyle = couleur;
@@ -162,8 +164,9 @@
       };
       const moiX = RAQ_X[mi], luiX = RAQ_X[1 - mi];
       const coulLui = ctxJeu ? ctxJeu.couleur(vue.j[1 - mi]) : '#f97316';
-      raquette(moiX, mesY, '#fafafa', 'rgba(255,255,255,.5)');
-      raquette(luiX, autreY, coulLui, coulLui);
+      const dm = i => (vue.g ? vue.g[i] : RAQ_DEMI), gele = i => !!(vue.gel && vue.gel[i] > 0);
+      raquette(moiX, mesY, '#fafafa', 'rgba(255,255,255,.5)', dm(mi), gele(mi));
+      raquette(luiX, autreY, coulLui, coulLui, dm(1 - mi), gele(1 - mi));
 
       // balle
       if (!vue.fini) {

@@ -11,6 +11,7 @@ import { DurableObject } from 'cloudflare:workers';
 import * as M from '../games/cercle/moteur.js';
 import JEUX from '../games/multi/jeux/index.js';
 import { Comptes, ACTIONS_PUBLIQUES, formeProprio } from './comptes.js';
+import { appliquerAdmin, CLE_ADMIN } from '../games/multi/admin.js';
 
 export { Comptes };
 
@@ -52,7 +53,7 @@ export default {
         'vary': 'Origin'
       } : {};
       if (requete.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-      if (requete.method !== 'POST' || !ACTIONS_PUBLIQUES.has(compte[1])) return new Response('Introuvable', { status: 404, headers: cors });
+      if (requete.method !== 'POST' || !(ACTIONS_PUBLIQUES.has(compte[1]) || ACTIONS_ADMIN_SITE.has(compte[1]))) return new Response('Introuvable', { status: 404, headers: cors });
       if (!origineAutorisee(origine)) return new Response('Origine refusée', { status: 403 });
       const texte = await requete.text();
       if (texte.length > 2000) return new Response('Trop long', { status: 413, headers: cors });
@@ -60,6 +61,10 @@ export default {
       try { d = texte ? JSON.parse(texte) : {}; } catch (e) { return Response.json({ erreur: 'Requête invalide.' }, { status: 400, headers: cors }); }
       if (!d || typeof d !== 'object' || Array.isArray(d)) d = {};
       const jeton = (requete.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+      if (ACTIONS_ADMIN_SITE.has(compte[1])) {
+        const r = await adminSite(env, compte[1], d, jeton);
+        return Response.json(r, { status: r.statut || 200, headers: { ...cors, 'cache-control': 'no-store' } });
+      }
       const corps = JSON.stringify({ ...d, action: compte[1], jeton, ip: requete.headers.get('CF-Connecting-IP') || '' });
       const rep = await comptes(env).fetch('https://comptes/', { method: 'POST', body: corps });
       return new Response(rep.body, { status: rep.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
@@ -82,6 +87,44 @@ export default {
     return env.TABLES.get(env.TABLES.idFromName(autre[1] + ':' + autre[2])).fetch(requete);
   }
 };
+
+/* ---------- Console admin : actions sur tout le site ---------- */
+
+const ACTIONS_ADMIN_SITE = new Set(['admin-annonce', 'admin-site', 'admin-fermer']);
+
+async function adminSite(env, action, d, jeton) {
+  const v = await appelComptes(env, { action: 'verifier', jeton });
+  if (!v.compte || v.compte.cle !== CLE_ADMIN) return { erreur: 'Réservé à l’admin.', statut: 403 };
+  const presence = env.PRESENCE.get(env.PRESENCE.idFromName('site'));
+  if (action === 'admin-annonce') {
+    const texte = String(d.texte || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 200);
+    if (!texte) return { erreur: 'Écris un message.', statut: 400 };
+    const r = await presence.fetch('https://presence/admin-annonce', { method: 'POST', body: JSON.stringify({ texte, nom: v.compte.nom }) });
+    return await r.json();
+  }
+  if (action === 'admin-site') {
+    const r = await presence.fetch('https://presence/admin-etat', { method: 'POST', body: '{}' });
+    return await r.json();
+  }
+  if (action === 'admin-fermer') {
+    const jeu = String(d.jeu || ''), code = String(d.code || '');
+    if (!/^[A-Z0-9]{4}$/.test(code) || !(jeu === 'cercle' || JEUX[jeu])) return { erreur: 'Partie inconnue.', statut: 400 };
+    const salle = jeu === 'cercle' ? env.SALLES.get(env.SALLES.idFromName('cercle:' + code)) : env.TABLES.get(env.TABLES.idFromName(jeu + ':' + code));
+    await salle.fetch('https://salle/fermer', { method: 'POST', body: '{}' });
+    await presence.fetch('https://presence/partie', { method: 'POST', body: JSON.stringify({ jeu, code, fin: true }) });
+    return { ok: true };
+  }
+  return { erreur: 'Action inconnue.', statut: 400 };
+}
+
+// l'admin ferme une partie : tout le monde est renvoyé à l'accueil
+function fermerSalle(objet) {
+  const texte = JSON.stringify({ t: 'erreur', message: 'Cette partie a été fermée par l’admin.' });
+  for (const ws of objet.ctx.getWebSockets()) {
+    try { ws.send(texte); ws.close(4001, 'fermee'); } catch (e) { /* déjà fermée */ }
+  }
+}
+const estFermeture = requete => requete.method === 'POST' && new URL(requete.url).pathname === '/fermer';
 
 /* ---------- Petits outils ---------- */
 
@@ -119,7 +162,8 @@ async function identifier(env, msg) {
 
 // fin de partie : on note les parties et victoires des joueurs qui ont un compte
 // (seulement s'il y avait au moins 2 vrais joueurs, pour éviter de gonfler ses victoires contre des bots)
-function noterResultats(objet, jeu, classement) {
+function noterResultats(objet, jeu, classement, triche) {
+  if (triche) return;   // partie avec pouvoirs admin : ne compte pas
   const parId = new Map(objet.connectes().map(({ info }) => [info.id, info]));
   const humains = classement.filter(c => !c.bot && parId.has(c.id));
   if (humains.length < 2) return;
@@ -165,6 +209,7 @@ export class Salle extends DurableObject {
   }
 
   async fetch(requete) {
+    if (estFermeture(requete)) { fermerSalle(this); return new Response('ok'); }
     const mc = new URL(requete.url).pathname.match(/\/([A-Z0-9]{4})$/);
     if (mc && mc[1] !== this.code) { this.code = mc[1]; await this.ctx.storage.put("code", this.code); }
     const paire = new WebSocketPair();
@@ -281,7 +326,7 @@ export class Salle extends DurableObject {
         // trop de monde avec les bots : on retire des bots
         while (this.bots.length && this.joueursHumains().length + this.bots.length > M.MAX_JOUEURS) this.bots.pop();
         await this.enregistrerBots();
-        this.envoyer(ws, { t: 'bienvenue', id: info.id, nom: info.nom, couleur: info.couleur });
+        this.envoyer(ws, { t: 'bienvenue', id: info.id, nom: info.nom, couleur: info.couleur, admin: info.compte === CLE_ADMIN });
         if (this.partie && this.phase === 'jeu') this.envoyer(ws, { t: 'debut', equipe: M.equipe(this.partie), spectateur: true });
         this.diffuserSalle();
         break;
@@ -298,6 +343,14 @@ export class Salle extends DurableObject {
       case 'lance':
         if (this.phase === 'salon' && info.id === this.hote()) this.lancer();
         break;
+
+      // pouvoir admin : seulement le compte du propriétaire (vérifié par son jeton)
+      case 'admin': {
+        if (info.compte !== CLE_ADMIN || !this.partie || this.phase !== 'jeu') return;
+        const r = M.admin(this.partie, info.id, String(msg.cmd || ''));
+        if (r) this.diffuser({ t: 'admin', nom: info.nom, texte: r.texte });
+        break;
+      }
 
       case 'bot':
         if (this.phase !== 'salon' || info.id !== this.hote()) return;
@@ -380,7 +433,7 @@ export class Salle extends DurableObject {
         if (info.id === gagnant.id) { info.victoires = (info.victoires || 0) + 1; this.ecrireInfo(ws, info); }
       }
     }
-    noterResultats(this, 'cercle', p.classement);
+    noterResultats(this, 'cercle', p.classement, p.triche);
     this.diffuser({ t: 'fin', classement: p.classement });
     setTimeout(() => {
       this.partie = null;
@@ -426,6 +479,7 @@ export class Table extends DurableObject {
   }
 
   async fetch(requete) {
+    if (estFermeture(requete)) { fermerSalle(this); return new Response('ok'); }
     if (!this.mod) {
       const m = new URL(requete.url).pathname.match(/^\/jeu\/([a-z0-9]+)\//);
       this.choisirJeu(m && m[1]);
@@ -513,7 +567,7 @@ export class Table extends DurableObject {
         this.ecrireInfo(ws, info);
         while (this.bots.length && this.joueursHumains().length + this.bots.length > this.mod.max) this.bots.pop();
         await this.ctx.storage.put('bots', this.bots);
-        this.envoyer(ws, { t: 'bienvenue', id: info.id, nom: info.nom, couleur: info.couleur });
+        this.envoyer(ws, { t: 'bienvenue', id: info.id, nom: info.nom, couleur: info.couleur, admin: info.compte === CLE_ADMIN });
         if (this.partie && this.phase === 'jeu') {
           this.envoyer(ws, { t: 'debut', equipe: this.equipe(), spectateur: true });
           this.envoyer(ws, { t: 'etat', s: this.mod.vue(this.partie, info.id, Date.now()) });
@@ -540,6 +594,17 @@ export class Table extends DurableObject {
         await this.ctx.storage.put('bots', this.bots);
         this.diffuserSalle();
         break;
+
+      // pouvoir admin : seulement le compte du propriétaire (vérifié par son jeton)
+      case 'admin': {
+        if (info.compte !== CLE_ADMIN || !this.partie || this.phase !== 'jeu') return;
+        const r = appliquerAdmin(this.mod, this.partie, info.id, String(msg.cmd || ''), Date.now());
+        if (!r) { this.envoyer(ws, { t: 'erreur-douce', message: 'Ce pouvoir ne marche pas maintenant.' }); return; }
+        this.diffuser({ t: 'admin', nom: info.nom, texte: r.texte });
+        if (r.prive) this.envoyer(ws, { t: 'admin-prive', texte: r.prive });
+        this.publier(true);
+        break;
+      }
 
       case 'jeu': {
         if (!this.partie || this.phase !== 'jeu' || !msg.d || typeof msg.d !== 'object') return;
@@ -639,7 +704,7 @@ export class Table extends DurableObject {
       if (c.bot) this.victoiresBots[c.id] = (this.victoiresBots[c.id] || 0) + 1;
       for (const { ws, info } of this.connectes()) if (info.id === c.id) { info.victoires = (info.victoires || 0) + 1; this.ecrireInfo(ws, info); }
     }
-    noterResultats(this, this.jeu, p.classement);
+    noterResultats(this, this.jeu, p.classement, p.triche);
     this.diffuser({ t: 'fin', classement: p.classement });
     setTimeout(() => {
       this.partie = null;
@@ -700,6 +765,22 @@ export class Presence extends DurableObject {
       await this.ctx.storage.put('parties', this.parties);
       this.prevoirParties();
       return new Response('ok');
+    }
+
+    // console admin (appelé par le serveur après avoir vérifié le compte)
+    if (requete.method === 'POST' && new URL(requete.url).pathname === '/admin-annonce') {
+      const d = await requete.json();
+      const texte = JSON.stringify({ t: 'annonce-admin', texte: String(d.texte || '').slice(0, 200), nom: nettoyerNom(d.nom) });
+      const liste = this.ouverts();
+      for (const ws of liste) { try { ws.send(texte); } catch (e) { /* fermée */ } }
+      return Response.json({ ok: true, n: liste.length });
+    }
+    if (requete.method === 'POST' && new URL(requete.url).pathname === '/admin-etat') {
+      const liste = this.ouverts();
+      const tous = liste.map(ws => this.lireInfo(ws)).filter(i => i.compte).map(i => ({ nom: i.compte.nom, invisible: !!i.compte.invisible, jeu: i.activite || null }));
+      const parNom = new Map();
+      for (const c of tous) if (!parNom.has(c.nom) || c.jeu) parNom.set(c.nom, c);
+      return Response.json({ n: liste.length, comptes: [...parNom.values()].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')), visiteurs: liste.length - tous.length, parties: this.listeParties() });
     }
 
     const paire = new WebSocketPair();

@@ -256,8 +256,9 @@
       return { gx, gy, gw, gh };
     }
 
-    function maillet(R, x, y, couleur) {
-      const [a, b] = ecran(R, x, y), r = R_MAILLET * R.s;
+    function maillet(R, x, y, couleur, rayon = R_MAILLET, gele = false) {
+      const [a, b] = ecran(R, x, y), r = rayon * R.s;
+      if (gele) couleur = '#bae6fd';
       g.save();
       g.shadowColor = couleur; g.shadowBlur = 18 * R.s;
       g.fillStyle = couleur;
@@ -269,6 +270,11 @@
       poignee.addColorStop(0, '#fff'); poignee.addColorStop(0.35, couleur); poignee.addColorStop(1, 'rgba(0,0,0,.35)');
       g.fillStyle = poignee;
       g.beginPath(); g.arc(a, b, r * 0.45, 0, Math.PI * 2); g.fill();
+      if (gele) {
+        g.font = `${Math.round(r * 0.9)}px system-ui`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText('🧊', a, b);
+      }
       g.restore();
     }
 
@@ -300,6 +306,7 @@
 
       // mes maillets : clavier puis déplacement immédiat (même vitesse que le serveur)
       for (const [id, m] of pilotes) {
+        if (vue.gel && vue.gel[m.i] > 0) { m.x = m.cx = vue.m[m.i][0]; m.y = m.cy = vue.m[m.i][1]; continue; }
         clavierPour(id, dt, R);
         const dx = m.cx - m.x, dy = m.cy - m.y, d = Math.hypot(dx, dy), pas = Math.min(d, V_MAILLET * dt);
         if (d > 0) { m.x += dx / d * pas; m.y += dy / d * pas; }
@@ -332,8 +339,8 @@
         if (px > W - R_PALET) px = 2 * (W - R_PALET) - px;
         if (Math.abs(px - W / 2) > BUT_L / 2) py = Math.max(R_PALET, Math.min(H - R_PALET, py));
         // pas de palet dessiné « dans » un maillet
-        for (const [mx, my] of positions) {
-          const dx = px - mx, dy = py - my, d = Math.hypot(dx, dy), min = R_PALET + R_MAILLET;
+        for (const [k, [mx, my]] of positions.entries()) {
+          const dx = px - mx, dy = py - my, d = Math.hypot(dx, dy), min = R_PALET + (vue.r ? vue.r[k] : R_MAILLET);
           if (d < min && d > 0) { px = mx + dx / d * min; py = my + dy / d * min; }
         }
       }
@@ -362,7 +369,17 @@
       } else traine = [];
 
       // maillets puis palet
-      positions.forEach(([x, y], i) => maillet(R, x, y, couleurMaillet(i)));
+      // but bloqué (pouvoir admin) : une barre lumineuse devant le but
+      (vue.mur || []).forEach((reste, k) => {
+        if (reste <= 0) return;
+        const yb = k === 0 ? H - 3 : 3;
+        g.save();
+        g.strokeStyle = '#fde047'; g.shadowColor = '#facc15'; g.shadowBlur = 16 * R.s;
+        g.lineWidth = Math.max(3, 8 * R.s); g.lineCap = 'round';
+        ligne(R, W / 2 - BUT_L / 2, yb, W / 2 + BUT_L / 2, yb); g.stroke();
+        g.restore();
+      });
+      positions.forEach(([x, y], i) => maillet(R, x, y, couleurMaillet(i), vue.r ? vue.r[i] : R_MAILLET, !!(vue.gel && vue.gel[i] > 0)));
       if (!vue.fini) palet(R, px, py);
 
       // cercles quand on tape, « BUT ! » quand on marque

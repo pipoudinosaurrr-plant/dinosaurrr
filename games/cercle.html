@@ -109,6 +109,15 @@
     .hud-gauche { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .bouton-quitter { pointer-events: auto; cursor: pointer; border: 1px solid var(--bord2, rgba(255,255,255,.2)); color: inherit; font: inherit; }
     .bouton-quitter:hover { background: rgba(239, 68, 68, .25); }
+    .bouton-admin { color: #fde047; border-color: rgba(250, 204, 21, .5); }
+    .bouton-admin:hover { background: rgba(250, 204, 21, .15); }
+    .bouton-admin[hidden] { display: none; }
+    .panneau-admin { position: fixed; top: calc(max(12px, env(safe-area-inset-top)) + 40px); left: 12px; z-index: 30; width: min(250px, calc(100vw - 24px)); padding: 10px; display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(250, 204, 21, .45); border-radius: 14px; background: rgba(10, 10, 10, .94); pointer-events: auto; }
+    .panneau-admin[hidden] { display: none; }
+    .panneau-admin b { color: #fde047; font: 600 11px var(--mono, monospace); letter-spacing: .08em; text-transform: uppercase; padding: 2px 4px; }
+    .panneau-admin button { display: flex; gap: 9px; align-items: center; padding: 9px 10px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; background: #141414; color: #fff; font: 500 13px system-ui, sans-serif; text-align: left; cursor: pointer; }
+    .panneau-admin button:hover { border-color: rgba(250, 204, 21, .6); }
+    .panneau-admin small { color: #737373; font-size: 11px; line-height: 1.4; padding: 2px; }
 
     .hud-haut { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 8px; }
     .hud-haut > :last-child { justify-self: end; }
@@ -190,7 +199,8 @@
 
   <div id="hud" hidden>
     <div class="hud-haut">
-      <div class="hud-gauche"><span class="pilule"><span class="point-vert"></span>EN VIE <b id="nb-vivants">0/0</b></span><button class="pilule bouton-quitter" id="quitter-jeu" type="button">✕ Quitter</button></div>
+      <div class="hud-gauche"><span class="pilule"><span class="point-vert"></span>EN VIE <b id="nb-vivants">0/0</b></span><button class="pilule bouton-quitter" id="quitter-jeu" type="button">✕ Quitter</button><button class="pilule bouton-quitter bouton-admin" id="bouton-admin" type="button" hidden>⚡ Admin</button></div>
+    <div class="panneau-admin" id="panneau-admin" hidden></div>
       <span class="pilule alerte" id="alerte" hidden></span>
       <span class="pilule"><b id="chrono">0:00</b></span>
     </div>
@@ -282,7 +292,7 @@
   <script src="../assets/config.js"></script>
   <script type="module">
     import * as M from './cercle/moteur.js';
-    import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './multi/presence.js';
+    import { obtenirCompte, suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './multi/presence.js';
 
     const $ = id => document.getElementById(id);
     const toile = $('toile');
@@ -405,9 +415,33 @@
       ecran = nom;
       for (const id of ['accueil', 'salon', 'fin']) $(id).hidden = id !== nom;
       $('hud').hidden = !(nom === 'jeu' || nom === 'fin');
+      majAdmin();
       document.body.classList.toggle('menu', nom !== 'jeu');
       $('fil').innerHTML = '';
     }
+
+    /* ---------- Pouvoirs admin (compte du propriétaire) ---------- */
+    // en ligne, c'est le serveur qui dit si on est admin (il a vérifié le compte)
+    let adminEnLigne = false, adminCompte = false;
+    function majAdmin() {
+      const oui = ecran === 'jeu' && !spectateur && (solo ? adminCompte : enLigne && adminEnLigne);
+      $('bouton-admin').hidden = !oui;
+      if (!oui) $('panneau-admin').hidden = true;
+    }
+    $('panneau-admin').innerHTML = '<b>⚡ Pouvoirs admin</b>' + M.COMMANDES_ADMIN.map(c => `<button type="button" data-admin="${c.id}"><span>${c.icone}</span>${echapper(c.nom)}</button>`).join('')
+      + '<small>En ligne, les autres joueurs voient quand tu utilises un pouvoir, et la partie ne compte pas dans les victoires.</small>';
+    $('bouton-admin').addEventListener('click', e => { e.stopPropagation(); $('panneau-admin').hidden = !$('panneau-admin').hidden; });
+    $('panneau-admin').addEventListener('pointerdown', e => e.stopPropagation());
+    $('panneau-admin').addEventListener('click', e => {
+      e.stopPropagation();
+      const b = e.target.closest('[data-admin]');
+      if (!b) return;
+      if (solo) {
+        const r = adminCompte ? M.admin(solo.e, 'moi', b.dataset.admin) : null;
+        petitToast(r ? '⚡ ' + r.texte : 'Ce pouvoir ne marche pas maintenant.');
+      } else envoyer({ t: 'admin', cmd: b.dataset.admin });
+    });
+    obtenirCompte().then(c => { if (c) c.ecouter(compte => { adminCompte = !!(compte && compte.admin); majAdmin(); }); });
 
     function message(texte) {
       $('message').textContent = texte || '';
@@ -512,6 +546,7 @@
       switch (m.t) {
         case 'bienvenue':
           moi = m.id;
+          adminEnLigne = !!m.admin;
           if (!$('pseudo').readOnly && /^Invité\d+$/.test(m.nom) && !/^Invité/.test(pseudo())) petitToast('Ce pseudo appartient à un compte : tu joues en « ' + m.nom + ' ».');
           if (annonceEnAttente === codeSalle) {
             annonceEnAttente = null;
@@ -549,6 +584,9 @@
         case 'erreur':
           quitte = true;
           retourAccueil(m.message);
+          break;
+        case 'admin':
+          petitToast('⚡ ' + m.nom + ' ' + m.texte);
           break;
       }
     }

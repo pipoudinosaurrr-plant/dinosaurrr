@@ -105,7 +105,7 @@
       let s;
       const nomTour = ctx.nom(v.j[v.tour]);
       if (v.fini) {
-        const raisons = { mat: 'Échec et mat !', pat: 'Pat : match nul.', '50 coups': 'Nulle : 50 coups sans prise ni pion.', 'répétition': 'Nulle : même position 3 fois.', 'matériel': 'Nulle : plus assez de pièces pour mater.', abandon: 'Abandon.', 'départ': 'L’adversaire est parti.' };
+        const raisons = { mat: 'Échec et mat !', pat: 'Pat : match nul.', '50 coups': 'Nulle : 50 coups sans prise ni pion.', 'répétition': 'Nulle : même position 3 fois.', 'matériel': 'Nulle : plus assez de pièces pour mater.', abandon: 'Abandon.', 'départ': 'L’adversaire est parti.', admin: 'Pouvoir admin ⚡' };
         s = `<b>${raisons[v.raison] || 'Partie finie.'}</b><br>` + (v.gagnant === -1 ? 'Égalité.' : (ctx.deux ? `${echapper(ctx.nom(v.j[v.gagnant]))} gagne !` : v.gagnant === mi ? 'Tu as gagné !' : `${echapper(ctx.nom(v.j[v.gagnant]))} a gagné.`));
       } else if (ctx.deux) s = `<b>Aux ${v.tour === 0 ? 'blancs' : 'noirs'}</b> (${echapper(nomTour)})${v.echec ? ' — <b style="color:#f87171">Échec !</b>' : ''}`;
       else if (v.tour === mi) s = `<b>À toi</b> (${mi === 0 ? 'blancs' : 'noirs'}).${v.echec ? ' <b style="color:#f87171">Ton roi est en échec !</b>' : ''}`;

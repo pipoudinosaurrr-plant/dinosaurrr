@@ -253,6 +253,17 @@ export function meilleurCoup(pos, niveau = 2) {
 }
 
 /* ---------- Le jeu ---------- */
+// photo de la partie avant chaque coup (pour le pouvoir admin « annuler »)
+function sauver(e) {
+  (e.histo = e.histo || []).push({ b: [...e.b], tour: e.tour, roque: e.roque, ep: e.ep, demi: e.demi, n: e.san.length, dernier: e.dernier, prises: e.prises.map(l => [...l]), cles: { ...e.cles } });
+  if (e.histo.length > 300) e.histo.shift();
+}
+// après une modification « magique » du plateau : coups possibles, mat, pat…
+function apresMagie(e) {
+  e.ep = -1;
+  e.legaux = coupsLegaux(e);
+  if (!e.legaux.length) finir(e, enEchec(e.b, e.tour) ? 1 - e.tour : -1, enEchec(e.b, e.tour) ? 'mat' : 'pat');
+}
 function finir(e, gagnant, raison) {
   e.fini = true; e.gagnant = gagnant; e.raison = raison;
   e.classement = classer(e.joueurs, j => (gagnant === -1 ? 0 : (indexDe(e, j.id) === gagnant ? 1 : 0)), j => (gagnant === -1 ? 'Nulle' : (indexDe(e, j.id) === gagnant ? 'Victoire' : 'Défaite')));
@@ -291,6 +302,7 @@ export default {
     const m = e.legaux.find(x => x.de === d.de && x.a === d.a && (x.promo || null) === (x.promo ? (d.promo || 'Q') : null));
     if (!m) return false;
     const san = notation(e, m, e.legaux);
+    sauver(e);
     if (m.prise) e.prises[i].push(m.prise);
     faire(e, m);
     e.dernier = [m.de, m.a];
@@ -317,6 +329,58 @@ export default {
     const m = meilleurCoup(e, niveau);
     if (!m) return null;
     return { t: 'coup', de: m.de, a: m.a, promo: m.promo };
+  },
+
+  // pouvoirs admin (voir games/multi/admin.js)
+  admin: {
+    commandes: [
+      { id: 'annuler', nom: 'Annuler mon dernier coup', icone: '↩️', texte: 'a annulé son dernier coup' },
+      { id: 'rejouer', nom: 'Jouer deux fois de suite', icone: '⏩', texte: 'rejoue tout de suite' },
+      { id: 'dame', nom: 'Faire disparaître la dame adverse', icone: '💨', texte: 'a fait disparaître la dame adverse' },
+      { id: 'promo', nom: 'Tous mes pions deviennent des dames', icone: '👑', texte: 'a transformé ses pions en dames' }
+    ],
+    faire(e, id, cmd, t) {
+      const i = indexDe(e, id);
+      const miens = p => p !== VIDE && couleurDe(p) === i;
+      if (cmd === 'annuler') {
+        if (!e.histo || !e.histo.length) return null;
+        // on revient juste avant mon dernier coup
+        let s = null;
+        while (e.histo.length) { s = e.histo.pop(); if (s.tour === i) break; }
+        if (!s || s.tour !== i) return null;
+        Object.assign(e, { b: s.b, tour: s.tour, roque: s.roque, ep: s.ep, demi: s.demi, dernier: s.dernier, prises: s.prises, cles: s.cles });
+        e.san = e.san.slice(0, s.n);
+        e.legaux = coupsLegaux(e);
+        e.tAction = t;
+        return {};
+      }
+      if (cmd === 'rejouer') {
+        if (e.tour === i) return null;
+        sauver(e);
+        e.tour = i;
+        e.tAction = t;
+        apresMagie(e);
+        return {};
+      }
+      if (cmd === 'dame') {
+        const dame = i === 0 ? 'q' : 'Q';
+        if (!e.b.includes(dame)) return null;
+        sauver(e);
+        e.b = e.b.map(p => (p === dame ? VIDE : p));
+        apresMagie(e);
+        return {};
+      }
+      if (cmd === 'promo') {
+        const pion = i === 0 ? 'P' : 'p';
+        if (!e.b.includes(pion)) return null;
+        sauver(e);
+        e.b = e.b.map(p => (p === pion ? (i === 0 ? 'Q' : 'q') : p));
+        apresMagie(e);
+        return {};
+      }
+      return null;
+    },
+    victoire(e, id) { finir(e, indexDe(e, id), 'admin'); }
   },
 
   retirer(e, id) {

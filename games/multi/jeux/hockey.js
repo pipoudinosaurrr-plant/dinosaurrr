@@ -8,6 +8,9 @@ export const R_PALET = 22, R_MAILLET = 34;
 export const BUTS = 7;
 const V_MAILLET = 1800, V_MAX = 1200, FROTTEMENT = 0.45, REBOND = 0.85;
 
+const rayon = (e, i, t) => (t < (e.geant ? e.geant[i] : 0) ? R_MAILLET * 1.8 : R_MAILLET);
+const butOuvert = (e, k, t) => !(e.mur && t < e.mur[k]);
+
 function servir(e, cote, t) {
   // le palet repart dans le camp de celui qui vient d'encaisser
   e.p = { x: W / 2, y: cote === 0 ? H * 0.68 : H * 0.32, vx: 0, vy: 0 };
@@ -40,6 +43,7 @@ export default {
       m: [{ x: W / 2, y: H - 90, cx: W / 2, cy: H - 90, vx: 0, vy: 0 }, { x: W / 2, y: 90, cx: W / 2, cy: 90, vx: 0, vy: 0 }],
       s: [0, 0], p: null, pause: 0, gagnant: -1,
       ia: [{ prochain: 0 }, { prochain: 0 }],
+      gel: [0, 0], mur: [0, 0], geant: [0, 0],
       fini: false, classement: [], evts: []
     };
     servir(e, Math.random() < 0.5 ? 0 : 1, t);
@@ -64,7 +68,8 @@ export default {
       const h = Math.min(reste, 0.004);
       reste -= h;
       // les maillets vont vers la position voulue (vitesse limitée)
-      for (const m of e.m) {
+      for (const [k, m] of e.m.entries()) {
+        if (t < e.gel[k]) { m.vx = 0; m.vy = 0; continue; }   // maillet gelé (pouvoir admin)
         const dx = m.cx - m.x, dy = m.cy - m.y, d = Math.hypot(dx, dy);
         const pas = Math.min(d, V_MAILLET * h);
         const nx = d > 0 ? m.x + dx / d * pas : m.x, ny = d > 0 ? m.y + dy / d * pas : m.y;
@@ -80,10 +85,9 @@ export default {
       if (p.x < R_PALET) { p.x = R_PALET; p.vx = Math.abs(p.vx) * REBOND; e.evts.push(['bord']); }
       if (p.x > W - R_PALET) { p.x = W - R_PALET; p.vx = -Math.abs(p.vx) * REBOND; e.evts.push(['bord']); }
       const dansBut = Math.abs(p.x - W / 2) < BUT_L / 2 - R_PALET * 0.4;
-      if (!dansBut) {
-        if (p.y < R_PALET) { p.y = R_PALET; p.vy = Math.abs(p.vy) * REBOND; e.evts.push(['bord']); }
-        if (p.y > H - R_PALET) { p.y = H - R_PALET; p.vy = -Math.abs(p.vy) * REBOND; e.evts.push(['bord']); }
-      }
+      // (un but bloqué par un pouvoir admin fait rebondir le palet comme un mur)
+      if ((!dansBut || !butOuvert(e, 1, t)) && p.y < R_PALET) { p.y = R_PALET; p.vy = Math.abs(p.vy) * REBOND; e.evts.push(['bord']); }
+      if ((!dansBut || !butOuvert(e, 0, t)) && p.y > H - R_PALET) { p.y = H - R_PALET; p.vy = -Math.abs(p.vy) * REBOND; e.evts.push(['bord']); }
       // but !
       if (p.y < -R_PALET || p.y > H + R_PALET) {
         const marque = p.y < 0 ? 0 : 1;
@@ -96,7 +100,7 @@ export default {
       // chocs avec les maillets
       for (let i = 0; i < 2; i++) {
         const m = e.m[i];
-        const dx = p.x - m.x, dy = p.y - m.y, d = Math.hypot(dx, dy), min = R_PALET + R_MAILLET;
+        const dx = p.x - m.x, dy = p.y - m.y, d = Math.hypot(dx, dy), min = R_PALET + rayon(e, i, t);
         if (d >= min || d === 0) continue;
         const nx = dx / d, ny = dy / d;
         p.x = m.x + nx * min; p.y = m.y + ny * min;
@@ -118,8 +122,8 @@ export default {
         if (p.y > H - R_PALET) { p.y = H - R_PALET; p.vy = -Math.abs(p.vy) * 0.6; }
       }
       // un maillet ne peut pas s'asseoir sur le palet bloqué contre un bord
-      for (const m of e.m) {
-        const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy), min = R_PALET + R_MAILLET;
+      for (const [k, m] of e.m.entries()) {
+        const dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy), min = R_PALET + rayon(e, k, t);
         if (d < min) {
           const nx = d > 0 ? dx / d : 0, ny = d > 0 ? dy / d : (m === e.m[0] ? 1 : -1);
           m.x = p.x + nx * min; m.y = p.y + ny * min;
@@ -202,6 +206,41 @@ export default {
     return { t: 'pos', x, y };
   },
 
+  // pouvoirs admin (voir games/multi/admin.js)
+  admin: {
+    commandes: [
+      { id: 'but1', nom: '+1 but', icone: '⚽', texte: '+1 but' },
+      { id: 'but5', nom: '+5 buts', icone: '🥅', texte: '+5 buts' },
+      { id: 'tir', nom: 'Tir surpuissant', icone: '💥', texte: 'a lancé un tir surpuissant' },
+      { id: 'geler', nom: 'Geler l’adversaire 5 s', icone: '🧊', texte: 'a gelé son adversaire' },
+      { id: 'mur', nom: 'Bloquer mon but 10 s', icone: '🧱', texte: 'a bloqué son but' },
+      { id: 'geant', nom: 'Maillet géant 10 s', icone: '🔴', texte: 'a un maillet géant' }
+    ],
+    faire(e, id, cmd, t) {
+      const i = indexDe(e, id), j = 1 - i;
+      if (cmd === 'but1' || cmd === 'but5') {
+        e.s[i] += cmd === 'but1' ? 1 : 5;
+        e.evts.push(['but', i]);
+        if (e.s[i] >= BUTS) finir(e);
+        return {};
+      }
+      if (cmd === 'tir') {
+        const m = e.m[i], cible = { x: W / 2, y: i === 0 ? -40 : H + 40 };
+        const px = m.x, py = m.y + (i === 0 ? -1 : 1) * (R_PALET + rayon(e, i, t) + 2);
+        const dx = cible.x - px, dy = cible.y - py, d = Math.hypot(dx, dy) || 1;
+        e.p = { x: px, y: py, vx: dx / d * 2200, vy: dy / d * 2200 };
+        if (t < e.pause) e.pause = t;
+        e.evts.push(['tape', i]);
+        return {};
+      }
+      if (cmd === 'geler') { e.gel[j] = t + 5000; return {}; }
+      if (cmd === 'mur') { e.mur[i] = t + 10000; return {}; }
+      if (cmd === 'geant') { e.geant[i] = t + 10000; return {}; }
+      return null;
+    },
+    victoire(e, id) { const i = indexDe(e, id); e.s[i] = Math.max(e.s[i], BUTS); finir(e); }
+  },
+
   retirer(e, id) {
     const i = indexDe(e, id);
     if (e.fini || i < 0) return false;
@@ -216,6 +255,9 @@ export default {
       p: [r(e.p.x), r(e.p.y)], v: [r(e.p.vx), r(e.p.vy)],
       m: e.m.map(m => [r(m.x), r(m.y)]),
       s: e.s, pause: Math.max(0, Math.round(e.pause - (t || 0))),
+      gel: e.gel.map(g => Math.max(0, Math.round(g - (t || 0)))),
+      mur: e.mur.map(g => Math.max(0, Math.round(g - (t || 0)))),
+      r: [rayon(e, 0, t || 0), rayon(e, 1, t || 0)],
       j: e.joueurs.map(j => j.id), gagnant: e.gagnant, fini: e.fini
     };
   }

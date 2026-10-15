@@ -7,7 +7,8 @@
    En solo, le moteur tourne dans le navigateur ; en ligne, sur le serveur.
    ========================================================== */
 
-import { suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './presence.js';
+import { commandesAdmin, appliquerAdmin } from './admin.js';
+import { obtenirCompte, suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './presence.js';
 
 export const COULEURS = ['#22c55e', '#3b82f6', '#f97316', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
 const NOMS_BOTS = ['Atlas', 'Nova', 'Orion', 'Echo', 'Volt', 'Nyx', 'Zéro', 'Pixel'];
@@ -38,7 +39,12 @@ export function demarrerJeu(cfg) {
   const regles = (TACTILE && cfg.reglesTactile) || cfg.regles || [];
   const nbJoueurs = moteur.min === moteur.max ? `${moteur.max} joueurs` : `${moteur.min} à ${moteur.max} joueurs`;
   document.body.insertAdjacentHTML('beforeend', `
-    <div class="barre-jeu" hidden><button data-a="quitter">← Quitter</button></div>
+    <div class="barre-jeu" hidden><button data-a="quitter">← Quitter</button><button data-a="admin" class="bouton-admin" hidden>⚡ Admin</button></div>
+    <div class="panneau-admin" hidden>
+      <div class="titre-admin">⚡ Pouvoirs admin</div>
+      ${commandesAdmin(moteur).map(c => `<button data-admin="${c.id}"><span>${c.icone || '⚡'}</span>${echapper(c.nom)}</button>`).join('')}
+      <p class="note-admin">En ligne, les autres joueurs voient quand tu utilises un pouvoir, et la partie ne compte pas dans les victoires.</p>
+    </div>
 
     <section class="ecran" data-ecran="accueil">
       <div class="carte">
@@ -115,7 +121,35 @@ export function demarrerJeu(cfg) {
     const enJeu = nom === 'jeu';
     zone.hidden = !(enJeu || nom === 'fin');
     barreJeu.hidden = !enJeu;
+    majAdmin();
   }
+
+  /* ---------- Pouvoirs admin (compte du propriétaire) ---------- */
+  // en ligne, c'est le serveur qui dit si on est admin (il a vérifié le compte)
+  let adminEnLigne = false, adminCompte = false;
+  obtenirCompte().then(c => { if (c) c.ecouter(compte => { adminCompte = !!(compte && compte.admin); majAdmin(); }); });
+  function estAdmin() { return local ? adminCompte : adminEnLigne; }
+  function majAdmin() {
+    const b = $('.bouton-admin');
+    if (!b) return;
+    b.hidden = !(ecran === 'jeu' && estAdmin() && !spectateur);
+    if (b.hidden) $('.panneau-admin').hidden = true;
+  }
+  function pouvoirAdmin(cmd) {
+    if (!estAdmin()) return;
+    if (local) {
+      const r = appliquerAdmin(moteur, local.e, 'moi', cmd, Date.now());
+      if (!r) { toast('Ce pouvoir ne marche pas maintenant.'); return; }
+      toast('⚡ ' + r.texte + (r.prive ? ' — ' + r.prive : ''), r.prive ? 6000 : 2400);
+      publierLocal(true);
+    } else if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'admin', cmd }));
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-admin]');
+    if (b) { pouvoirAdmin(b.dataset.admin); return; }
+    const p = $('.panneau-admin');
+    if (p && !p.hidden && !e.target.closest('.panneau-admin, .bouton-admin')) p.hidden = true;
+  });
 
   function message(texte) {
     const m = $('.message');
@@ -311,6 +345,7 @@ export function demarrerJeu(cfg) {
     switch (m.t) {
       case 'bienvenue':
         moi = m.id;
+        adminEnLigne = !!m.admin;
         if (!champPseudo.readOnly && /^Invité\d+$/.test(m.nom) && !/^Invité/.test(pseudo())) {
           toast('Ce pseudo appartient à un compte : tu joues en « ' + m.nom + ' ». Connecte-toi pour l’utiliser.', 4500);
           renomme = true;
@@ -342,6 +377,12 @@ export function demarrerJeu(cfg) {
         break;
       case 'erreur-douce':
         toast(m.message);
+        break;
+      case 'admin':
+        toast('⚡ ' + m.nom + ' ' + m.texte, 3000);
+        break;
+      case 'admin-prive':
+        toast(m.texte, 6000);
         break;
       case 'erreur':
         quitte = true;
@@ -442,6 +483,7 @@ export function demarrerJeu(cfg) {
       case 'rejouer': lancerSolo(dernierMode === 'deux'); break;
       case 'menu': retourAccueil(''); break;
       case 'quitter': quitter(); break;
+      case 'admin': $('.panneau-admin').hidden = !$('.panneau-admin').hidden; break;
       case 'lancer': if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'lance' })); break;
       case 'plus-bot': if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'bot', ajout: true })); break;
       case 'moins-bot': if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'bot', ajout: false })); break;

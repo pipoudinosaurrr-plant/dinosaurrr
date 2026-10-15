@@ -93,7 +93,7 @@ export function viser(e, id, x, y) {
 
 export function foncer(e, id) {
   const j = trouver(e, id);
-  if (!j || !j.vivant || e.t < 0 || e.fini || j.cd > 0) return;
+  if (!j || !j.vivant || e.t < 0 || e.fini || (j.cd > 0 && !j.infini)) return;
   let dx = j.tx - j.x, dy = j.ty - j.y;
   let d = Math.hypot(dx, dy);
   if (d < 8) { dx = j.vx; dy = j.vy; d = Math.hypot(dx, dy); }
@@ -101,7 +101,7 @@ export function foncer(e, id) {
   j.vx += dx / d * DASH_V;
   j.vy += dy / d * DASH_V;
   j.dash = DASH_T;
-  j.cd = DASH_RECHARGE;
+  j.cd = j.infini ? 0 : DASH_RECHARGE;
   e.evts.push(['dash', j.id]);
 }
 
@@ -270,7 +270,7 @@ function collisions(e) {
       if (d >= D) continue;
       if (d < 0.01) { dx = 1; dy = 0; d = 1; }
       const nx = dx / d, ny = dy / d;
-      const mp = p.dash > 0 ? DASH_MASSE : 1, mq = q.dash > 0 ? DASH_MASSE : 1;
+      const mp = p.invincible ? 40 : p.dash > 0 ? DASH_MASSE : 1, mq = q.invincible ? 40 : q.dash > 0 ? DASH_MASSE : 1;
       const recouvre = D - Math.min(d, D);
       p.x -= nx * recouvre * mq / (mp + mq); p.y -= ny * recouvre * mq / (mp + mq);
       q.x += nx * recouvre * mp / (mp + mq); q.y += ny * recouvre * mp / (mp + mq);
@@ -293,6 +293,13 @@ function eliminer(e) {
   for (const j of e.joueurs) {
     if (!j.vivant) continue;
     const d = Math.hypot(j.x - e.cx, j.y - e.cy);
+    if (d > e.r && j.invincible) {
+      // invincible (pouvoir admin) : le bord le renvoie dans le cercle
+      const k = (e.r - RAYON_JOUEUR) / d;
+      j.x = e.cx + (j.x - e.cx) * k; j.y = e.cy + (j.y - e.cy) * k;
+      j.vx *= -0.5; j.vy *= -0.5;
+      continue;
+    }
     if (d > e.r) dehors.push([j, d - e.r]);
   }
   if (dehors.length) sortir(e, dehors);
@@ -318,6 +325,38 @@ function sortir(e, liste) {
       .map(j => ({ id: j.id, nom: j.nom, couleur: j.couleur, bot: j.bot, place: j.place, temps: r1(j.tSortie) }));
     e.evts.push(['fin']);
   }
+}
+
+/* ---------- Pouvoirs admin (compte du propriétaire seulement) ---------- */
+
+export const COMMANDES_ADMIN = [
+  { id: 'invincible', nom: 'Invincible', icone: '🛡️', texte: 'est devenu invincible' },
+  { id: 'dash', nom: 'Dash infini', icone: '⚡', texte: 'a le dash infini' },
+  { id: 'souffle', nom: 'Souffler tout le monde', icone: '🌪️', texte: 'a soufflé tout le monde' },
+  { id: 'victoire', nom: 'Éjecter tout le monde', icone: '🏆', texte: 'a éjecté tout le monde' }
+];
+
+export function admin(e, id, cmd) {
+  const j = trouver(e, id);
+  const c = COMMANDES_ADMIN.find(x => x.id === cmd);
+  if (!j || !j.vivant || e.fini || !c) return null;
+  const autres = e.joueurs.filter(o => o.vivant && o !== j);
+  if (cmd === 'invincible') j.invincible = true;
+  if (cmd === 'dash') { j.infini = true; j.cd = 0; }
+  if (cmd === 'souffle') {
+    for (const o of autres) {
+      const dx = o.x - j.x, dy = o.y - j.y, d = Math.hypot(dx, dy) || 1;
+      o.vx += dx / d * 1400; o.vy += dy / d * 1400;
+      o.coupPar = j.id; o.coupT = e.t;
+    }
+  }
+  if (cmd === 'victoire') {
+    if (!autres.length) return null;
+    for (const o of autres) { o.coupPar = j.id; o.coupT = e.t; }
+    sortir(e, autres.map(o => [o, 1]));
+  }
+  e.triche = true;
+  return { texte: c.texte };
 }
 
 /* ---------- Les bots ---------- */

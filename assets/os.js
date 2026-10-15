@@ -1362,6 +1362,7 @@
           icone.classList.toggle('seul', autres === 0);
           icone.title = texteCompte() + (notifsParties() ? '' : ' · notifications coupées');
         }
+        if (m.t === 'annonce-admin') bulle(`📢 Message de ${m.nom}`, m.texte, 20000, { icone: 'info' });
         if (m.t === 'invitation') {
           const jeu = JEUX.find(j => j.id === m.jeu);
           if (!jeu) return;
@@ -1768,6 +1769,19 @@
       });
     }
 
+    // message de l'admin à tout le site
+    function notifAnnonce(m) {
+      $$('.m-notif-partie').forEach(x => x.remove());
+      const n = creer(`
+        <div class="m-notif-partie" role="status">
+          <div class="texte"><b>📢 Message de ${echapper(m.nom)}</b><span>${echapper(m.texte)}</span></div>
+          <button class="fermer" aria-label="Fermer">✕</button>
+        </div>`);
+      document.body.append(n);
+      const fin = setTimeout(() => n.remove(), 20000);
+      $('.fermer', n).addEventListener('click', () => { clearTimeout(fin); n.remove(); });
+    }
+
     function notifInvitation(m) {
       const jeu = JEUX.find(j => j.id === m.jeu);
       if (!jeu) return;
@@ -1860,6 +1874,7 @@
         if (m.t === 'parties') { partiesM = m.liste || []; majParties(); }
         if (m.t === 'contacts') { contactsM = m; majJoueurs(); }
         if (m.t === 'invitation') notifInvitation(m);
+        if (m.t === 'annonce-admin') notifAnnonce(m);
       });
     }
 
