@@ -415,7 +415,9 @@
       v.offset = borne(v.offset + decalageIA(v, ancien, segJ, LARGEUR_VOITURE) * dt * 60, -1.1, 1.1);
       const avant = v.z;
       v.z = avancer(v.z, dt * v.vitesse, longueurPiste);
-      if (v.z < avant) { v.tours++; if (v.tours >= TOURS && !v.fini) v.fini = tempsCourse; }
+      if (v.z < avant) v.tours++;
+      // un adversaire a fini quand il a parcouru la même distance que le joueur à l'arrivée
+      if (!v.fini && etat !== 'decompte' && distanceVoiture(v) >= TOURS * longueurPiste + JOUEUR_Z) v.fini = Math.max(tempsCourse, 0.001);
       v.pct = reste(v.z, SEG);
       const nouveau = trouverSegment(v.z);
       if (ancien !== nouveau) {
@@ -532,7 +534,9 @@
 
   function finir() {
     etat = 'fini';
-    const rang = rangJoueur();
+    // (à cet instant la position du joueur est déjà repartie à zéro pour un nouveau tour :
+    //  sa place = 1 + le nombre d'adversaires déjà arrivés)
+    const rang = 1 + voitures.filter(v => v.fini).length;
     classementFinal = rang;
     const temps = tempsCourse;
     const rTemps = A.record('turbo-' + circuit.id + '-temps', temps, false);
