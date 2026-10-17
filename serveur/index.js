@@ -9,6 +9,7 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import * as M from '../games/cercle/moteur.js';
+import * as DIO from '../games/dinoio/moteur.js';
 import JEUX from '../games/multi/jeux/index.js';
 import { Comptes, ACTIONS_PUBLIQUES, formeProprio } from './comptes.js';
 import { appliquerAdmin, CLE_ADMIN } from '../games/multi/admin.js';
@@ -68,6 +69,13 @@ export default {
       const corps = JSON.stringify({ ...d, action: compte[1], jeton, ip: requete.headers.get('CF-Connecting-IP') || '' });
       const rep = await comptes(env).fetch('https://comptes/', { method: 'POST', body: corps });
       return new Response(rep.body, { status: rep.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+    }
+
+    // Dino.io : une seule grande arène pour tout le monde
+    if (url.pathname === '/dinoio') {
+      if (requete.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket attendu', { status: 426 });
+      if (!origineAutorisee(requete.headers.get('Origin'))) return new Response('Origine refusée', { status: 403 });
+      return env.ARENES.get(env.ARENES.idFromName('dinoio')).fetch(requete);
     }
 
     // présence : qui est sur le site + annonces des nouvelles parties
@@ -726,6 +734,7 @@ export class Table extends DurableObject {
    ------------------------------------------------------- */
 
 const JEUX_ANNONCABLES = new Set(['cercle', ...Object.keys(JEUX)]);
+const ACTIVITES = new Set([...JEUX_ANNONCABLES, 'dinoio']);
 const PAUSE_ANNONCE = 20000;  // une annonce toutes les 20 s maximum par personne
 
 const DUREE_MAX_PARTIE = 3 * 3600 * 1000;  // une partie oubliée disparaît de la liste après 3 h
@@ -894,7 +903,7 @@ export class Presence extends DurableObject {
 
     // ce que je fais : le jeu ouvert en ce moment (ou rien)
     if (msg.t === 'activite') {
-      const jeu = JEUX_ANNONCABLES.has(msg.jeu) ? msg.jeu : null;
+      const jeu = ACTIVITES.has(msg.jeu) ? msg.jeu : null;
       if (info.activite === jeu) return;
       info.activite = jeu;
       this.ecrireInfo(ws, info);
@@ -936,3 +945,127 @@ export class Presence extends DurableObject {
 
   async webSocketError(ws) { await this.webSocketClose(ws, 1011); }
 }
+
+/* ==========================================================
+   Dino.io : l'arène (un seul objet pour tout le monde)
+   Elle tourne 20 fois par seconde tant qu'au moins une personne est connectée.
+   Des bots complètent pour qu'il y ait toujours du monde.
+   ========================================================== */
+
+const TIC_ARENE = 50;
+const MAX_ARENE = 40;
+
+export class Arene extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.monde = DIO.creerMonde();
+    this.boucle = null;
+    this.infos = new WeakMap();
+    this.debit = new WeakMap();
+    this.signature = '';
+    this.compteBots = 0;
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+  }
+
+  async fetch() {
+    if (this.connectes().length >= MAX_ARENE) return new Response('Arène pleine', { status: 503 });
+    const paire = new WebSocketPair();
+    const [client, serveur] = Object.values(paire);
+    this.ctx.acceptWebSocket(serveur);
+    this.ecrireInfo(serveur, { id: idAleatoire(), nom: '' });
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  lireInfo(ws) {
+    let info = this.infos.get(ws);
+    if (!info) { info = ws.deserializeAttachment() || {}; this.infos.set(ws, info); }
+    return info;
+  }
+  ecrireInfo(ws, info) { this.infos.set(ws, info); ws.serializeAttachment(info); }
+  connectes() { return this.ctx.getWebSockets().filter(ws => ws.readyState === 1); }
+  envoyer(ws, msg) { try { ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); } catch (e) { /* fermée */ } }
+  diffuser(msg) { const t = JSON.stringify(msg); for (const ws of this.connectes()) this.envoyer(ws, t); }
+
+  demarrer() {
+    if (this.boucle) return;
+    this.dernier = Date.now();
+    this.boucle = setInterval(() => this.tic(), TIC_ARENE);
+  }
+
+  tic() {
+    const w = this.monde;
+    const liste = this.connectes();
+    // plus personne : on arrête (l'arène se met en veille)
+    if (!liste.some(ws => this.lireInfo(ws).nom)) { clearInterval(this.boucle); this.boucle = null; return; }
+    const maintenant = Date.now();
+    const dt = Math.min(0.1, (maintenant - this.dernier) / 1000);
+    this.dernier = maintenant;
+    if (++this.compteBots % 10 === 0) DIO.equilibrerBots(w);
+    DIO.piloterBots(w, dt);
+    DIO.etape(w, dt);
+    const evts = w.evts; w.evts = [];
+    // la liste des joueurs (noms, couleurs) seulement quand elle change
+    const infos = DIO.infosJoueurs(w);
+    const sig = JSON.stringify(infos);
+    if (sig !== this.signature) { this.signature = sig; this.diffuser({ t: 'joueurs', j: infos }); }
+    const s = DIO.instantane(w);
+    s.t = 'etat';
+    if (evts.length) s.e = evts.map(e => e[0] === 'mort' ? [e[0], this.num(e[1]), e[2], e[3]] : e[0] === 'mange' ? [e[0], this.num(e[1]), this.num(e[2])] : [e[0], this.num(e[1])]);
+    this.diffuser(s);
+  }
+
+  num(id) { const j = this.monde.joueurs.get(id); return j ? j.num : 0; }
+
+  async webSocketMessage(ws, brut) {
+    if (typeof brut !== 'string' || brut.length > 300) return;
+    const maintenant = Date.now();
+    const d = this.debit.get(ws) || { n: 0, depuis: maintenant };
+    if (maintenant - d.depuis > 1000) { d.n = 0; d.depuis = maintenant; }
+    d.n++;
+    this.debit.set(ws, d);
+    if (d.n > 60) return;
+    let msg;
+    try { msg = JSON.parse(brut); } catch (e) { return; }
+    if (!msg || typeof msg !== 'object') return;
+    const info = this.lireInfo(ws);
+    const w = this.monde;
+
+    switch (msg.t) {
+      case 'salut': {
+        const ident = await identifier(this.env, msg);
+        const pris = new Set([...w.joueurs.values()].filter(j => j.id !== info.id).map(j => j.nom));
+        let nom = ident.nom;
+        if (pris.has(nom)) { let i = 2; while (pris.has(nom.slice(0, 12) + i)) i++; nom = nom.slice(0, 12) + i; }
+        info.nom = nom;
+        info.compte = ident.compte;
+        this.ecrireInfo(ws, info);
+        const couleur = DIO.COULEURS.includes(msg.couleur) ? msg.couleur : null;
+        const j = w.joueurs.get(info.id) || DIO.ajouterJoueur(w, info.id, nom, couleur);
+        j.nom = nom;
+        DIO.equilibrerBots(w);
+        this.envoyer(ws, { t: 'init', moi: j.num, nom, monde: DIO.MONDE, oeufs: DIO.tousLesOeufs(w), j: DIO.infosJoueurs(w), admin: info.compte === CLE_ADMIN, admins: COMMANDES_ADMIN_DIO });
+        this.signature = '';
+        this.demarrer();
+        break;
+      }
+      case 'vise': DIO.viser(w, info.id, Number(msg.x), Number(msg.y)); break;
+      case 'divise': DIO.diviser(w, info.id); break;
+      case 'naitre': DIO.naitre(w, info.id); break;
+      case 'admin': {
+        if (info.compte !== CLE_ADMIN) return;
+        const r = DIO.admin(w, info.id, String(msg.cmd || ''));
+        if (r) this.diffuser({ t: 'admin', nom: info.nom, texte: r.texte });
+        break;
+      }
+    }
+  }
+
+  async webSocketClose(ws, code) {
+    const info = this.lireInfo(ws);
+    try { ws.close(code === 1005 || code === 1006 ? 1000 : code, 'au revoir'); } catch (e) { /* déjà fermée */ }
+    if (info.id) DIO.retirerJoueur(this.monde, info.id);
+  }
+
+  async webSocketError(ws) { await this.webSocketClose(ws, 1011); }
+}
+const COMMANDES_ADMIN_DIO = DIO.COMMANDES_ADMIN.map(({ id, nom, icone }) => ({ id, nom, icone }));

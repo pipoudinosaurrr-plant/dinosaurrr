@@ -36,6 +36,7 @@ window.ICONES = {
   tuiles: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M6 6h2.2v1.2H6v1.6h2.2"/>',
   pendu: '<path d="M4 21h9M7 21V3h9v3"/><path d="M7 7l3-4"/><circle cx="16" cy="8.5" r="2.5"/><path d="M16 11v5M14 13.5h4M16 16l-2 3M16 16l2 3"/>',
   cartes: '<rect x="3.5" y="6" width="10" height="14" rx="1.5" transform="rotate(-12 8.5 13)"/><rect x="10.5" y="4" width="10" height="14" rx="1.5"/><path d="M15.5 8.5l-2 2.5 2 2.5 2-2.5z"/>',
+  dinoio: '<circle cx="10" cy="13" r="7"/><circle cx="19" cy="17" r="3"/><circle cx="12" cy="11" r=".6"/><circle cx="20" cy="7" r="1"/><circle cx="5" cy="21" r="1"/>',
   meteore: '<circle cx="15" cy="15" r="5"/><path d="M3 3l7.5 7.5M7 3l4.5 4.5M3 7l4.5 4.5"/>',
   processeur: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   histoire: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',

@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dino.io</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #toile { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+    #toile[hidden] { display: none; }
+    .hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    .hud[hidden] { display: none; }
+    .hud-gauche { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 10px; display: flex; gap: 6px; pointer-events: auto; }
+    .hud-gauche button { height: 30px; padding: 0 11px; border: 1px solid var(--bord2); border-radius: 999px; background: rgba(0, 0, 0, .7); color: var(--doux); font: 500 11px var(--mono); cursor: pointer; }
+    .hud-gauche .bouton-admin { color: #fde047; border-color: rgba(250, 204, 21, .5); }
+    .hud-gauche [hidden] { display: none; }
+    .top { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 10px; width: 176px; padding: 10px 12px; border: 1px solid var(--bord2); border-radius: 12px; background: rgba(0, 0, 0, .55); font: 500 12px var(--mono); }
+    .top b { display: block; margin-bottom: 6px; color: var(--tres-doux); font-size: 10px; letter-spacing: .1em; }
+    .top ol { margin: 0; padding: 0; list-style: none; }
+    .top li { display: flex; gap: 6px; padding: 1px 0; color: #d4d4d4; }
+    .top li span:nth-child(2) { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .top li.moi { color: #fde047; }
+    .masse { position: absolute; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); color: #fff; font: 700 15px var(--mono); text-shadow: 0 1px 3px #000; }
+    .masse small { display: block; color: var(--tres-doux); font: 500 11px var(--mono); }
+    #carte { position: absolute; right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); width: 120px; height: 120px; border: 1px solid var(--bord2); border-radius: 10px; background: rgba(0, 0, 0, .5); }
+    .bouton-diviser { position: absolute; right: 18px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 136px); width: 74px; height: 74px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); background: rgba(34, 197, 94, .28); color: #fff; font: 700 12px var(--mono); pointer-events: auto; touch-action: none; }
+    .bouton-diviser[hidden] { display: none; }
+    .aide-jeu { position: absolute; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); color: var(--tres-doux); font: 500 11px var(--mono); white-space: nowrap; transition: opacity .8s; }
+    .mort { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(0, 0, 0, .55); padding: 16px; }
+    .mort[hidden] { display: none; }
+    .mort .carte { max-width: 340px; text-align: center; }
+    .couleurs { display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0 4px; }
+    .couleurs button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+    .couleurs button.actif { border-color: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); }
+    .note-hors-ligne { margin-top: 10px; color: var(--tres-doux); font-size: 12px; }
+    @media (max-width: 520px) { .top { width: 136px; font-size: 11px; } #carte { width: 92px; height: 92px; } .bouton-diviser { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 108px); } }
+  </style>
+</head>
+<body>
+  <section class="ecran" id="accueil">
+    <div class="carte">
+      <span class="pastille"><span class="point-vert"></span>Arène en ligne · ouverte à tous</span>
+      <h1>Dino.io</h1>
+      <p class="intro">Une seule grande arène pour tout le site. Mange les œufs pour grossir, puis mange les dinos plus petits que toi… et fuis les plus gros !</p>
+      <label class="etiquette" for="pseudo">Ton pseudo</label>
+      <input type="text" id="pseudo" maxlength="14" autocomplete="off" spellcheck="false">
+      <span class="etiquette" style="margin-top:12px;display:block">Ta couleur</span>
+      <div class="couleurs" id="couleurs"></div>
+      <div class="pile">
+        <button class="btn primaire grand" id="jouer">Entrer dans l’arène</button>
+        <button class="btn grand" id="hors-ligne">Jouer hors ligne (contre les bots)</button>
+      </div>
+      <p class="message" id="message" hidden></p>
+      <div class="regles" id="regles"></div>
+      <div class="serveur"><i></i><span>Vérification du serveur…</span></div>
+      <div class="enligne" hidden><i></i><span></span></div>
+    </div>
+  </section>
+
+  <canvas id="toile" hidden></canvas>
+  <div class="hud" id="hud" hidden>
+    <div class="hud-gauche"><button id="quitter">← Quitter</button><button id="bouton-admin" class="bouton-admin" hidden>⚡ Admin</button></div>
+    <div class="top"><b>CLASSEMENT</b><ol id="top"></ol></div>
+    <div class="masse" id="masse"></div>
+    <canvas id="carte" width="240" height="240"></canvas>
+    <button class="bouton-diviser" id="diviser" hidden>DIVISER</button>
+    <div class="aide-jeu" id="aide"></div>
+  </div>
+  <div class="panneau-admin" id="panneau-admin" hidden></div>
+
+  <div class="mort" id="mort" hidden>
+    <div class="carte">
+      <span class="pastille">Oups</span>
+      <h1 id="mort-titre">Tu t’es fait manger !</h1>
+      <p class="intro" id="mort-texte"></p>
+      <div class="pile">
+        <button class="btn primaire grand" id="renaitre">Rejouer</button>
+        <button class="btn grand" id="menu">Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import * as M from './dinoio/moteur.js';
+    import { obtenirCompte, brancherPseudo, jetonCompte, suivrePresence, texteEnLigne } from './multi/presence.js';
+
+    const $ = id => document.getElementById(id);
+    const TACTILE = matchMedia('(hover: none), (pointer: coarse)').matches;
+    const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const stock = {
+      lire(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
+      ecrire(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* rien */ } }
+    };
+    const conf = window.SITE_CONFIG || {};
+    const params = new URLSearchParams(location.search);
+    const EN_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const SERVEUR = params.get('serveur') || (EN_LOCAL ? '127.0.0.1:8787' : (conf.serveurJeux || ''));
+    const SECURISE = !/^(localhost|127\.)/.test(SERVEUR);
+
+    /* ---------- Accueil ---------- */
+    const champ = $('pseudo');
+    champ.value = stock.lire('cercle-pseudo', 'Dino' + Math.floor(100 + Math.random() * 900));
+    brancherPseudo(champ, () => stock.lire('cercle-pseudo', 'Dino' + Math.floor(100 + Math.random() * 900)));
+    const pseudo = () => { const p = champ.value.trim().slice(0, 14) || 'Dino'; if (!champ.readOnly) stock.ecrire('cercle-pseudo', p); return p; };
+    let couleur = stock.lire('dinoio-couleur', M.COULEURS[Math.floor(Math.random() * M.COULEURS.length)]);
+    if (!M.COULEURS.includes(couleur)) couleur = M.COULEURS[0];
+    function dessinerCouleurs() {
+      $('couleurs').innerHTML = M.COULEURS.map(c => `<button type="button" data-c="${c}" class="${c === couleur ? 'actif' : ''}" style="background:${c}" aria-label="Couleur"></button>`).join('');
+    }
+    $('couleurs').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; couleur = b.dataset.c; stock.ecrire('dinoio-couleur', couleur); dessinerCouleurs(); });
+    dessinerCouleurs();
+    const regles = TACTILE
+      ? [['Bouger', 'Pose le doigt : ton dino va vers lui.'], ['Diviser', 'Le bouton DIVISER te coupe en deux pour attraper une proie.'], ['Cactus', 'Trop gros ? Les cactus te font éclater.']]
+      : [['Bouger', 'Ton dino suit la souris.'], ['Diviser', 'Espace : tu te coupes en deux pour attraper une proie.'], ['Cactus', 'Trop gros ? Les cactus te font éclater.']];
+    $('regles').innerHTML = regles.map(([a, b]) => `<div class="regle"><b>${a}</b><span>${b}</span></div>`).join('');
+
+    function message(t) { $('message').textContent = t || ''; $('message').hidden = !t; }
+    async function verifierServeur() {
+      const el = document.querySelector('.serveur');
+      const etat = (ok, t) => { el.className = 'serveur ' + (ok ? 'ok' : 'ko'); el.querySelector('span').textContent = t; $('jouer').disabled = !ok; };
+      if (!SERVEUR) return etat(false, 'Arène en ligne pas encore branchée. Le mode hors ligne marche.');
+      try {
+        const r = await fetch(`${SECURISE ? 'https' : 'http'}://${SERVEUR}/sante`, { cache: 'no-store' });
+        etat(r.ok, r.ok ? 'Arène en ligne' : 'Arène indisponible. Le mode hors ligne marche.');
+      } catch (e) { etat(false, 'Arène hors ligne pour l’instant. Le mode hors ligne marche.'); }
+    }
+    verifierServeur();
+    suivrePresence(n => { const t = texteEnLigne(n); const el = document.querySelector('.enligne'); el.hidden = !t; el.querySelector('span').textContent = t; });
+
+    /* ---------- État de la partie ---------- */
+    let mode = null;          // 'enligne' | 'local'
+    let ws = null, minuteriePing = null;
+    let monNum = 0;
+    const joueurs = new Map();   // num → { nom, couleur, bot }
+    let oeufs = [];              // [x, y, c, x, y, c, …]
+    let cactus = [];
+    let tampon = [];             // états reçus (en ligne)
+    let local = null;            // monde du mode hors ligne
+    let vivant = false;
+    let estAdmin = false, adminCompte = false, commandesAdmin = M.COMMANDES_ADMIN;
+    obtenirCompte().then(c => { if (c) c.ecouter(compte => { adminCompte = !!(compte && compte.admin); majAdmin(); }); });
+
+    function montrerJeu(oui) {
+      $('accueil').hidden = oui;
+      $('toile').hidden = !oui;
+      $('hud').hidden = !oui;
+      if (!oui) { $('mort').hidden = true; $('panneau-admin').hidden = true; }
+      $('diviser').hidden = !TACTILE;
+      majAdmin();
+    }
+
+    function majAdmin() {
+      const oui = !$('hud').hidden && (mode === 'local' ? adminCompte : estAdmin);
+      $('bouton-admin').hidden = !oui;
+      if (!oui) $('panneau-admin').hidden = true;
+      $('panneau-admin').innerHTML = '<div class="titre-admin">⚡ Pouvoirs admin</div>' + commandesAdmin.map(c => `<button data-admin="${c.id}"><span>${c.icone}</span>${echapper(c.nom)}</button>`).join('')
+        + '<p class="note-admin">Dans l’arène en ligne, tout le monde voit quand tu utilises un pouvoir.</p>';
+    }
+    $('bouton-admin').addEventListener('click', () => { $('panneau-admin').hidden = !$('panneau-admin').hidden; });
+    $('panneau-admin').addEventListener('click', e => {
+      const b = e.target.closest('[data-admin]');
+      if (!b) return;
+      if (mode === 'local') { const r = adminCompte ? M.admin(local, 'moi', b.dataset.admin) : null; toast(r ? '⚡ ' + r.texte : 'Ce pouvoir ne marche pas maintenant.'); }
+      else envoyer({ t: 'admin', cmd: b.dataset.admin });
+    });
+
+    let minuterieToast = null;
+    function toast(texte, duree = 2600) {
+      let t = document.querySelector('.toast');
+      if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.append(t); }
+      t.textContent = texte; t.hidden = false;
+      clearTimeout(minuterieToast);
+      minuterieToast = setTimeout(() => { t.hidden = true; }, duree);
+    }
+
+    function envoyer(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+
+    /* ---------- En ligne ---------- */
+    function entrerEnLigne() {
+      message('');
+      quitter(true);
+      mode = 'enligne';
+      tampon = []; joueurs.clear(); monNum = 0;
+      try { ws = new WebSocket(`${SECURISE ? 'wss' : 'ws'}://${SERVEUR}/dinoio`); } catch (e) { return message('Impossible de joindre l’arène.'); }
+      const ceWs = ws;
+      ceWs.onopen = async () => {
+        const jeton = await jetonCompte();
+        if (ceWs.readyState !== 1) return;
+        ceWs.send(JSON.stringify({ t: 'salut', nom: pseudo(), jeton, couleur }));
+        clearInterval(minuteriePing);
+        minuteriePing = setInterval(() => { if (ceWs.readyState === 1) ceWs.send('ping'); }, 25000);
+      };
+      ceWs.onmessage = ev => {
+        if (ev.data === 'pong') return;
+        let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        recevoir(m);
+      };
+      ceWs.onclose = () => {
+        if (ceWs !== ws) return;
+        clearInterval(minuteriePing);
+        if (mode === 'enligne') { quitter(); message('La connexion avec l’arène a été coupée.'); }
+      };
+    }
+
+    function recevoir(m) {
+      if (m.t === 'init') {
+        monNum = m.moi;
+        oeufs = m.oeufs;
+        lireJoueurs(m.j);
+        estAdmin = !!m.admin;
+        if (m.admins) commandesAdmin = m.admins;
+        vivant = true;
+        if (m.nom !== pseudo() && /^Invité/.test(m.nom)) toast('Ce pseudo appartient à un compte : tu joues en « ' + m.nom + ' ».', 4500);
+        montrerJeu(true);
+        aideDebut();
+      }
+      if (m.t === 'joueurs') lireJoueurs(m.j);
+      if (m.t === 'etat') {
+        for (let i = 0; i < m.o.length; i += 4) { const k = m.o[i] * 3; oeufs[k] = m.o[i + 1]; oeufs[k + 1] = m.o[i + 2]; oeufs[k + 2] = m.o[i + 3]; }
+        cactus = m.k;
+        tampon.push({ recu: performance.now(), s: m });
+        if (tampon.length > 30) tampon.shift();
+        if (m.e) evenements(m.e);
+      }
+      if (m.t === 'admin') toast('⚡ ' + m.nom + ' ' + m.texte, 3000);
+    }
+    function lireJoueurs(liste) {
+      joueurs.clear();
+      for (const [num, nom, coul, bot] of liste) joueurs.set(num, { nom, couleur: coul, bot: !!bot });
+    }
+
+    /* ---------- Hors ligne ---------- */
+    function entrerLocal() {
+      message('');
+      quitter(true);
+      mode = 'local';
+      local = M.creerMonde();
+      const j = M.ajouterJoueur(local, 'moi', pseudo(), couleur);
+      monNum = j.num;
+      for (let i = 0; i < M.BOTS_MIN; i++) M.equilibrerBots(local);
+      vivant = true;
+      montrerJeu(true);
+      aideDebut();
+    }
+    let accLocal = 0, compteLocal = 0;
+    function avancerLocal(dt) {
+      accLocal += Math.min(dt, 0.1);
+      while (accLocal >= 1 / 60) {
+        if (++compteLocal % 30 === 0) M.equilibrerBots(local);
+        M.piloterBots(local, 1 / 60);
+        M.etape(local, 1 / 60);
+        accLocal -= 1 / 60;
+      }
+      const evts = local.evts; local.evts = [];
+      evenements(evts.map(e => e[0] === 'mort' ? [e[0], numDe(e[1]), e[2], e[3]] : e[0] === 'mange' ? [e[0], numDe(e[1]), numDe(e[2])] : [e[0], numDe(e[1])]));
+    }
+    const numDe = id => { const j = local.joueurs.get(id); return j ? j.num : 0; };
+
+    /* ---------- Évènements ---------- */
+    function evenements(evts) {
+      for (const e of evts) {
+        if (e[0] === 'mange' && e[1] === monNum) { bip(520, 0.06); if (e[2]) { const v = joueurs.get(e[2]) || {}; if (!v.bot && v.nom) toast('Miam ! Tu as mangé ' + v.nom); } }
+        if (e[0] === 'cactus' && e[1] === monNum) bip(160, 0.2);
+        if (e[0] === 'mort' && e[1] === monNum) mourir(e[2], e[3]);
+      }
+    }
+    function mourir(par, meilleur) {
+      vivant = false;
+      const record = Math.max(Number(stock.lire('dinoio-record', 0)) || 0, meilleur);
+      stock.ecrire('dinoio-record', record);
+      $('mort-titre').textContent = par ? `Mangé par ${par} !` : 'Tu t’es fait manger !';
+      $('mort-texte').textContent = `Ta plus grosse taille : ${meilleur}. Ton record : ${record}.`;
+      $('mort').hidden = false;
+      bip(200, 0.35);
+    }
+    $('renaitre').addEventListener('click', () => {
+      $('mort').hidden = true;
+      vivant = true;
+      if (mode === 'local') M.naitre(local, 'moi'); else envoyer({ t: 'naitre' });
+    });
+    $('menu').addEventListener('click', () => quitter());
+    $('quitter').addEventListener('click', () => quitter());
+    $('jouer').addEventListener('click', entrerEnLigne);
+    $('hors-ligne').addEventListener('click', entrerLocal);
+
+    function quitter(sansMenu) {
+      mode = null;
+      clearInterval(minuteriePing);
+      const ancien = ws; ws = null;
+      try { if (ancien) ancien.close(); } catch (e) { /* rien */ }
+      local = null;
+      if (!sansMenu) montrerJeu(false);
+    }
+    window.addEventListener('pagehide', () => { try { if (ws) ws.close(); } catch (e) { /* rien */ } });
+
+    function aideDebut() {
+      const a = $('aide');
+      a.textContent = TACTILE ? 'Pose le doigt pour te diriger · DIVISER pour attaquer' : 'La souris pour te diriger · Espace pour te diviser';
+      a.style.opacity = 1;
+      setTimeout(() => { a.style.opacity = 0; }, 6000);
+    }
+
+    /* ---------- Sons ---------- */
+    let audio = null;
+    function bip(f, d, v = 0.05) {
+      try { if (JSON.parse(localStorage.getItem('site-son') ?? 'true') === false) return; } catch (e) { /* rien */ }
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = 'triangle'; o.frequency.value = f;
+        g.gain.setValueAtTime(v, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + d);
+        o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + d + 0.02);
+      } catch (e) { /* pas de son */ }
+    }
+
+    /* ---------- Commandes ---------- */
+    const toile = $('toile');
+    const g = toile.getContext('2d');
+    let dpr = 1, cw = 0, ch = 0;
+    function taille() { dpr = Math.min(2, devicePixelRatio || 1); cw = innerWidth; ch = innerHeight; toile.width = Math.round(cw * dpr); toile.height = Math.round(ch * dpr); }
+    addEventListener('resize', taille); taille();
+    const pointeur = { x: 0, y: 0, actif: false };
+    const cam = { x: M.MONDE / 2, y: M.MONDE / 2, s: 1 };
+    toile.addEventListener('pointermove', e => { pointeur.x = e.clientX; pointeur.y = e.clientY; pointeur.actif = true; });
+    toile.addEventListener('pointerdown', e => { pointeur.x = e.clientX; pointeur.y = e.clientY; pointeur.actif = true; $('panneau-admin').hidden = true; });
+    function diviser() { if (mode === 'local') M.diviser(local, 'moi'); else envoyer({ t: 'divise' }); }
+    addEventListener('keydown', e => { if (mode && e.code === 'Space') { e.preventDefault(); if (!e.repeat) diviser(); } });
+    $('diviser').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); diviser(); });
+    let dernierVise = 0;
+    function cibleMonde() { return [cam.x + (pointeur.x - cw / 2) / cam.s, cam.y + (pointeur.y - ch / 2) / cam.s]; }
+
+    /* ---------- Ce qu'on dessine ---------- */
+    // en ligne : on affiche le passé (100 ms) en glissant entre deux états reçus
+    function vueEnLigne(maintenant) {
+      if (!tampon.length) return null;
+      const t = maintenant - 100;
+      let a = tampon[0], b = tampon[tampon.length - 1];
+      for (let i = tampon.length - 1; i > 0; i--) { if (tampon[i - 1].recu <= t) { a = tampon[i - 1]; b = tampon[i]; break; } }
+      const k = b.recu > a.recu ? Math.max(0, Math.min(1, (t - a.recu) / (b.recu - a.recu))) : 1;
+      const avant = new Map();
+      for (let i = 0; i < a.s.c.length; i += 5) avant.set(a.s.c[i + 1], i);
+      const cellules = [];
+      const c = b.s.c;
+      for (let i = 0; i < c.length; i += 5) {
+        const j = avant.get(c[i + 1]);
+        let x = c[i + 2], y = c[i + 3], m = c[i + 4], vx = 0, vy = 0;
+        if (j !== undefined) {
+          const pa = a.s.c;
+          vx = x - pa[j + 2]; vy = y - pa[j + 3];
+          x = pa[j + 2] + vx * k; y = pa[j + 3] + vy * k; m = pa[j + 4] + (m - pa[j + 4]) * k;
+        }
+        cellules.push({ num: c[i], id: c[i + 1], x, y, m, vx, vy });
+      }
+      return { cellules, top: b.s.top, inv: new Set(b.s.inv || []) };
+    }
+    const precedent = new Map();
+    function vueLocale() {
+      const cellules = [];
+      for (const j of local.joueurs.values()) {
+        if (!j.vivant) continue;
+        for (const c of j.cellules) {
+          const p = precedent.get(c.id);
+          cellules.push({ num: j.num, id: c.id, x: c.x, y: c.y, m: c.m, vx: p ? c.x - p[0] : 0, vy: p ? c.y - p[1] : 0 });
+          precedent.set(c.id, [c.x, c.y]);
+        }
+      }
+      if (precedent.size > 400) precedent.clear();
+      const top = [...local.joueurs.values()].filter(j => j.vivant).map(j => [j.num, Math.round(M.masse(j))]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      joueurs.clear();
+      for (const j of local.joueurs.values()) joueurs.set(j.num, { nom: j.nom, couleur: j.couleur, bot: j.bot });
+      oeufs = M.tousLesOeufs(local);
+      cactus = local.cactus.map(k => [k.x, k.y]);
+      return { cellules, top, inv: new Set([...local.joueurs.values()].filter(j => j.invincible > local.t).map(j => j.num)) };
+    }
+
+    const COUL_OEUFS = ['#fde68a', '#fca5a5', '#a7f3d0', '#bfdbfe', '#f5d0fe', '#fed7aa'];
+    function assombrir(hex, k) {
+      const n = parseInt(hex.slice(1), 16);
+      const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+      return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+    }
+
+    function dessinerDino(c, coul, nom, moi, invincible, temps) {
+      const r = M.rayon(c.m) * cam.s;
+      const x = (c.x - cam.x) * cam.s + cw / 2, y = (c.y - cam.y) * cam.s + ch / 2;
+      if (x < -r - 40 || y < -r - 40 || x > cw + r + 40 || y > ch + r + 40) return;
+      const dir = Math.hypot(c.vx, c.vy) > 0.3 ? Math.atan2(c.vy, c.vx) : 0;
+      // pics sur le dos (une petite crête tout autour)
+      g.fillStyle = assombrir(coul, 0.7);
+      const n = 14;
+      g.beginPath();
+      for (let i = 0; i <= n * 2; i++) {
+        const a = dir + Math.PI + (i / (n * 2)) * Math.PI * 2;
+        const rr = i % 2 ? r * 1.0 : r * 1.12;
+        const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+        if (i) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.fill();
+      // corps
+      g.fillStyle = coul;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      g.lineWidth = Math.max(2, r * 0.06);
+      g.strokeStyle = assombrir(coul, 0.6);
+      g.stroke();
+      if (invincible) {
+        g.strokeStyle = `rgba(253,224,71,${0.6 + Math.sin(temps / 120) * 0.3})`;
+        g.lineWidth = Math.max(3, r * 0.08);
+        g.beginPath(); g.arc(x, y, r * 1.18, 0, Math.PI * 2); g.stroke();
+      }
+      // yeux qui regardent où il va
+      if (r > 9) {
+        const ex = Math.cos(dir), ey = Math.sin(dir), px = -ey, py = ex;
+        for (const s of [-1, 1]) {
+          const ox = x + ex * r * 0.35 + px * s * r * 0.3, oy = y + ey * r * 0.35 + py * s * r * 0.3;
+          g.fillStyle = '#fff'; g.beginPath(); g.arc(ox, oy, r * 0.16, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#111'; g.beginPath(); g.arc(ox + ex * r * 0.06, oy + ey * r * 0.06, r * 0.08, 0, Math.PI * 2); g.fill();
+        }
+      }
+      // nom
+      if (r > 16) {
+        const taillePolice = Math.max(10, Math.min(30, r * 0.32));
+        g.font = `700 ${taillePolice}px system-ui, sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)';
+        const ny = y - r * 0.05 - (r > 40 ? 0 : 0);
+        g.strokeText(nom, x - Math.cos(dir) * r * 0.15, ny + r * 0.42);
+        g.fillStyle = '#fff';
+        g.fillText(nom, x - Math.cos(dir) * r * 0.15, ny + r * 0.42);
+        if (moi && r > 26) {
+          g.font = `600 ${taillePolice * 0.7}px var(--mono), monospace`;
+          g.fillStyle = 'rgba(255,255,255,.75)';
+          g.fillText(Math.round(c.m), x, ny + r * 0.42 + taillePolice * 0.9);
+        }
+      }
+    }
+
+    function dessinerCactus(kx, ky) {
+      const r = 46 * cam.s;
+      const x = (kx - cam.x) * cam.s + cw / 2, y = (ky - cam.y) * cam.s + ch / 2;
+      if (x < -r * 2 || y < -r * 2 || x > cw + r * 2 || y > ch + r * 2) return;
+      g.fillStyle = '#15803d';
+      g.beginPath();
+      const n = 18;
+      for (let i = 0; i <= n * 2; i++) {
+        const a = (i / (n * 2)) * Math.PI * 2;
+        const rr = i % 2 ? r : r * 1.22;
+        const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+        if (i) g.lineTo(px, py); else g.moveTo(px, py);
+      }
+      g.fill();
+      g.fillStyle = '#22c55e';
+      g.beginPath(); g.arc(x, y, r * 0.86, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(20,83,45,.6)'; g.lineWidth = Math.max(1, 2 * cam.s);
+      for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(x + i * r * 0.35, y - r * 0.7); g.lineTo(x + i * r * 0.35, y + r * 0.7); g.stroke(); }
+    }
+
+    let avant = performance.now();
+    function boucle(maintenant) {
+      requestAnimationFrame(boucle);
+      const dt = Math.min(0.1, (maintenant - avant) / 1000);
+      avant = maintenant;
+      if (!mode) return;
+      if (mode === 'local' && local) avancerLocal(dt);
+      const vue = mode === 'local' ? (local ? vueLocale() : null) : vueEnLigne(maintenant);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = '#0b1210';
+      g.fillRect(0, 0, cw, ch);
+      if (!vue) return;
+
+      // caméra : sur mes morceaux, plus on est gros plus on voit loin
+      const miens = vue.cellules.filter(c => c.num === monNum);
+      const masseTotale = miens.reduce((s, c) => s + c.m, 0);
+      if (miens.length) {
+        const cx = miens.reduce((s, c) => s + c.x * c.m, 0) / masseTotale, cy = miens.reduce((s, c) => s + c.y * c.m, 0) / masseTotale;
+        const k = 1 - Math.exp(-dt * 8);
+        cam.x += (cx - cam.x) * k; cam.y += (cy - cam.y) * k;
+      }
+      const vueLarg = 1000 + Math.sqrt(Math.max(masseTotale, M.MASSE_DEPART)) * 34 + Math.max(0, miens.length - 1) * 60;
+      const s = Math.max(cw, ch) / vueLarg;
+      cam.s += (s - cam.s) * (1 - Math.exp(-dt * 3));
+
+      // où je veux aller
+      if (vivant && miens.length && pointeur.actif && maintenant - dernierVise > 50) {
+        dernierVise = maintenant;
+        const [tx, ty] = cibleMonde();
+        if (mode === 'local') M.viser(local, 'moi', tx, ty); else envoyer({ t: 'vise', x: Math.round(tx), y: Math.round(ty) });
+      }
+
+      // le sol : quadrillage et bord de l'arène
+      const pas = 60 * cam.s;
+      const ox = ((cw / 2 - cam.x * cam.s) % pas + pas) % pas, oy = ((ch / 2 - cam.y * cam.s) % pas + pas) % pas;
+      g.strokeStyle = 'rgba(255,255,255,.045)'; g.lineWidth = 1;
+      g.beginPath();
+      for (let x = ox; x < cw; x += pas) { g.moveTo(x, 0); g.lineTo(x, ch); }
+      for (let y = oy; y < ch; y += pas) { g.moveTo(0, y); g.lineTo(cw, y); }
+      g.stroke();
+      const bx = cw / 2 - cam.x * cam.s, by = ch / 2 - cam.y * cam.s;
+      g.strokeStyle = 'rgba(244,63,94,.6)'; g.lineWidth = 4;
+      g.strokeRect(bx, by, M.MONDE * cam.s, M.MONDE * cam.s);
+
+      // œufs
+      const ro = Math.max(2, 7 * cam.s);
+      const marge = 20 / cam.s;
+      const x0 = cam.x - cw / 2 / cam.s - marge, x1 = cam.x + cw / 2 / cam.s + marge, y0 = cam.y - ch / 2 / cam.s - marge, y1 = cam.y + ch / 2 / cam.s + marge;
+      for (let i = 0; i < oeufs.length; i += 3) {
+        const x = oeufs[i], y = oeufs[i + 1];
+        if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+        const px = (x - cam.x) * cam.s + cw / 2, py = (y - cam.y) * cam.s + ch / 2;
+        g.fillStyle = COUL_OEUFS[oeufs[i + 2]] || '#fff';
+        g.beginPath(); g.ellipse(px, py, ro * 0.82, ro, 0, 0, Math.PI * 2); g.fill();
+      }
+
+      // cactus sous les petits, au-dessus des gros (comme les virus d'agar.io)
+      const tri = [...vue.cellules].sort((a, b) => a.m - b.m);
+      const PETIT = 130;
+      for (const c of tri) if (c.m < PETIT) { const j = joueurs.get(c.num) || {}; dessinerDino(c, j.couleur || '#888', j.nom || '?', c.num === monNum, vue.inv.has(c.num), maintenant); }
+      for (const [kx, ky] of cactus) dessinerCactus(kx, ky);
+      for (const c of tri) if (c.m >= PETIT) { const j = joueurs.get(c.num) || {}; dessinerDino(c, j.couleur || '#888', j.nom || '?', c.num === monNum, vue.inv.has(c.num), maintenant); }
+
+      // classement
+      const html = vue.top.map(([num, m], i) => { const j = joueurs.get(num) || {}; return `<li class="${num === monNum ? 'moi' : ''}"><span>${i + 1}.</span><span>${echapper(j.nom || '?')}</span><span>${m}</span></li>`; }).join('');
+      if ($('top').dataset.h !== html) { $('top').innerHTML = html; $('top').dataset.h = html; }
+      const rang = vue.top.findIndex(([num]) => num === monNum);
+      const record = Number(stock.lire('dinoio-record', 0)) || 0;
+      const texteMasse = miens.length ? `Taille ${Math.round(masseTotale)}${rang >= 0 ? ` · ${rang + 1}e` : ''}<small>Record ${Math.max(record, Math.round(masseTotale))}</small>` : '';
+      if ($('masse').dataset.h !== texteMasse) { $('masse').innerHTML = texteMasse; $('masse').dataset.h = texteMasse; }
+
+      // mini-carte
+      const mc = $('carte').getContext('2d');
+      mc.clearRect(0, 0, 240, 240);
+      const k = 240 / M.MONDE;
+      for (const c of vue.cellules) {
+        const j = joueurs.get(c.num) || {};
+        mc.fillStyle = c.num === monNum ? '#fff' : (j.couleur || '#888');
+        mc.globalAlpha = c.num === monNum ? 1 : 0.7;
+        mc.beginPath(); mc.arc(c.x * k, c.y * k, Math.max(3, M.rayon(c.m) * k), 0, Math.PI * 2); mc.fill();
+      }
+      mc.globalAlpha = 1;
+      mc.strokeStyle = 'rgba(255,255,255,.35)'; mc.lineWidth = 2;
+      mc.strokeRect((cam.x - cw / 2 / cam.s) * k, (cam.y - ch / 2 / cam.s) * k, cw / cam.s * k, ch / cam.s * k);
+    }
+    requestAnimationFrame(boucle);
+    window.__dinoio = { get mode() { return mode; }, get vivant() { return vivant; }, get monde() { return local; }, get num() { return monNum; }, get tampon() { return tampon; }, get joueurs() { return joueurs; } };
+  </script>
+</body>
+</html>

@@ -11,14 +11,16 @@
       { "name": "SALLES", "class_name": "Salle" },
       { "name": "TABLES", "class_name": "Table" },
       { "name": "PRESENCE", "class_name": "Presence" },
-      { "name": "COMPTES", "class_name": "Comptes" }
+      { "name": "COMPTES", "class_name": "Comptes" },
+      { "name": "ARENES", "class_name": "Arene" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Salle"] },
     { "tag": "v2", "new_sqlite_classes": ["Table"] },
     { "tag": "v3", "new_sqlite_classes": ["Presence"] },
-    { "tag": "v4", "new_sqlite_classes": ["Comptes"] }
+    { "tag": "v4", "new_sqlite_classes": ["Comptes"] },
+    { "tag": "v5", "new_sqlite_classes": ["Arene"] }
   ],
   "observability": { "enabled": true }
 }

@@ -153,6 +153,16 @@
     <circle cx="13" cy="22" r="5" fill="url(#hom)" stroke="#881337" stroke-width=".8"/><circle cx="13" cy="22" r="2.2" fill="#fb7185" stroke="#881337" stroke-width=".6"/>
     <path d="M17.5 12.5l-2.5 3" stroke="#fff" stroke-width=".7" opacity=".5"/></svg>`;
 
+  // Dino.io : des dinos ronds dans l'arène, un gros mange un petit
+  D.dinoio = `<svg viewBox="0 0 32 32"><defs>${lin('dic', '#14532d', '#052e16', 1, 1)}${rad('dig', '#bbf7d0', '#22c55e', '#15803d')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="url(#dic)" stroke="#022c16"/>
+    <path d="M3 10h26M3 18h26M3 26h26M10 3v26M18 3v26M26 3v26" stroke="#fff" stroke-opacity=".07"/>
+    <circle cx="7" cy="7" r="1.2" fill="#fde68a"/><circle cx="25" cy="25" r="1.2" fill="#fca5a5"/><circle cx="26" cy="8" r="1.1" fill="#bfdbfe"/><circle cx="6" cy="24" r="1.1" fill="#f5d0fe"/>
+    <path d="M14 4.8l1.6 1.9 2-1.5 1 2.3 2.4-.6.2 2.5 2.4.5-.9 2.3 2 1.4-1.8 1.8 1.2 2.1-2.4.8" fill="none" stroke="#15803d" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="15" cy="16" r="9" fill="url(#dig)" stroke="#14532d" stroke-width="1"/>
+    <circle cx="18" cy="13.5" r="1.9" fill="#fff"/><circle cx="18.6" cy="13.3" r=".9" fill="#111"/><circle cx="20.5" cy="17" r="1.9" fill="#fff"/><circle cx="21.1" cy="16.9" r=".9" fill="#111"/>
+    <circle cx="25.5" cy="20.5" r="3" fill="#f97316" stroke="#7c2d12" stroke-width=".7"/><circle cx="26.3" cy="19.8" r=".7" fill="#fff"/></svg>`;
+
   // Data Clicker : une puce
   D.processeur = `<svg viewBox="0 0 32 32"><defs>${lin('k', '#555', '#141414')}${lin('v', '#7af08f', '#15803d')}</defs>
     <g stroke="#d4a82a" stroke-width="1.7"><path d="M11 3v5M16 3v5M21 3v5M11 24v5M16 24v5M21 24v5M3 11h5M3 16h5M3 21h5M24 11h5M24 16h5M24 21h5"/></g>

@@ -140,7 +140,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -389,6 +389,8 @@ content:
                   label: "Mon compte"
                 - name: jeu-cercle
                   label: "Jeu : Le Cercle"
+                - name: jeu-dinoio
+                  label: "Jeu : Dino.io"
                 - name: jeu-puissance4
                   label: "Jeu : Puissance 4"
                 - name: jeu-morpion

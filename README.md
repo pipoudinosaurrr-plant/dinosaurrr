@@ -37,7 +37,7 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 
 **Droits admin** (compte `Pipou_Dinosaur` seulement, vérifié par le serveur) : bouton ⚡ Admin en pleine partie dans tous les jeux à plusieurs (`games/multi/admin.js`, et `admin` dans chaque moteur), et onglet ⚡ Admin dans « Mon compte » (comptes, victoires, mots de passe, message à tout le site, fermer une partie). En ligne, les autres joueurs voient les pouvoirs utilisés et la partie ne compte pas dans les victoires.
 
-Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine, Échecs, Air hockey (les deux derniers se jouent aussi à 2 sur le même écran).
+Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Dino.io (une seule grande arène pour tout le site, moteur dans `games/dinoio/moteur.js`, objet `Arene` du serveur), Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine, Échecs, Air hockey (les deux derniers se jouent aussi à 2 sur le même écran).
 
 Les jeux en solo : Turbo Dino (course de voitures 3D), Dino Blaster (shooter spatial), Dino Aventure (plateformes), Blocs, Serpent, Casse-briques, Dino Run, Dino Flap, 2048, Pendu, Solitaire, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
 

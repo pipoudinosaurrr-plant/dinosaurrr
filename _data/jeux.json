@@ -13,6 +13,19 @@
   "cache": false
  },
  {
+  "id": "dinoio",
+  "titre": "Dino.io",
+  "description": "Une grande arène ouverte à tout le site : mange les œufs pour grossir, mange les dinos plus petits que toi et fuis les plus gros. Divise-toi pour attaquer, attention aux cactus !",
+  "icone": "dinoio",
+  "fichier": "games/dinoio.html",
+  "largeur": 980,
+  "hauteur": 680,
+  "bureau": true,
+  "nouveau": true,
+  "multi": true,
+  "cache": false
+ },
+ {
   "id": "puissance4",
   "titre": "Puissance 4",
   "description": "Le classique à 2 : aligne 4 jetons avant l'autre. En ligne avec un pote ou contre l'ordinateur.",
