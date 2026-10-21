@@ -1711,3 +1711,20 @@ body.mode-bureau[data-theme="noir"] :is(.menu-gauche, .menu-droite) img {
 /* les petites icônes en pixels gardent leur rendu net */
 body.mode-bureau[data-theme="noir"] .menu-droite { background: #e8e8e8; }
 body.mode-bureau[data-theme="noir"] .fenetre > .corps .volet { background: linear-gradient(180deg, #f2f2f2, #fafafa); }
+
+/* ---------- Bureau personnalisable : icônes à ajouter, supprimer, renommer, ranger ---------- */
+.icone-bureau.survol img { filter: drop-shadow(0 0 4px #fff) brightness(1.2); }
+.icone-bureau.survol span { border-color: #fff; }
+.icone-bureau.coin.survol img { transform: scale(1.12); }
+.icone-bureau[draggable="true"] { -webkit-user-drag: element; }
+.icone-bureau .renommer-icone { width: 74px; padding: 1px 2px; border: 1px solid #000; background: #fff; color: #000; font: calc(11px * var(--t, 1))/1.2 var(--xp); text-align: center; resize: none; outline: none; overflow: hidden; }
+.dialogue-xp.icones-perso { gap: 7px; }
+.icones-perso p { margin: 0; }
+.liste-icones-perso { flex: 1; min-height: 160px; padding: 2px 4px; overflow-y: auto; border: 1px solid #7f9db9; background: #fff; }
+.liste-icones-perso h4 { margin: 6px 0 2px; color: #0e3fae; font: bold calc(11px * var(--t, 1)) var(--xp); }
+.liste-icones-perso h4:first-child { margin-top: 2px; }
+.ligne-icone { display: flex; align-items: center; gap: 6px; height: 21px; padding: 0 3px; color: #000; cursor: default; }
+.ligne-icone:hover { background: #eef3fd; }
+.ligne-icone input { margin: 0; }
+.fichiers-liste .ligne.selection { background: var(--xp-sel); color: #fff; }
+.fichiers-liste .ligne[data-restaurer] { cursor: default; }

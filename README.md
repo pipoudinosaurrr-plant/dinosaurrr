@@ -144,6 +144,8 @@ Tout se fait sur **app.pagescms.org** (marche aussi sur téléphone). Dans le me
 | **Textes du site** | Les phrases des bulles et des messages, l'écran bleu, l'Invite de commandes, le coffre… (`{nom}` = nom du site, `{pseudo}` = ton pseudo) |
 | **Coffre secret** | Le contenu du coffre (fabriqué d'abord sur `dinosaurrr.com/outils/coffre.html`) |
 
+Les icônes du bureau choisies dans **Apparence** sont celles de départ : ensuite chaque visiteur range son propre bureau (clic droit sur le bureau → « Ajouter / enlever des icônes… », clic droit sur une icône → Renommer / Supprimer, glisser pour ranger, glisser un jeu depuis la fenêtre Jeux ou le menu démarrer pour l'ajouter, icônes supprimées dans la Corbeille). Son choix est gardé dans son navigateur.
+
 Clique sur **Save** : le site se met à jour en 1 à 2 minutes. Les questions du quiz et les mots à dessiner servent aussi au serveur des parties en ligne : Cloudflare le remet à jour tout seul après chaque **Save**.
 
 ## 7. Personnaliser le code

@@ -247,7 +247,8 @@
       halloffame: { titre: 'Hall of Fame', icone: 'trophee', taille: [600, 640], adresse: 'halloffame', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'classements.html', 'Hall of Fame') },
       chat: { titre: 'Chat', icone: 'chat', taille: [420, 580], adresse: 'chat', sansMenus: true, ouvrir: (c, e, o) => { nonLus = 0; majChat(); contenuPage(c, e, o, 'chat.html', 'Chat'); } },
       tournois: { titre: 'Tournois', icone: 'tournoi', taille: [720, 640], adresse: 'tournois', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'tournoi.html', 'Tournois') },
-      musique: { titre: 'Lecteur de musique', icone: 'musique', taille: [390, 440], adresse: '', sansMenus: true, ouvrir: (c) => contenuMusique(c) }
+      musique: { titre: 'Lecteur de musique', icone: 'musique', taille: [390, 440], adresse: '', sansMenus: true, ouvrir: (c) => contenuMusique(c) },
+      icones: { titre: 'Icônes du bureau', icone: 'ordinateur', taille: [380, 520], adresse: '', ouvrir: (c, e) => contenuIcones(c, e), dialogue: true }
     };
 
     JEUX.forEach(jeu => {
@@ -287,7 +288,8 @@
     };
     JEUX.forEach(j => { ICONES_BASE['jeu-' + j.id] = { nom: j.titre, icone: j.icone }; });
     const choixIcones = (Array.isArray(A.iconesBureau) ? A.iconesBureau : []).filter(x => x && ICONES_BASE[x.element] && APPS[x.element]);
-    const ICONES_BUREAU = [
+    // les icônes par défaut (Pages CMS → Apparence), puis chaque visiteur range son bureau comme il veut
+    const ICONES_DEFAUT = [
       ...(choixIcones.length
         ? choixIcones.map(x => ({ app: x.element, nom: x.nom || ICONES_BASE[x.element].nom, icone: ICONES_BASE[x.element].icone }))
         : [
@@ -297,9 +299,17 @@
           ...JEUX.filter(j => j.bureau).map(j => ({ app: 'jeu-' + j.id, nom: j.titre, icone: j.icone })),
           { app: 'apropos', nom: 'À propos', icone: 'info' },
           { app: 'contact', nom: 'Contact', icone: 'mail' }
-        ]),
-      { app: 'corbeille', nom: 'Corbeille', icone: 'corbeille', coin: true }
-    ];
+        ])
+    ].filter(x => APPS[x.app]);
+    const ICONE_CORBEILLE = { app: 'corbeille', nom: 'Corbeille', icone: 'corbeille', coin: true };
+    const iconeDe = (app, nom) => (ICONES_BASE[app] && APPS[app]) ? { app, nom: String(nom || ICONES_BASE[app].nom).slice(0, 40), icone: ICONES_BASE[app].icone } : null;
+    function lireIcones() {
+      const perso = stockage.lire('site-icones-perso', null);
+      if (!Array.isArray(perso)) return ICONES_DEFAUT.map(x => ({ ...x }));
+      const vus = new Set();
+      return perso.map(x => x && !vus.has(x.app) && (vus.add(x.app), iconeDe(x.app, x.nom))).filter(Boolean);
+    }
+    let mesIcones = lireIcones();
 
     const LANCEMENT = [
       { app: 'blog', nom: 'Blog', icone: 'fichier' },
@@ -347,6 +357,11 @@
       arreter() { arreter(); },
       session() { fermerSession(); },
       pageBlog() { window.open('blog/', '_blank', 'noopener'); },
+      renommerIcone() { renommerIcone(cibleIcone); },
+      supprimerIcone() { supprimerIcone(cibleIcone); },
+      ajouterBureau() { if (cibleApp && ajouterIcone(cibleApp)) bulle('Icône ajoutée', `« ${ICONES_BASE[cibleApp].nom} » est maintenant sur ton bureau.`, 3000, { icone: ICONES_BASE[cibleApp].icone }); },
+      iconesDefaut() { iconesParDefaut(); },
+      viderCorbeille() { const f = fenetres.get('corbeille'); ouvrirApp('corbeille'); setTimeout(() => { const b = document.querySelector('.fenetre [data-a="vider"]'); if (b) b.click(); }, f ? 0 : 60); },
       actualiser() {
         const zone = $('.icones-bureau');
         zone.style.visibility = 'hidden';
@@ -818,7 +833,7 @@
               ${[['Jeux à plusieurs (en ligne)', JEUX.filter(j => j.multi)], ['Jeux en solo', JEUX.filter(j => !j.multi)]].map(([titre, liste]) => `
                 <h4 class="groupe-xp">${titre}</h4>
                 ${liste.map(j => `
-                  <button class="tuile-xp" data-jeu="${echapper(j.id)}" title="${echapper(j.description)}">
+                  <button class="tuile-xp" draggable="true" data-jeu="${echapper(j.id)}" title="${echapper(j.description)}">
                     ${xp(j.icone, 48)}
                     <span><b>${echapper(j.titre)}</b><small>${echapper(j.description)}</small>${j.nouveau ? '<em>Nouveau</em>' : ''}</span>
                   </button>`).join('')}`).join('')}
@@ -844,6 +859,10 @@
           }).join('');
         });
       }
+      corps.addEventListener('contextmenu', e => {
+        const t = e.target.closest('.tuile-xp[data-jeu]');
+        if (t && ouvrirMenuAjout('jeu-' + t.dataset.jeu, e.clientX, e.clientY)) e.preventDefault();
+      });
       corps.addEventListener('click', e => {
         const r = e.target.closest('[data-rejoindre]');
         if (r) { const [jeu, code] = r.dataset.rejoindre.split('/'); ouvrirApp('jeu-' + jeu, { param: code + '!' }); return; }
@@ -1090,28 +1109,51 @@
         { nom: 'ancien_logo.png', icone: 'image', taille: '24 Ko', date: '28/09/2026 18:02' },
         { nom: 'test_jeu_v0.html', icone: 'manette', taille: '6 Ko', date: '25/09/2026 16:47' }
       ];
+      let choisi = null;
+      const voletCorbeille = (total, icones) => `<div class="taches-corbeille">${boiteVolet('Tâches de la Corbeille', !total ? '<span>La Corbeille est vide.</span>' : lienVolet('data-a="vider"', 'corbeille', 'Vider la Corbeille')
+        + (choisi ? lienVolet('data-a="restaurer"', 'ordinateur', 'Restaurer cet élément') : '')
+        + (icones.length ? lienVolet('data-a="tout-restaurer"', 'ordinateur', 'Restaurer tous les raccourcis') : ''), true)}</div>`;
       const dessiner = () => {
         const vide = session.lire('site-corbeille') === 'vide';
+        const icones = corbeilleIcones();
+        if (choisi && !icones.some(x => x.app === choisi)) choisi = null;
+        const total = (vide ? 0 : FICHIERS.length) + icones.length;
+        const date = t => new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
         corps.innerHTML = `
           <div class="explorateur">
             <aside class="volet">
-              ${boiteVolet('Tâches de la Corbeille', vide ? '<span>La Corbeille est vide.</span>' : lienVolet('data-a="vider"', 'corbeille', 'Vider la Corbeille'), true)}
+              ${voletCorbeille(total, icones)}
               ${boiteVolet('Autres emplacements', lienVolet('data-app="blog"', 'fichier', 'Blog') + lienVolet('data-app="jeux"', 'manette', 'Jeux'))}
             </aside>
             <div class="principal">
               <div class="liste-details fichiers-liste">
                 <div class="entetes"><span>Nom</span><span>Taille</span><span>Date de suppression</span></div>
-                <div class="lignes">${vide ? '' : FICHIERS.map(f => `
+                <div class="lignes">${icones.map(x => `
+                  <div class="ligne${x.app === choisi ? ' selection' : ''}" data-restaurer="${echapper(x.app)}" title="Double-clique pour remettre sur le bureau"><span>${xp(ICONES_BASE[x.app].icone, 16)}<span class="titre-ligne">${echapper(x.nom)}</span></span><span>Raccourci</span><span>${date(x.t || Date.now())}</span></div>`).join('')}${vide ? '' : FICHIERS.map(f => `
                   <div class="ligne"><span>${xp(f.icone, 16)}<span class="titre-ligne">${f.nom}</span></span><span>${f.taille}</span><span>${f.date}</span></div>`).join('')}</div>
               </div>
             </div>
           </div>
-          <div class="barre-etat"><span>${vide ? '0 objet' : FICHIERS.length + ' objets'}</span></div>`;
+          <div class="barre-etat"><span>${total} objet${total > 1 ? 's' : ''}</span></div>`;
       };
+      majCorbeille = () => { if (corps.isConnected) dessiner(); };
+      const restaurer = app => { const x = corbeilleIcones().find(c => c.app === app); if (x) ajouterIcone(x.app, { nom: x.nom, silencieux: true }); choisi = null; dessiner(); };
+      corps.addEventListener('dblclick', e => { const l = e.target.closest('[data-restaurer]'); if (l) restaurer(l.dataset.restaurer); });
       corps.addEventListener('click', e => {
+        const l = e.target.closest('[data-restaurer]');
+        if (l) {
+          choisi = l.dataset.restaurer;
+          $$('[data-restaurer]', corps).forEach(x => x.classList.toggle('selection', x === l));
+          const icones = corbeilleIcones(), total = (session.lire('site-corbeille') === 'vide' ? 0 : FICHIERS.length) + icones.length;
+          const t = $('.taches-corbeille', corps); if (t) t.outerHTML = voletCorbeille(total, icones);
+          return;
+        }
+        if (e.target.closest('[data-a="restaurer"]')) { if (choisi) restaurer(choisi); return; }
+        if (e.target.closest('[data-a="tout-restaurer"]')) { corbeilleIcones().reverse().forEach(x => ajouterIcone(x.app, { nom: x.nom, silencieux: true })); dessiner(); return; }
         if (e.target.closest('[data-a="vider"]')) {
-          const vider = () => { session.ecrire('site-corbeille', 'vide'); son('corbeille'); dessiner(); };
-          if (extras) extras.boite({ titre: 'Confirmer la suppression de plusieurs fichiers', icone: 'attention', boutons: ['Oui', 'Non'], texte: echapper(txt('corbeilleVider', 'Voulez-vous vraiment supprimer ces {nombre} éléments ?', { nombre: FICHIERS.length })) }).then(r => { if (r === 'Oui') vider(); });
+          const n = (session.lire('site-corbeille') === 'vide' ? 0 : FICHIERS.length) + corbeilleIcones().length;
+          const vider = () => { session.ecrire('site-corbeille', 'vide'); stockage.ecrire('site-icones-corbeille', []); son('corbeille'); dessiner(); };
+          if (extras) extras.boite({ titre: 'Confirmer la suppression de plusieurs fichiers', icone: 'attention', boutons: ['Oui', 'Non'], texte: echapper(txt('corbeilleVider', 'Voulez-vous vraiment supprimer ces {nombre} éléments ?', { nombre: n })) }).then(r => { if (r === 'Oui') vider(); });
           else vider();
           return;
         }
@@ -1127,12 +1169,201 @@
       const zone = $('.icones-bureau');
       const tactile = window.matchMedia('(hover: none)').matches;
       zone.innerHTML = '';
-      ICONES_BUREAU.forEach(item => {
-        const b = creer(`<button class="icone-bureau${item.coin ? ' coin' : ''}" role="listitem">${xp(item.icone, 32)}<span>${echapper(item.nom)}</span></button>`);
-        b.addEventListener('click', e => { e.stopPropagation(); selectionner(b); if (tactile) ouvrirApp(item.app); });
-        b.addEventListener('dblclick', () => ouvrirApp(item.app));
-        b.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ouvrirApp(item.app); } });
+      $$('.bureau > .icone-bureau.coin').forEach(x => x.remove());
+      [...mesIcones, ICONE_CORBEILLE].forEach((item, i) => {
+        const b = creer(`<button class="icone-bureau${item.coin ? ' coin' : ''}" role="listitem" data-icone="${item.coin ? 'corbeille' : i}"${item.coin || tactile ? '' : ' draggable="true"'}>${xp(item.icone, 32)}<span>${echapper(item.nom)}</span></button>`);
+        b.addEventListener('click', e => { e.stopPropagation(); if (b.classList.contains('renomme')) return; selectionner(b); if (tactile) ouvrirApp(item.app); });
+        b.addEventListener('dblclick', () => { if (!b.classList.contains('renomme')) ouvrirApp(item.app); });
+        b.addEventListener('keydown', e => {
+          if (b.classList.contains('renomme')) return;
+          if (e.key === 'Enter') { e.preventDefault(); ouvrirApp(item.app); }
+          if (!item.coin && e.key === 'Delete') { e.preventDefault(); supprimerIcone(i); }
+          if (!item.coin && e.key === 'F2') { e.preventDefault(); renommerIcone(i); }
+        });
+        b.addEventListener('contextmenu', e => {
+          e.preventDefault(); e.stopPropagation();
+          selectionner(b);
+          ouvrirMenuIcone(item.coin ? -1 : i, e.clientX, e.clientY);
+        });
+        b.addEventListener('dragstart', e => { e.dataTransfer.setData('text/x-icone', String(i)); e.dataTransfer.effectAllowed = 'move'; selectionner(b); });
         (item.coin ? $('.bureau') : zone).append(b);
+      });
+    }
+
+    function enregistrerIcones() {
+      stockage.ecrire('site-icones-perso', mesIcones.map(x => ({ app: x.app, nom: x.nom })));
+      dessinerIcones();
+    }
+    // la Corbeille garde les icônes supprimées (on peut les restaurer)
+    const corbeilleIcones = () => { const c = stockage.lire('site-icones-corbeille', []); return Array.isArray(c) ? c.filter(x => x && iconeDe(x.app)) : []; };
+    let majCorbeille = () => {};
+    function supprimerIcone(i) {
+      const x = mesIcones[i];
+      if (!x) return;
+      mesIcones.splice(i, 1);
+      stockage.ecrire('site-icones-corbeille', [{ app: x.app, nom: x.nom, t: Date.now() }, ...corbeilleIcones().filter(c => c.app !== x.app)].slice(0, 60));
+      son('corbeille');
+      enregistrerIcones();
+      majCorbeille();
+    }
+    function ajouterIcone(app, { nom, position, silencieux } = {}) {
+      if (mesIcones.some(x => x.app === app)) { if (!silencieux) bulle('Déjà sur le bureau', `« ${mesIcones.find(x => x.app === app).nom} » est déjà sur ton bureau.`, 3500, { icone: 'info' }); return false; }
+      const ic = iconeDe(app, nom);
+      if (!ic) return false;
+      if (position === undefined || position < 0 || position > mesIcones.length) mesIcones.push(ic); else mesIcones.splice(position, 0, ic);
+      stockage.ecrire('site-icones-corbeille', corbeilleIcones().filter(c => c.app !== app));
+      enregistrerIcones();
+      majCorbeille();
+      return true;
+    }
+    function deplacerIcone(de, vers) {
+      if (de === vers || !mesIcones[de]) return;
+      const [x] = mesIcones.splice(de, 1);
+      mesIcones.splice(vers > de ? vers - 1 : vers, 0, x);
+      enregistrerIcones();
+    }
+    function renommerIcone(i) {
+      const b = $(`.icone-bureau[data-icone="${i}"]`);
+      const x = mesIcones[i];
+      if (!b || !x) return;
+      b.classList.add('renomme');
+      b.draggable = false;
+      const champ = creer(`<textarea class="renommer-icone" maxlength="40" rows="2" spellcheck="false"></textarea>`);
+      champ.value = x.nom;
+      $('span', b).replaceWith(champ);
+      champ.focus(); champ.select();
+      let fini = false;
+      const finir = garder => {
+        if (fini) return; fini = true;
+        const v = champ.value.replace(/\s+/g, ' ').trim();
+        if (garder) x.nom = (v || ICONES_BASE[x.app].nom).slice(0, 40);
+        enregistrerIcones();
+        const nb = $(`.icone-bureau[data-icone="${i}"]`); if (nb) { selectionner(nb); nb.focus(); }
+      };
+      champ.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finir(true); }
+        if (e.key === 'Escape') { e.preventDefault(); finir(false); }
+      });
+      champ.addEventListener('blur', () => finir(true));
+      ['click', 'dblclick', 'pointerdown'].forEach(t => champ.addEventListener(t, e => e.stopPropagation()));
+    }
+    function iconesParDefaut() {
+      const faire = () => { mesIcones = ICONES_DEFAUT.map(x => ({ ...x })); stockage.ecrire('site-icones-perso', null); try { localStorage.removeItem('site-icones-perso'); } catch (e) { /* rien */ } dessinerIcones(); };
+      if (extras) extras.boite({ titre: 'Icônes du bureau', icone: 'attention', boutons: ['Oui', 'Non'], texte: 'Remettre les icônes du bureau comme au départ ? Tes changements (ajouts, noms, ordre) seront perdus.' }).then(r => { if (r === 'Oui') faire(); });
+      else faire();
+    }
+    let cibleIcone = -1, cibleApp = null;
+    function placerMenuCtx(x, y, garderMenu = false) {
+      if (!garderMenu) basculerMenu(false);
+      menuCtx.hidden = false;
+      const r = menuCtx.getBoundingClientRect();
+      menuCtx.style.left = Math.max(0, Math.min(x, window.innerWidth - r.width - 4)) + 'px';
+      menuCtx.style.top = Math.max(0, Math.min(y, window.innerHeight - r.height - 4)) + 'px';
+    }
+    function ouvrirMenuIcone(i, x, y) {
+      cibleIcone = i;
+      const item = i < 0 ? ICONE_CORBEILLE : mesIcones[i];
+      menuCtx.innerHTML = `
+        <button data-app="${echapper(item.app)}" class="gras"><span class="vide-ico"></span>Ouvrir</button>
+        <hr>
+        ${i < 0
+          ? `<button data-action="viderCorbeille">${xp('corbeille', 16)}Vider la Corbeille</button>`
+          : `<button data-action="renommerIcone"><span class="vide-ico"></span>Renommer</button><button data-action="supprimerIcone">${xp('corbeille', 16)}Supprimer</button>`}
+        <hr>
+        <button data-app="icones">${xp('ordinateur', 16)}Personnaliser le bureau…</button>`;
+      placerMenuCtx(x, y);
+    }
+    // clic droit sur un jeu ou un programme (fenêtre Jeux, menu démarrer) → « Ajouter au bureau »
+    function ouvrirMenuAjout(app, x, y, garderMenu = false) {
+      if (!iconeDe(app)) return false;
+      cibleApp = app;
+      const deja = mesIcones.some(m => m.app === app);
+      menuCtx.innerHTML = `
+        <button data-app="${echapper(app)}" class="gras"><span class="vide-ico"></span>Ouvrir</button>
+        <hr>
+        <button data-action="ajouterBureau"${deja ? ' disabled' : ''}>${xp('ordinateur', 16)}${deja ? 'Déjà sur le bureau' : 'Ajouter au bureau'}</button>`;
+      placerMenuCtx(x, y, garderMenu);
+      return true;
+    }
+    // glisser-déposer : ranger les icônes, les jeter dans la Corbeille, ou poser un jeu sur le bureau
+    function brancherGlisser() {
+      const bureau = $('.bureau');
+      const typeOk = e => { const t = e.dataTransfer && e.dataTransfer.types; return t && (Array.from(t).includes('text/x-icone') || Array.from(t).includes('text/x-app')); };
+      bureau.addEventListener('dragover', e => {
+        if (!typeOk(e) || e.target.closest('.fenetre')) return;
+        e.preventDefault();
+        $$('.icone-bureau.survol').forEach(x => x.classList.remove('survol'));
+        const cible = e.target.closest('.icone-bureau');
+        if (cible) cible.classList.add('survol');
+      });
+      bureau.addEventListener('dragleave', e => { if (!bureau.contains(e.relatedTarget)) $$('.icone-bureau.survol').forEach(x => x.classList.remove('survol')); });
+      bureau.addEventListener('drop', e => {
+        if (!typeOk(e) || e.target.closest('.fenetre')) return;
+        e.preventDefault();
+        $$('.icone-bureau.survol').forEach(x => x.classList.remove('survol'));
+        const cible = e.target.closest('.icone-bureau');
+        const vers = cible ? cible.dataset.icone : null;
+        const de = e.dataTransfer.getData('text/x-icone');
+        const app = e.dataTransfer.getData('text/x-app');
+        if (de !== '') {
+          if (vers === 'corbeille') supprimerIcone(Number(de));
+          else deplacerIcone(Number(de), vers === null ? mesIcones.length : Number(vers));
+        } else if (app) {
+          if (vers === 'corbeille') return;
+          if (ajouterIcone(app, { position: vers === null ? undefined : Number(vers) })) bulle('Icône ajoutée', `« ${ICONES_BASE[app].nom} » est maintenant sur ton bureau.`, 3000, { icone: ICONES_BASE[app].icone });
+          basculerMenu(false);
+        }
+      });
+      // ce qu'on peut glisser depuis une fenêtre ou le menu démarrer
+      document.addEventListener('dragstart', e => {
+        const el = e.target.closest && e.target.closest('.tuile-xp[data-jeu], .menu-demarrer [data-app], .sous-menu [data-app]');
+        if (!el) return;
+        const app = el.dataset.jeu ? 'jeu-' + el.dataset.jeu : el.dataset.app;
+        if (!iconeDe(app)) { e.preventDefault(); return; }
+        e.dataTransfer.setData('text/x-app', app);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+    }
+
+    // fenêtre « Icônes du bureau » : cocher ce qu'on veut voir
+    function contenuIcones(corps, etat) {
+      const programmes = Object.keys(ICONES_BASE).filter(k => !k.startsWith('jeu-') && APPS[k]);
+      const jeux = Object.keys(ICONES_BASE).filter(k => k.startsWith('jeu-') && APPS[k]);
+      const ligne = k => `<label class="ligne-icone"><input type="checkbox" data-app="${echapper(k)}">${xp(ICONES_BASE[k].icone, 16)}<span>${echapper(ICONES_BASE[k].nom)}</span></label>`;
+      corps.innerHTML = `
+        <div class="dialogue-xp icones-perso">
+          <p class="etiquette-xp">Coche les icônes à afficher sur ton bureau :</p>
+          <div class="liste-icones-perso">
+            <h4>Programmes</h4>${programmes.map(ligne).join('')}
+            <h4>Jeux</h4>${jeux.map(ligne).join('')}
+          </div>
+          <p class="astuce-xp">Astuces : clic droit sur une icône pour la renommer ou la supprimer, glisse-la pour la ranger (ou dans la Corbeille), et glisse un jeu depuis la fenêtre Jeux ou le menu démarrer pour l'ajouter.</p>
+          <div class="boutons-dialogue">
+            <button class="btn" data-a="defaut" style="margin-right:auto">Par défaut</button>
+            <button class="btn btn-primaire" data-a="ok">OK</button>
+            <button class="btn" data-a="annuler">Annuler</button>
+            <button class="btn" data-a="appliquer" disabled>Appliquer</button>
+          </div>
+        </div>`;
+      const cases = () => $$('input[data-app]', corps);
+      const remplir = () => cases().forEach(c => { c.checked = mesIcones.some(m => m.app === c.dataset.app); });
+      remplir();
+      etat.reouvrir = () => { remplir(); $('[data-a="appliquer"]', corps).disabled = true; };
+      corps.addEventListener('change', () => { $('[data-a="appliquer"]', corps).disabled = false; });
+      const appliquer = () => {
+        const voulu = new Set(cases().filter(c => c.checked).map(c => c.dataset.app));
+        mesIcones = mesIcones.filter(m => voulu.has(m.app));
+        cases().forEach(c => { if (c.checked && !mesIcones.some(m => m.app === c.dataset.app)) mesIcones.push(iconeDe(c.dataset.app)); });
+        enregistrerIcones();
+        $('[data-a="appliquer"]', corps).disabled = true;
+      };
+      corps.addEventListener('click', e => {
+        const a = e.target.closest('[data-a]')?.dataset.a;
+        if (a === 'appliquer') appliquer();
+        if (a === 'ok') { appliquer(); fermer(etat.id); }
+        if (a === 'annuler') fermer(etat.id);
+        if (a === 'defaut') { cases().forEach(c => { c.checked = ICONES_DEFAUT.some(m => m.app === c.dataset.app); }); $('[data-a="appliquer"]', corps).disabled = false; }
       });
     }
 
@@ -1236,17 +1467,16 @@
         <button data-action="fond">${xp('image', 16)}Fond d'écran suivant</button>
         <button data-action="actualiser"><span class="vide-ico"></span>Actualiser</button>
         <hr>
+        <button data-app="icones">${xp('ordinateur', 16)}Ajouter / enlever des icônes…</button>
+        <button data-action="iconesDefaut"><span class="vide-ico"></span>Icônes par défaut</button>
+        <hr>
         ${extras ? `<button data-app="notepad">${xp('blocnotes', 16)}Nouveau document texte</button><button data-app="cmd">${xp('console', 16)}Ouvrir l'invite de commandes</button><hr>` : ''}
         <button data-app="blog">${xp('fichier', 16)}Ouvrir le blog</button>
         <button data-app="jeux">${xp('manette', 16)}Ouvrir les jeux</button>
         <button data-action="hasard">${xp('hasard', 16)}Jeu au hasard</button>
         <hr>
         <button data-app="affichage" class="gras">${xp('image', 16)}Propriétés</button>`;
-      basculerMenu(false);
-      menuCtx.hidden = false;
-      const r = menuCtx.getBoundingClientRect();
-      menuCtx.style.left = Math.max(0, Math.min(x, window.innerWidth - r.width - 4)) + 'px';
-      menuCtx.style.top = Math.max(0, Math.min(y, window.innerHeight - r.height - 4)) + 'px';
+      placerMenuCtx(x, y);
     }
 
     function changerFond() {
@@ -1286,6 +1516,7 @@
                 : `<i style="background:${f.couleur}"></i>`}<span>${echapper(f.nom)}</span></button>`).join('')}
             </div>
             <p class="astuce-xp">Tous les fonds sont dessinés en pixels pour ${echapper(NOM)}. Double-clique pour appliquer.</p>
+            <div><button class="btn" data-a="perso-icones">Personnaliser le bureau…</button></div>
           </div>
           <div class="boutons-dialogue">
             <button class="btn btn-primaire" data-a="ok">OK</button>
@@ -1332,6 +1563,7 @@
         if (a === 'appliquer') { appliquerFond(choix); if (veille) veille.valider(); btnAppliquer.disabled = true; }
         if (a === 'ok') { appliquerFond(choix); if (veille) veille.valider(); fermer(etat.id); }
         if (a === 'annuler') fermer(etat.id);
+        if (a === 'perso-icones') ouvrirApp('icones');
       });
     }
 
@@ -1567,7 +1799,18 @@
     appliquerFond(stockage.lire('site-fond-xp2', fondDefaut), false);
 
     dessinerIcones();
+    brancherGlisser();
     construireMenu();
+    menu.addEventListener('contextmenu', e => {
+      const b = e.target.closest('[data-app]');
+      e.preventDefault();
+      if (b) ouvrirMenuAjout(b.dataset.app, e.clientX, e.clientY, true);
+    });
+    // les programmes du menu démarrer se glissent sur le bureau
+    document.addEventListener('pointerdown', e => {
+      const b = e.target.closest && e.target.closest('.menu-demarrer [data-app], .sous-menu [data-app]');
+      if (b && iconeDe(b.dataset.app)) b.draggable = true;
+    }, true);
     horloge();
     setInterval(horloge, 10000);
     if (extras) extras.demarrer();
