@@ -226,6 +226,7 @@
       .arcade-choix { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin: 0 0 14px; }
       .arcade-choix button { padding: 10px 8px; border: 1px solid #2a2a2a; border-radius: 12px; background: rgba(255,255,255,.03); color: #ededed; font: 600 13px var(--police, system-ui); cursor: pointer; }
       .arcade-choix button small { display: block; margin-top: 3px; color: #8a8a8a; font-weight: 500; font-size: 11px; }
+      .arcade-titre-choix { margin: 0 0 6px; color: #8a8a8a; font: 600 11px var(--mono, monospace); letter-spacing: .06em; text-transform: uppercase; text-align: left; }
       .arcade-choix button.actif { border-color: #22c55e; background: rgba(34,197,94,.12); }
       .arcade-choix button:disabled { opacity: .35; cursor: not-allowed; }
       .arcade-aide { margin-top: 12px; color: #6b6b6b; font-size: 12px; line-height: 1.5; }
@@ -291,7 +292,9 @@
     }
     const courant = o;
     voile._courant = courant;
-    const choix = o.choix ? `<div class="arcade-choix">${o.choix.map((c, i) => `<button data-c="${i}" class="${c.actif ? 'actif' : ''}" ${c.bloque ? 'disabled' : ''}>${c.texte}${c.sous ? `<small>${c.sous}</small>` : ''}</button>`).join('')}</div>` : '';
+    // une ou deux rangées de choix (ex. circuit + difficulté) ; titreChoix / titreChoix2 = petit titre au-dessus
+    const rangee = (liste, attr, titre) => liste ? `${titre ? `<div class="arcade-titre-choix">${titre}</div>` : ''}<div class="arcade-choix">${liste.map((c, i) => `<button ${attr}="${i}" class="${c.actif ? 'actif' : ''}" ${c.bloque ? 'disabled' : ''}>${c.texte}${c.sous ? `<small>${c.sous}</small>` : ''}</button>`).join('')}</div>` : '';
+    const choix = rangee(o.choix, 'data-c', o.titreChoix) + rangee(o.choix2, 'data-c2', o.titreChoix2);
     voile.innerHTML = `
       <div class="arcade-carte" role="dialog">
         ${o.pastille ? `<span class="pastille">${o.pastille}</span>` : ''}
@@ -303,11 +306,12 @@
         ${o.aide ? `<div class="arcade-aide">${o.aide}</div>` : ''}
       </div>`;
     voile.hidden = false;
-    if (o.choix) {
-      voile.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => {
-        const c = o.choix[Number(b.dataset.c)];
+    for (const [liste, attr] of [[o.choix, 'c'], [o.choix2, 'c2']]) {
+      if (!liste) continue;
+      voile.querySelectorAll(`[data-${attr}]`).forEach(b => b.addEventListener('click', () => {
+        const c = liste[Number(b.dataset[attr])];
         if (!c || c.bloque) return;
-        voile.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('actif', x === b));
+        voile.querySelectorAll(`[data-${attr}]`).forEach(x => x.classList.toggle('actif', x === b));
         Arcade.son('clic');
         if (c.action) c.action();
       }));

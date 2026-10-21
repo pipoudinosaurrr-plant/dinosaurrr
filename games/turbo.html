@@ -278,6 +278,20 @@
   let montagnes = [], collines = [];
   let circuitChoisi = Number(A.stock.lire('turbo-circuit', 0)) || 0;
 
+  /* ---------- Niveaux de difficulté ----------
+     « moyen » = le jeu d'origine.
+     ia : vitesse des adversaires (× celle prévue par le circuit) · plafond : vitesse max des adversaires
+     elastique : combien les adversaires devant toi ralentissent pour t'attendre · nitro : secondes pour recharger */
+  const DIFFICULTES = {
+    facile: { nom: 'Facile', sous: 'Adversaires lents', ia: 0.9, plafond: 0.98, elastique: 0.3, nitro: 9 },
+    moyen: { nom: 'Moyen', sous: 'Le jeu d’origine', ia: 1, plafond: 1.02, elastique: 0.18, nitro: 14 },
+    difficile: { nom: 'Difficile', sous: 'Rapides, ne t’attendent plus', ia: 1.015, plafond: 1.02, elastique: 0.1, nitro: 16 },
+    extreme: { nom: 'Extrême', sous: 'Pilotes de pro', ia: 1.03, plafond: 1.03, elastique: 0.04, nitro: 18 }
+  };
+  let difficulte = A.stock.lire('turbo-difficulte', 'moyen');
+  if (!DIFFICULTES[difficulte]) difficulte = 'moyen';
+  const D = () => DIFFICULTES[difficulte];
+
   const NOMS = ['Max', 'Léo', 'Nina', 'Sam', 'Alex', 'Zoé', 'Tom'];
 
   /* ---------- Construction de la route ---------- */
@@ -370,7 +384,7 @@
         offset: (i % 2 ? 0.45 : -0.45),
         z, depart: z,
         tours: 0,
-        base: VITESSE_MAX * interpoler(vmax, vmin, i / 6),
+        base: VITESSE_MAX * interpoler(vmax, vmin, i / 6) * D().ia,
         vitesse: 0, pct: 0
       };
       voitures.push(v);
@@ -408,9 +422,9 @@
     for (const v of voitures) {
       // vitesse : un peu d'élastique pour que la course reste serrée
       const ecart = (distanceVoiture(v) - dJ) / longueurPiste;   // > 0 : devant le joueur
-      let cible = v.base * (1 - borne(ecart, -0.3, 0.3) * 0.18);
+      let cible = v.base * (1 - borne(ecart, -0.3, 0.3) * D().elastique);
       if (etat === 'fini' && v.fini) cible = v.base * 0.5;
-      v.vitesse = interpoler(v.vitesse, Math.min(cible, VITESSE_MAX * 1.02), dt * 0.6);
+      v.vitesse = interpoler(v.vitesse, Math.min(cible, VITESSE_MAX * D().plafond), dt * 0.6);
       const ancien = trouverSegment(v.z);
       v.offset = borne(v.offset + decalageIA(v, ancien, segJ, LARGEUR_VOITURE) * dt * 60, -1.1, 1.1);
       const avant = v.z;
@@ -468,7 +482,7 @@
     // nitro
     nitroActif = pilote && (touches.action || touches.action2) && nitro > 0.02 && vitesse > VITESSE_MAX * 0.4;
     if (nitroActif) nitro = Math.max(0, nitro - dt / 2.6);
-    else nitro = Math.min(1, nitro + dt / 14);
+    else nitro = Math.min(1, nitro + dt / D().nitro);
     const max = VITESSE_MAX * (nitroActif ? NITRO_FACTEUR : 1);
 
     const accelere = pilote && (touches.haut || (A.TACTILE && !touches.bas));
@@ -540,7 +554,8 @@
     classementFinal = rang;
     const temps = tempsCourse;
     const rTemps = A.record('turbo-' + circuit.id + '-temps', temps, false);
-    A.finPartie('turbo', { gagne: rang === 1 });
+    // une victoire en Facile ne compte pas pour les succès et le défi du jour
+    A.finPartie('turbo', { gagne: rang === 1 && difficulte !== 'facile' });
     const rTour = A.record('turbo-' + circuit.id + '-tour', meilleurTour, false);
     if (rang === 1) {
       const v = A.stock.lire('arcade-turbo-victoires', 0) + 1;
@@ -553,7 +568,7 @@
     setTimeout(() => {
       if (etat !== 'fini') return;
       A.panneau({
-        pastille: circuit.nom,
+        pastille: circuit.nom + ' · ' + D().nom,
         titre: rang === 1 ? '🏆 Victoire !' : rang <= 3 ? `Podium : ${rang}e !` : `${rang}e sur 8`,
         texte: rang === 1 ? (circuitChoisi + 1 < CIRCUITS.length ? `Bravo ! Le circuit « ${CIRCUITS[circuitChoisi + 1].nom} » est débloqué.` : 'Tu as battu tous les pilotes du circuit le plus dur !') : 'Finis premier pour débloquer le circuit suivant.',
         lignes: [
@@ -884,6 +899,12 @@
         const rec = A.record('turbo-' + c.id + '-temps');
         return { texte: c.nom, sous: i > debloque ? '🔒 Gagne le précédent' : (rec ? 'Record ' + A.chrono(rec) : c.sous), actif: i === circuitChoisi, bloque: i > debloque, action: () => { circuitChoisi = i; A.stock.ecrire('turbo-circuit', i); circuit = CIRCUITS[i]; construire(); placerVoitures(); } };
       }),
+      titreChoix: 'Circuit',
+      titreChoix2: 'Difficulté',
+      choix2: Object.entries(DIFFICULTES).map(([id, d]) => ({
+        texte: d.nom, sous: d.sous, actif: id === difficulte,
+        action: () => { difficulte = id; A.stock.ecrire('turbo-difficulte', id); placerVoitures(); }
+      })),
       boutons: [{ texte: 'Démarrer la course', primaire: true, action: lancer }],
       aide: A.TACTILE
         ? 'La voiture accélère toute seule. ◀ ▶ pour tourner, FREIN pour ralentir, NITRO pour le turbo.'
