@@ -1,7 +1,6 @@
 # dinosaurrr
 
-Blog et mini-jeux faits maison. Sur ordinateur, le site s'affiche comme un bureau Windows XP (thème bleu Luna, icônes en pixels, fenêtres, barre des tâches, menu démarrer). Sur téléphone, il devient une vraie appli : accueil, onglets en bas, articles et jeux en plein écran.
-
+Le meilleur site du monde frr fait par moi btw aller vzy va sur le site je sais ou t'habite -> dinosaurrr.com
 Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher ton adresse mail et écrire des articles.
 
 ---
