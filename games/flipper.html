@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Flipper</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; background: #000; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Flipper"></canvas>
+  <script src="arcade.js"></script>
+<script type="module">
+import * as M from './flipper/moteur.js';
+
+const A = window.Arcade;
+const HUD = 92;                                   // bandeau du score au-dessus de la table
+const W = M.LARGEUR, TH = M.HAUTEUR, H = TH + HUD;
+const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+const ctx = T.ctx;
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+const POLICE = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+
+const C = { fond1: '#0b0820', fond2: '#120a2e', mur: '#38e1ff', murSombre: '#0e5f75', rose: '#ff3fa4', jaune: '#ffd23f', vert: '#3dff9a', violet: '#a46bff', orange: '#ff8a3d', texte: '#e9e6ff' };
+
+let p = null, etat = 'menu', secousse = 0, messages = [], bonusAffiche = null, traines = new Map();
+
+/* ---------- Le décor fixe (dessiné une seule fois) ---------- */
+let decor = null;
+function dessinerDecor() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const k = T.echelle * dpr;
+  decor = document.createElement('canvas');
+  decor.width = Math.ceil(W * k); decor.height = Math.ceil(TH * k);
+  const g = decor.getContext('2d');
+  g.scale(k, k);
+  // fond : nébuleuse
+  const fond = g.createLinearGradient(0, 0, 0, TH);
+  fond.addColorStop(0, '#120a33'); fond.addColorStop(0.55, '#0b0820'); fond.addColorStop(1, '#05030f');
+  g.fillStyle = fond; g.fillRect(0, 0, W, TH);
+  for (const [x, y, r, c] of [[150, 330, 230, 'rgba(164,107,255,.20)'], [330, 560, 220, 'rgba(255,63,164,.13)'], [235, 160, 170, 'rgba(56,225,255,.12)']]) {
+    const n = g.createRadialGradient(x, y, 0, x, y, r); n.addColorStop(0, c); n.addColorStop(1, 'transparent');
+    g.fillStyle = n; g.fillRect(0, 0, W, TH);
+  }
+  // étoiles (toujours les mêmes)
+  let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 140; i++) { g.fillStyle = `rgba(255,255,255,${0.15 + r() * 0.5})`; g.fillRect(22 + r() * 426, 30 + r() * 820, r() < 0.9 ? 1 : 2, r() < 0.9 ? 1 : 2); }
+  // couloir de lancement
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(448, 250, 30, TH - 250);
+  // grand logo au milieu
+  g.save(); g.translate(235, 585); g.globalAlpha = 0.09; g.fillStyle = '#fff'; g.font = `900 64px ${POLICE}`; g.textAlign = 'center'; g.fillText('NOVA', 0, 0); g.restore();
+  // flèches peintes vers les cibles
+  const fleche = (x, y, a, c) => { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = c; g.globalAlpha = 0.18; g.beginPath(); g.moveTo(0, -14); g.lineTo(10, 6); g.lineTo(-10, 6); g.fill(); g.restore(); };
+  fleche(235, 512, 0, C.jaune); fleche(368, 430, -0.8, C.vert); fleche(70, 392, -1.9, C.rose);
+  // tablier en bas
+  g.fillStyle = '#07051a'; g.beginPath(); g.moveTo(22, 910); g.lineTo(22, 860); g.lineTo(140, 860); g.lineTo(160, 900); g.lineTo(310, 900); g.lineTo(330, 860); g.lineTo(448, 860); g.lineTo(448, 910); g.fill();
+  g.fillStyle = 'rgba(233,230,255,.35)'; g.font = `700 10px ${MONO}`; g.textAlign = 'center';
+  g.fillText('FLIPPER NOVA', 80, 884); g.fillText('3 BILLES', 390, 884);
+  // les murs, en néon
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const m of p.murs) {
+    if (['nova', 'tombante', 'bumper', 'lancepierre', 'portillon'].includes(m.nom)) continue;
+    const couleur = m.nom === 'caoutchouc' || m.nom === 'poteau' ? C.rose : m.nom === 'poteau-haut' ? C.violet : C.mur;
+    g.shadowColor = couleur; g.shadowBlur = 10;
+    g.strokeStyle = couleur; g.fillStyle = couleur;
+    if (m.type === 's') { g.lineWidth = Math.max(2.5, m.r * 2 - 1); g.beginPath(); g.moveTo(m.ax, m.ay); g.lineTo(m.bx, m.by); g.stroke(); }
+    else { g.beginPath(); g.arc(m.x, m.y, m.r, 0, Math.PI * 2); g.fill(); }
+  }
+  g.shadowBlur = 0;
+  // lance-pierres : triangles pleins
+  for (const s2 of [1, -1]) {
+    const X = x => (s2 === 1 ? x : 470 - x);
+    g.fillStyle = 'rgba(255,63,164,.16)'; g.strokeStyle = C.rose; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(X(92), 610); g.lineTo(X(92), 684); g.lineTo(X(138), 712); g.closePath(); g.fill(); g.stroke();
+  }
+  // trou (saucer)
+  const t = M.SAUCER;
+  const tg = g.createRadialGradient(t.x, t.y, 2, t.x, t.y, t.r + 4); tg.addColorStop(0, '#000'); tg.addColorStop(0.75, '#000'); tg.addColorStop(1, C.vert);
+  g.fillStyle = tg; g.beginPath(); g.arc(t.x, t.y, t.r + 3, 0, Math.PI * 2); g.fill();
+  // textes peints
+  g.fillStyle = 'rgba(233,230,255,.45)'; g.font = `700 8px ${MONO}`;
+  g.fillText('VERROU', t.x, t.y + 30);
+  g.fillText('×', 235, 66);
+}
+
+/* ---------- Dessin de chaque image ---------- */
+const brille = (c, b = 12) => { ctx.shadowColor = c; ctx.shadowBlur = b; };
+const sansBrille = () => { ctx.shadowBlur = 0; };
+
+function lampe(x, y, r, couleur, allume, clignote = false) {
+  const on = allume && (!clignote || Math.floor(performance.now() / 180) % 2 === 0);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (on) { brille(couleur, 14); ctx.fillStyle = couleur; ctx.fill(); sansBrille(); }
+  else { ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill(); ctx.strokeStyle = couleur + '55'; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+function dessinerTable() {
+  ctx.drawImage(decor, 0, 0, W, TH);
+  const f = p.flash, now = performance.now();
+
+  // couloirs du haut (+ tir parfait qui clignote)
+  M.COULOIRS_HAUT.forEach((x, i) => {
+    const tp = p.tirParfait.actif && p.tirParfait.couloir === i;
+    lampe(x, 140, 6, tp ? C.vert : C.jaune, p.couloirs[i] || tp || !!f['couloir' + i], tp);
+  });
+  // multiplicateur : ×2 … ×6
+  for (let m = 2; m <= 6; m++) {
+    const x = 175 + (m - 2) * 30, y = 48;
+    ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center';
+    if (p.mult >= m) { brille(C.orange, 10); ctx.fillStyle = C.orange; } else ctx.fillStyle = 'rgba(255,255,255,.14)';
+    ctx.fillText('×' + m, x, y + 4); sansBrille();
+  }
+  // bumpers
+  M.BUMPERS.forEach((b, i) => {
+    const flash = f['bumper' + i] > 0;
+    brille(flash ? '#fff' : C.jaune, flash ? 26 : 12);
+    ctx.fillStyle = flash ? '#fff7c2' : '#3a2a05';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+    sansBrille();
+    ctx.lineWidth = 3; ctx.strokeStyle = C.jaune; ctx.stroke();
+    const cap = ctx.createRadialGradient(b.x - 5, b.y - 6, 2, b.x, b.y, b.r - 6);
+    cap.addColorStop(0, flash ? '#fff' : '#fff1a8'); cap.addColorStop(1, flash ? '#ffd23f' : '#c08a00');
+    ctx.fillStyle = cap; ctx.beginPath(); ctx.arc(b.x, b.y, b.r - 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3a2a05'; ctx.font = `800 9px ${MONO}`; ctx.textAlign = 'center'; ctx.fillText(p.multibille ? '200' : '100', b.x, b.y + 3);
+  });
+  // cibles N O V A
+  M.CIBLES_NOVA.forEach((y, i) => {
+    const on = p.nova[i] || f['nova' + i] > 0;
+    ctx.fillStyle = on ? C.rose : '#3b1030'; if (on) brille(C.rose, 12);
+    ctx.fillRect(27, y - 11, 7, 22); sansBrille();
+    ctx.fillStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center';
+    ctx.fillText('NOVA'[i], 48, y + 4);
+  });
+  // cibles tombantes
+  M.CIBLES_TOMBANTES.forEach((x, i) => {
+    if (p.tombantes[i]) { ctx.fillStyle = 'rgba(255,210,63,.18)'; ctx.fillRect(x - 11, 468, 22, 4); return; }
+    brille(C.jaune, 10); ctx.fillStyle = C.jaune; ctx.fillRect(x - 11, 465, 22, 10); sansBrille();
+    ctx.fillStyle = '#3a2a05'; ctx.fillRect(x - 7, 468, 14, 4);
+  });
+  lampe(235, 498, 5, C.jaune, p.remiseTombantes > 0, true);
+  // trou : verrou / jackpot / bille bonus
+  const t = M.SAUCER;
+  lampe(t.x - 18, t.y + 46, 5, C.vert, p.verrou, true);
+  lampe(t.x, t.y + 46, 5, C.violet, p.billeBonusAllumee, true);
+  lampe(t.x + 18, t.y + 46, 5, C.orange, p.jackpot, true);
+  if (f.trou) { brille(C.vert, 22); ctx.strokeStyle = C.vert; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y, t.r + 4 + Math.sin(now / 60) * 2, 0, Math.PI * 2); ctx.stroke(); sansBrille(); }
+  // couloirs du bas
+  lampe(76, 625, 5, C.mur, !!f.interieur0); lampe(394, 625, 5, C.mur, !!f.interieur1);
+  lampe(41, 660, 5, C.rose, !!f.exterieur0); lampe(429, 660, 5, C.rose, !!f.exterieur1);
+  // « rejoue » (sauvetage de bille)
+  ctx.font = `800 10px ${MONO}`; ctx.textAlign = 'center';
+  const sauve = p.sauvetage > 0 && Math.floor(now / 220) % 2 === 0;
+  ctx.fillStyle = sauve ? C.vert : 'rgba(61,255,154,.15)'; if (sauve) brille(C.vert, 10);
+  ctx.fillText('SAUVETAGE', 235, 845); sansBrille();
+  // lance-pierres qui s'allument
+  for (const s of [1, -1]) if (f['lp' + s] > 0) {
+    const X = x => (s === 1 ? x : 470 - x);
+    brille(C.rose, 24); ctx.strokeStyle = '#ffd1ea'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(X(92), 610); ctx.lineTo(X(138), 712); ctx.stroke(); sansBrille();
+  }
+  // portillon du couloir de lancement
+  ctx.strokeStyle = C.vert; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(448, 266); ctx.lineTo(476, 241); ctx.stroke();
+  // lanceur (ressort)
+  const l = p.lanceur;
+  ctx.strokeStyle = '#9aa3b5'; ctx.lineWidth = 2; ctx.beginPath();
+  const bas = 905, haut = l.y + 6, spires = 7;
+  for (let i = 0; i <= spires * 2; i++) { const y = haut + (bas - haut) * i / (spires * 2); ctx.lineTo(i % 2 ? 457 : 469, y); }
+  ctx.stroke();
+  const pl = ctx.createLinearGradient(451, 0, 475, 0); pl.addColorStop(0, '#5b6275'); pl.addColorStop(0.5, '#e8ecf5'); pl.addColorStop(1, '#5b6275');
+  ctx.fillStyle = pl; ctx.fillRect(451, l.y, 24, 7);
+  if (l.tire > 0) { ctx.fillStyle = C.vert; ctx.fillRect(482, 900 - l.tire * 120, 6, l.tire * 120); }
+
+  // flippers
+  for (const fl of p.flippers) dessinerFlipper(fl);
+  // billes (avec une petite traînée)
+  for (const b of p.billes) {
+    const tr = traines.get(b.id) || [];
+    tr.push([b.x, b.y]); if (tr.length > 7) tr.shift(); traines.set(b.id, tr);
+    tr.forEach(([x, y], i) => { ctx.fillStyle = `rgba(180,220,255,${0.04 * i})`; ctx.beginPath(); ctx.arc(x, y, M.BR * (0.5 + i * 0.06), 0, Math.PI * 2); ctx.fill(); });
+    const gb = ctx.createRadialGradient(b.x - 3, b.y - 4, 1, b.x, b.y, M.BR);
+    gb.addColorStop(0, '#ffffff'); gb.addColorStop(0.35, '#d7dce6'); gb.addColorStop(0.8, '#7d8597'); gb.addColorStop(1, '#3b4252');
+    ctx.fillStyle = gb; ctx.beginPath(); ctx.arc(b.x, b.y, M.BR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(b.x - 3, b.y - 3.5, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+  if (p.tilt) {
+    ctx.font = `900 64px ${POLICE}`; ctx.textAlign = 'center';
+    brille(C.rose, 30); ctx.fillStyle = C.rose; ctx.fillText('TILT', 235, 470); sansBrille();
+  }
+}
+
+function dessinerFlipper(f) {
+  const { L, R1, R2 } = M.FLIP;
+  const ux = f.s * Math.cos(f.a), uy = Math.sin(f.a);
+  const tx = f.px + ux * L, ty = f.py + uy * L;
+  const nx = -uy, ny = ux;
+  ctx.beginPath();
+  ctx.moveTo(f.px + nx * R1, f.py + ny * R1);
+  ctx.lineTo(tx + nx * R2, ty + ny * R2);
+  ctx.arc(tx, ty, R2, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true);
+  ctx.lineTo(f.px - nx * R1, f.py - ny * R1);
+  ctx.arc(f.px, f.py, R1, Math.atan2(-ny, -nx), Math.atan2(ny, nx), true);
+  ctx.closePath();
+  const actif = f.appui;
+  brille(actif ? '#fff' : C.mur, actif ? 18 : 10);
+  const gr = ctx.createLinearGradient(f.px, f.py - 12, f.px, f.py + 12);
+  gr.addColorStop(0, '#e9fbff'); gr.addColorStop(1, '#53c7e6');
+  ctx.fillStyle = gr; ctx.fill(); sansBrille();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = C.rose; ctx.stroke();   // le caoutchouc
+  ctx.fillStyle = '#0b0820'; ctx.beginPath(); ctx.arc(f.px, f.py, 3.5, 0, Math.PI * 2); ctx.fill();
+}
+
+function dessinerHUD() {
+  ctx.fillStyle = '#05030f'; ctx.fillRect(0, 0, W, HUD);
+  ctx.strokeStyle = '#2a1f5a'; ctx.lineWidth = 2; ctx.strokeRect(6, 6, W - 12, HUD - 12);
+  ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(233,230,255,.55)'; ctx.font = `700 10px ${MONO}`;
+  ctx.fillText('SCORE', 18, 26);
+  ctx.fillText(p ? `BILLE ${Math.min(p.bille, p.billesMax)}/${p.billesMax}${p.billesBonus ? ' +' + p.billesBonus : ''}` : '', 18, 78);
+  ctx.textAlign = 'right';
+  const rec = A.record('flipper');
+  ctx.fillText('RECORD ' + A.format(rec || 0), W - 18, 78);
+  if (p) {
+    ctx.textAlign = 'left'; ctx.font = `800 34px ${MONO}`;
+    brille(C.orange, 14); ctx.fillStyle = '#ffb36b'; ctx.fillText(A.format(p.score), 18, 62); sansBrille();
+    // message du moment
+    const m = messages[0];
+    if (m) {
+      ctx.textAlign = 'right'; ctx.font = `800 15px ${MONO}`;
+      const on = m.t > 1.8 || Math.floor(performance.now() / 120) % 2 === 0;
+      if (on) { brille(m.couleur, 12); ctx.fillStyle = m.couleur; ctx.fillText(m.texte, W - 18, 46); sansBrille(); }
+    } else if (p.multibille) {
+      ctx.textAlign = 'right'; ctx.font = `800 13px ${MONO}`; ctx.fillStyle = C.orange; ctx.fillText('MULTIBILLE · JACKPOT AU TROU', W - 18, 46);
+    } else if (M.billeAuLanceur(p) && etat === 'jeu') {
+      ctx.textAlign = 'right'; ctx.font = `700 12px ${MONO}`; ctx.fillStyle = C.vert;
+      ctx.fillText(A.TACTILE ? 'MAINTIENS LANCER, PUIS LÂCHE' : 'MAINTIENS ESPACE, PUIS LÂCHE', W - 18, 46);
+    }
+  }
+}
+
+function dessinerBonus() {
+  if (!bonusAffiche) return;
+  const b = bonusAffiche;
+  ctx.fillStyle = 'rgba(5,3,15,.82)'; ctx.fillRect(60, 380, 350, 150);
+  ctx.strokeStyle = C.violet; ctx.lineWidth = 2; ctx.strokeRect(60, 380, 350, 150);
+  ctx.textAlign = 'center'; ctx.fillStyle = C.texte; ctx.font = `800 18px ${MONO}`;
+  ctx.fillText(b.tilt ? 'TILT : PAS DE BONUS' : 'FIN DE LA BILLE', 235, 418);
+  if (!b.tilt) {
+    ctx.font = `700 14px ${MONO}`; ctx.fillStyle = 'rgba(233,230,255,.75)';
+    ctx.fillText(`BONUS ${A.format(b.bonus)} × ${b.mult}`, 235, 452);
+    ctx.font = `800 28px ${MONO}`; brille(C.orange, 14); ctx.fillStyle = '#ffb36b';
+    ctx.fillText('+' + A.format(Math.min(b.total, b.total * Math.min(1, b.t / 1.1))), 235, 498); sansBrille();
+  }
+}
+
+/* ---------- Commandes ---------- */
+const appui = { gauche: false, droite: false, tirer: false, secouer: false };
+const TOUCHES = {
+  gauche: ['ArrowLeft', 'KeyA', 'KeyQ', 'ShiftLeft', 'KeyZ', 'ControlLeft'],
+  droite: ['ArrowRight', 'KeyD', 'KeyL', 'ShiftRight', 'Slash', 'Period', 'ControlRight'],
+  tirer: ['Space', 'ArrowDown', 'KeyS', 'Enter', 'NumpadEnter'],
+  secouer: ['ArrowUp', 'KeyW', 'KeyT']
+};
+const quelle = code => Object.keys(TOUCHES).find(k => TOUCHES[k].includes(code));
+let secouerDemande = false;
+addEventListener('keydown', e => {
+  const k = quelle(e.code);
+  if (!k || A.panneauOuvert) return;
+  e.preventDefault();
+  if (k === 'secouer') { if (!e.repeat) secouerDemande = true; return; }
+  appui[k] = true;
+});
+addEventListener('keyup', e => { const k = quelle(e.code); if (k && k !== 'secouer') appui[k] = false; });
+addEventListener('blur', () => { appui.gauche = appui.droite = appui.tirer = false; });
+
+// tactile : moitié gauche / moitié droite de l'écran = flippers ; bouton LANCER en bas à droite quand une bille attend
+const doigts = new Map();
+const zoneLanceur = pt => p && M.billeAuLanceur(p) && pt.x > 330 && pt.y > HUD + 620;
+function majDoigts() {
+  appui.gauche = [...doigts.values()].includes('gauche');
+  appui.droite = [...doigts.values()].includes('droite');
+  appui.tirer = [...doigts.values()].includes('tirer');
+}
+T.canvas.addEventListener('pointerdown', e => {
+  if (etat !== 'jeu') return;
+  e.preventDefault();
+  const pt = T.point(e);
+  const role = zoneLanceur(pt) ? 'tirer' : pt.x < W / 2 ? 'gauche' : 'droite';
+  doigts.set(e.pointerId, role);
+  try { T.canvas.setPointerCapture(e.pointerId); } catch (err) { /* rien */ }
+  majDoigts();
+});
+const finDoigt = e => { doigts.delete(e.pointerId); majDoigts(); };
+T.canvas.addEventListener('pointerup', finDoigt);
+T.canvas.addEventListener('pointercancel', finDoigt);
+// secouer sur téléphone : secouer vraiment le téléphone
+addEventListener('devicemotion', e => {
+  const a = e.acceleration;
+  if (a && etat === 'jeu' && Math.hypot(a.x || 0, a.y || 0, a.z || 0) > 22) secouerDemande = true;
+});
+
+/* ---------- Sons ---------- */
+const S = {
+  bumper: () => { A.bip(320, 640, 0.07, 'square', 0.07); A.bruit(0.05, 0.12, 3000); },
+  lancepierre: () => { A.bip(900, 300, 0.06, 'square', 0.06); A.bruit(0.04, 0.12, 2400); },
+  flipper: () => { A.bip(140, 70, 0.05, 'triangle', 0.16); A.bruit(0.03, 0.1, 900); },
+  cible: () => A.bip(1180, 1180, 0.09, 'square', 0.06),
+  tombe: () => { A.bruit(0.08, 0.2, 700); A.bip(220, 160, 0.06, 'square', 0.06); },
+  remise: () => A.bruit(0.12, 0.2, 500),
+  couloir: () => { A.bip(1320, 1320, 0.05, 'square', 0.05); A.bip(1760, 1760, 0.08, 'square', 0.05, 0.05); },
+  exterieur: () => A.bip(500, 200, 0.3, 'sawtooth', 0.05),
+  trou: () => { A.bip(200, 90, 0.18, 'triangle', 0.15); },
+  ejecte: () => { A.bruit(0.1, 0.25, 600); A.bip(160, 320, 0.08, 'square', 0.06); },
+  lancer: () => A.bruit(0.25, 0.18, 1400),
+  perdue: () => A.son('perdue'),
+  secousse: () => A.bruit(0.12, 0.3, 300),
+  tilt: () => { A.bip(110, 110, 0.6, 'sawtooth', 0.12); A.bip(116, 116, 0.6, 'sawtooth', 0.1); },
+  caoutchouc: () => A.bip(700, 500, 0.04, 'triangle', 0.06),
+  mur: () => A.bruit(0.03, 0.08, 500),
+  alerte: () => { A.bip(880, 880, 0.08, 'square', 0.08); A.bip(880, 880, 0.08, 'square', 0.08, 0.14); },
+  bonus: () => A.son('bonus'),
+  gagne: () => A.son('gagne')
+};
+const son = n => { if (A.sonActif && S[n]) { try { S[n](); } catch (e) { /* rien */ } } };
+
+/* ---------- La partie ---------- */
+function message(texte, couleur = C.jaune) { messages.push({ texte, couleur, t: 2.4 }); if (messages.length > 4) messages.splice(1, 1); }
+
+function traiterEvts() {
+  for (const e of p.evts) {
+    if (e.nom === 'message') { message(e.texte, /JACKPOT|MULTI|PARFAIT/.test(e.texte) ? C.orange : /BILLE/.test(e.texte) ? C.vert : C.jaune); son(e.son || 'bonus'); continue; }
+    if (e.nom === 'secousse') secousse = 0.18;
+    if (e.nom === 'tilt') { message('TILT !', C.rose); secousse = 0.4; }
+    if (e.nom === 'finBille') { bonusAffiche = { ...e, t: 0 }; continue; }
+    if (e.nom === 'finPartie') { finPartie(); continue; }
+    if (e.nom === 'perdue' && p.billes.length) continue;   // multibille : pas de son triste
+    son(e.nom);
+  }
+  p.evts = [];
+}
+
+function lancerPartie() {
+  A.fermerPanneau();
+  p = M.creerPartie();
+  dessinerDecor();
+  messages = []; bonusAffiche = null; traines = new Map();
+  etat = 'jeu';
+  message('BONNE PARTIE !', C.vert);
+}
+
+function finPartie() {
+  etat = 'fin';
+  const r = A.record('flipper', p.score);
+  A.finPartie('flipper', { score: p.score });
+  setTimeout(() => A.panneau({
+    pastille: 'Flipper', titre: r.nouveau ? 'Nouveau record !' : 'Partie terminée',
+    lignes: [['Score', A.format(p.score)], ['Record', A.format(r.record)]],
+    boutons: [{ texte: 'Rejouer', primaire: true, action: lancerPartie }, { texte: 'Menu', action: menu }]
+  }), 700);
+}
+
+function pause() {
+  if (etat !== 'jeu') return;
+  etat = 'pause';
+  appui.gauche = appui.droite = appui.tirer = false; doigts.clear();
+  A.panneau({
+    titre: 'Pause', lignes: [['Score', A.format(p.score)], ['Bille', `${p.bille} / ${p.billesMax}`]],
+    boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancerPartie }, { texte: 'Menu', action: menu }]
+  });
+}
+A.surPerteFocus = pause;
+addEventListener('keydown', e => { if ((e.code === 'KeyP' || e.code === 'Escape') && etat === 'jeu') { e.preventDefault(); pause(); } });
+
+function menu() {
+  etat = 'menu';
+  if (!p) { p = M.creerPartie(); dessinerDecor(); }
+  const rec = A.record('flipper');
+  A.panneau({
+    pastille: 'Flipper', titre: 'Flipper Nova',
+    texte: 'Une vraie table de flipper : la bille roule, rebondit et part plus fort quand tu la frappes avec le bout du flipper.',
+    lignes: A.TACTILE
+      ? [['Flippers', 'Touche à gauche / à droite'], ['Lancer', 'Maintiens LANCER puis lâche'], ['Secouer', 'Secoue le téléphone (gare au TILT)']]
+      : [['Flippers', '← → ou Shift gauche / droit'], ['Lancer', 'Maintiens Espace (ou ↓) puis lâche'], ['Secouer', '↑ (gare au TILT)'], ['Record', A.format(rec || 0)]],
+    aide: 'Couloirs du haut : bonus × · N O V A : bille bonus · 3 cibles jaunes : verrou, 2 verrous = multibille · Garde le flipper levé pour bloquer la bille.',
+    boutons: [{ texte: 'Jouer', primaire: true, action: lancerPartie }]
+  });
+}
+
+T.surTaille = () => { if (p) dessinerDecor(); };
+A.boutonsCoin(pause);
+menu();
+
+A.boucle(dt => {
+  if (etat === 'jeu' && p) {
+    const cmd = { gauche: appui.gauche, droite: appui.droite, tirer: appui.tirer, secouer: secouerDemande };
+    secouerDemande = false;
+    M.avancer(p, dt, cmd);
+    traiterEvts();
+    if (bonusAffiche) {
+      bonusAffiche.t += dt;
+      if (bonusAffiche.t > (bonusAffiche.tilt ? 1.6 : 2.3)) { bonusAffiche = null; M.continuer(p); traiterEvts(); }
+    }
+  }
+  if (messages[0]) { messages[0].t -= dt; if (messages[0].t <= 0) messages.shift(); }
+  secousse = Math.max(0, secousse - dt);
+
+  // dessin
+  T.effacer('#000');
+  if (!p || !decor) return;
+  dessinerHUD();
+  ctx.save();
+  const sx = secousse > 0 ? (Math.random() - 0.5) * 8 * secousse / 0.2 : 0;
+  ctx.translate(sx, HUD + (secousse > 0 ? -secousse * 14 : 0));
+  ctx.beginPath(); ctx.rect(0, 0, W, TH); ctx.clip();
+  dessinerTable();
+  dessinerBonus();
+  // bouton LANCER (téléphone)
+  if (A.TACTILE && M.billeAuLanceur(p) && etat === 'jeu') {
+    ctx.fillStyle = appui.tirer ? 'rgba(61,255,154,.35)' : 'rgba(61,255,154,.16)';
+    ctx.strokeStyle = C.vert; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(340, 640, 100, 52, 12) : ctx.rect(340, 640, 100, 52); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `800 14px ${MONO}`; ctx.textAlign = 'center'; ctx.fillText('LANCER', 390, 671);
+  }
+  ctx.restore();
+});
+</script>
+</body>
+</html>

@@ -159,6 +159,33 @@
     <circle cx="14" cy="16" r="9" fill="url(#dig)" stroke="#14532d" stroke-width="1"/>
     <circle cx="25" cy="19.5" r="3.4" fill="#f97316" stroke="#7c2d12" stroke-width=".7"/><circle cx="21.5" cy="9.5" r="2.2" fill="#3b82f6" stroke="#1e3a8a" stroke-width=".6"/></svg>`;
 
+  // Flipper : table néon, deux flippers, une bille et un bumper
+  D.flipper = `<svg viewBox="0 0 32 32"><defs>${lin('flf', '#2a1660', '#0b0820')}${rad('flb', '#ffffff', '#c9d0dc', '#5b6375', .35, .3)}${rad('flp', '#fff7c2', '#ffd23f', '#a16207')}</defs>
+    <path d="M4 29V12a12 12 0 0 1 24 0v17z" fill="url(#flf)" stroke="#38e1ff" stroke-width="1.4"/>
+    <circle cx="12" cy="12" r="3.6" fill="url(#flp)" stroke="#7a5200" stroke-width=".7"/><circle cx="20.5" cy="14.5" r="2.6" fill="url(#flp)" stroke="#7a5200" stroke-width=".6"/>
+    <path d="M7 24.5l6.5 2.4M25 24.5l-6.5 2.4" stroke="#e9fbff" stroke-width="3" stroke-linecap="round"/>
+    <path d="M7 24.5l6.5 2.4M25 24.5l-6.5 2.4" stroke="#ff3fa4" stroke-width="1" stroke-linecap="round" opacity=".8"/>
+    <circle cx="17" cy="20" r="2.3" fill="url(#flb)" stroke="#3b4252" stroke-width=".5"/></svg>`;
+  // Uno : deux cartes en éventail
+  D.uno = `<svg viewBox="0 0 32 32"><defs>${lin('unr', '#f0524f', '#b71c1c')}${lin('unb', '#42a5f5', '#0d47a1')}</defs>
+    <g transform="rotate(-14 11 17)"><rect x="4" y="6" width="14" height="21" rx="2.5" fill="url(#unr)" stroke="#fff" stroke-width="1.6"/><text x="11" y="21" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="10" fill="#fff">7</text></g>
+    <g transform="rotate(10 21 15)"><rect x="14" y="4" width="14" height="21" rx="2.5" fill="url(#unb)" stroke="#fff" stroke-width="1.6"/><text x="21" y="18.5" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="8" fill="#fff">+2</text></g></svg>`;
+  // Traverse la route : herbe, route avec voiture, petit bonhomme
+  D.route = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="#72bd45" stroke="#2f6b2a"/>
+    <rect x="3" y="12" width="26" height="10" fill="#434a54"/><path d="M5 17h3M11 17h3M17 17h3M23 17h3" stroke="#e5e7eb" stroke-width="1.2"/>
+    <rect x="15" y="13.5" width="9" height="5" rx="1" fill="#ef4444"/><rect x="17.5" y="12.2" width="4.5" height="2.6" rx=".6" fill="#1f2937"/>
+    <rect x="6.5" y="24" width="4" height="3" fill="#7c4a26"/><rect x="4.5" y="22" width="8" height="3" fill="#3f8f35"/>
+    <rect x="21" y="5" width="5" height="5" fill="#f97316"/><rect x="21.5" y="2.6" width="4" height="3" fill="#fcd7b6"/><rect x="21.5" y="2.4" width="4" height="1.2" fill="#1f2937"/></svg>`;
+  // Tuyaux : des tuyaux métalliques et de l'eau
+  D.tuyaux = `<svg viewBox="0 0 32 32"><defs>${lin('tum', '#cfd6e2', '#6b7486')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="#141a22" stroke="#2a3340"/>
+    <path d="M3 10h8a5 5 0 0 1 5 5v14" fill="none" stroke="url(#tum)" stroke-width="7"/>
+    <path d="M29 20H16" stroke="url(#tum)" stroke-width="7"/>
+    <path d="M3 10h8a5 5 0 0 1 5 5v14" fill="none" stroke="#38bdf8" stroke-width="3"/>
+    <path d="M29 20H19" stroke="#38bdf8" stroke-width="3"/>
+    <path d="M8 6v8M22 16v8" stroke="#e2e8f0" stroke-width="2"/></svg>`;
+
   // Hall of Fame : une coupe dorée
   D.trophee = `<svg viewBox="0 0 32 32"><defs>${lin('trc', '#fde68a', '#d97706')}${lin('trp', '#78350f', '#451a03')}</defs>
     <path d="M9 5h14v6a7 7 0 0 1-14 0z" fill="url(#trc)" stroke="#92400e"/>

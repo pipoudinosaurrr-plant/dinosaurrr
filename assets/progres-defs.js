@@ -63,12 +63,16 @@ export const CLASSEMENTS = {
   meteorites: { nom: 'Pluie de météorites', sens: '+' },
   dinoio: { nom: 'Arène.io (taille max)', sens: '+' },
   solitaire: { nom: 'Solitaire', sens: '+' },
-  reflexes: { nom: 'Test de réflexes (ms)', sens: '-' }
+  reflexes: { nom: 'Test de réflexes (ms)', sens: '-' },
+  flipper: { nom: 'Flipper', sens: '+' },
+  route: { nom: 'Traverse la route', sens: '+' },
+  tuyaux: { nom: 'Tuyaux', sens: '+' }
 };
 
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
-  'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey']);
+  'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
+  'flipper', 'route', 'tuyaux', 'uno']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }
@@ -104,7 +108,11 @@ export const SUCCES = [
   { id: 'pendu', nom: 'Sauvé !', desc: 'Gagner au Pendu.', icone: '🔤', test: gagne('pendu') },
   { id: 'demineur', nom: 'Démineur pro', desc: 'Gagner au Démineur.', icone: '💣', test: gagne('demineur') },
   { id: 'echecs', nom: 'Grand maître', desc: 'Gagner aux échecs (contre l’ordinateur ou en ligne).', icone: '♟️', test: gagne('echecs') },
-  { id: 'hockey', nom: 'Roi de la glisse', desc: 'Gagner à l’Air hockey.', icone: '🏒', test: gagne('hockey') }
+  { id: 'hockey', nom: 'Roi de la glisse', desc: 'Gagner à l’Air hockey.', icone: '🏒', test: gagne('hockey') },
+  { id: 'flipper', nom: 'Sorcier du flipper', desc: 'Faire 250 000 points au Flipper.', icone: '🎱', test: score('flipper', 250000) },
+  { id: 'route50', nom: 'Traverseur', desc: 'Avancer de 50 rangées à Traverse la route.', icone: '🚸', test: score('route', 50) },
+  { id: 'tuyaux', nom: 'Plombier', desc: 'Faire 5 000 points à Tuyaux.', icone: '🔧', test: score('tuyaux', 5000) },
+  { id: 'uno', nom: 'UNO !', desc: 'Gagner une partie de Uno.', icone: '🃏', test: gagne('uno') }
 ];
 
 /* ---------- Défi du jour ----------
@@ -128,7 +136,11 @@ export const DEFIS = [
   { texte: 'Gagne une partie de Pong.', jeu: 'pong', gagne: true },
   { texte: 'Gagne une partie du Cercle.', jeu: 'cercle', gagne: true },
   { texte: 'Gagne une partie en ligne contre un vrai joueur.', enligne: true, gagne: true },
-  { texte: 'Fais 1 500 points à la Pluie de météorites.', jeu: 'meteorites', score: 1500 }
+  { texte: 'Fais 1 500 points à la Pluie de météorites.', jeu: 'meteorites', score: 1500 },
+  { texte: 'Fais 100 000 points au Flipper.', jeu: 'flipper', score: 100000 },
+  { texte: 'Avance de 30 rangées à Traverse la route.', jeu: 'route', score: 30 },
+  { texte: 'Fais 2 500 points à Tuyaux.', jeu: 'tuyaux', score: 2500 },
+  { texte: 'Gagne une partie de Uno.', jeu: 'uno', gagne: true }
 ];
 
 // le jour (à Bruxelles) sous la forme 2026-10-21

@@ -134,7 +134,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -449,6 +449,14 @@ content:
                   label: "Jeu : Échecs"
                 - name: jeu-hockey
                   label: "Jeu : Air hockey"
+                - name: jeu-uno
+                  label: "Jeu : Uno"
+                - name: jeu-flipper
+                  label: "Jeu : Flipper"
+                - name: jeu-route
+                  label: "Jeu : Traverse la route"
+                - name: jeu-tuyaux
+                  label: "Jeu : Tuyaux"
                 - name: jeu-dinorun
                   label: "Jeu : Dino Run"
                 - name: jeu-flap

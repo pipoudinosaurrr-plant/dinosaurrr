@@ -65,6 +65,10 @@ window.ICONES = {
   lien: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   copier: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   partager: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>',
+  flipper: '<path d="M4 3v17M20 3v17"/><path d="M6 18l5-2.5M18 18l-5-2.5"/><circle cx="12" cy="9" r="2.4"/><circle cx="16.5" cy="5.5" r="1.3"/>',
+  uno: '<rect x="3" y="6" width="10" height="14" rx="2" transform="rotate(-12 8 13)"/><rect x="11" y="4" width="10" height="14" rx="2"/><path d="M14 14.5l4-7"/>',
+  route: '<path d="M3 6h18M3 18h18"/><path d="M5 12h2.5M10.75 12h2.5M16.5 12H19"/><rect x="9" y="1.5" width="6" height="3" rx="1"/><circle cx="12" cy="21" r="0"/>',
+  tuyaux: '<path d="M3 8h7a3 3 0 0 1 3 3v10"/><path d="M3 4v8M21 15h-8"/><path d="M17 12v6"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
   volume: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   wifi: '<path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/>'

@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tuyaux</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Tuyaux"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const COLS = 8, ROWS = 8, CASE = 62;
+  const GX = 18, GY = 132;                       // coin de la grille
+  const W = GX * 2 + COLS * CASE, H = GY + ROWS * CASE + 18;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+
+  // directions : 0 haut, 1 droite, 2 bas, 3 gauche
+  const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+  const OPP = d => (d + 2) % 4;
+  // pièces : quelles ouvertures
+  const PIECES = {
+    H: [1, 3], V: [0, 2], HD: [0, 1], HG: [0, 3], BD: [2, 1], BG: [2, 3], X: [0, 1, 2, 3]
+  };
+  const TIRAGE = ['H', 'H', 'V', 'V', 'HD', 'HG', 'BD', 'BG', 'HD', 'HG', 'BD', 'BG', 'X'];
+
+  let grille, file, source, eau, niveau, score, etat = 'menu', attente, vitesse, distance, rempli, curseur = { x: 3, y: 3 }, rapide = false, explosions, message, finNiveauT, vies, boucles;
+
+  const hasard = n => Math.floor(Math.random() * n);
+  const piece = () => TIRAGE[hasard(TIRAGE.length)];
+  const dans = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+  const cell = (x, y) => (dans(x, y) ? grille[y][x] : null);
+
+  function nouveauNiveau(n) {
+    niveau = n;
+    grille = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => null));
+    // la source, pas collée au bord, avec une sortie qui ne regarde pas un mur
+    let sx, sy, sd;
+    do { sx = 1 + hasard(COLS - 2); sy = 1 + hasard(ROWS - 2); sd = hasard(4); } while (!dans(sx + DX[sd] * 2, sy + DY[sd] * 2));
+    source = { x: sx, y: sy, d: sd };
+    grille[sy][sx] = { type: 'source', ouvert: [sd], eau: [] };
+    // rochers (à partir du niveau 2)
+    const nbRochers = Math.min(9, Math.max(0, n - 1) * 2);
+    for (let i = 0; i < nbRochers; i++) {
+      const x = hasard(COLS), y = hasard(ROWS);
+      if (grille[y][x] || Math.abs(x - sx) + Math.abs(y - sy) < 2) continue;
+      grille[y][x] = { type: 'rocher' };
+    }
+    file = Array.from({ length: 5 }, piece);
+    distance = 10 + (n - 1) * 2;
+    rempli = 0; boucles = 0;
+    attente = Math.max(9, 22 - (n - 1) * 2);       // secondes avant que l'eau arrive
+    vitesse = Math.max(0.75, 2.6 - (n - 1) * 0.2);  // secondes pour remplir une pièce
+    eau = { x: sx, y: sy, de: null, vers: sd, p: 0, chemin: [] };
+    rapide = false; explosions = []; message = { texte: `Niveau ${n} : relie au moins ${distance} tuyaux`, t: 3 };
+    finNiveauT = 0;
+    etat = 'jeu';
+  }
+
+  function lancerPartie() {
+    A.fermerPanneau();
+    score = 0; vies = 0;
+    nouveauNiveau(1);
+  }
+
+  /* ---------- Poser une pièce ---------- */
+  function poser(x, y) {
+    if (etat !== 'jeu' || !dans(x, y)) return;
+    const c = grille[y][x];
+    if (c && (c.type === 'source' || c.type === 'rocher' || (c.eau && c.eau.length) || c.casse > 0)) { A.son('touche'); return; }
+    if (c) {
+      // remplacer une pièce coûte des points et un petit temps
+      score = Math.max(0, score - 50);
+      explosions.push({ x, y, t: 0.35 });
+      A.son('petite');
+    } else A.son('pose');
+    const type = file.shift();
+    file.push(piece());
+    grille[y][x] = { type, ouvert: PIECES[type], eau: [], casse: c ? 0.25 : 0 };
+  }
+
+  /* ---------- L'eau ---------- */
+  function avancerEau(dt) {
+    if (attente > 0) { attente -= dt * (rapide ? 8 : 1); return; }
+    eau.p += dt / (rapide ? 0.12 : vitesse);
+    if (eau.p < 1) return;
+    eau.p = 0;
+    // la pièce actuelle est pleine : on passe à la suivante
+    const ici = grille[eau.y][eau.x];
+    if (ici.type !== 'source') {
+      rempli++;
+      score += rapide ? 200 : 100;
+      if (ici.type === 'X' && ici.eau.length === 2) { boucles++; score += 500; message = { texte: 'Croisement ! +500', t: 1.5 }; A.son('bonus'); }
+      else A.son('mange');
+    }
+    const nx = eau.x + DX[eau.vers], ny = eau.y + DY[eau.vers];
+    const entree = OPP(eau.vers);
+    const suivante = cell(nx, ny);
+    if (!suivante || !suivante.ouvert || !suivante.ouvert.includes(entree) || suivante.type === 'source' || suivante.casse > 0 ||
+        (suivante.type === 'X' ? suivante.eau.some(e => e.de === entree || e.vers === entree) : suivante.eau.length)) {
+      fuite(nx, ny);
+      return;
+    }
+    let sortie;
+    if (suivante.type === 'X') sortie = OPP(entree);
+    else sortie = suivante.ouvert.find(d => d !== entree);
+    suivante.eau.push({ de: entree, vers: sortie });
+    eau = { x: nx, y: ny, de: entree, vers: sortie, p: 0 };
+  }
+
+  function fuite(x, y) {
+    etat = 'fuite';
+    finNiveauT = 1.6;
+    fuiteIci = { x, y };
+    if (rempli >= distance) { A.son('gagne'); message = { texte: 'Bravo ! Niveau réussi', t: 2 }; }
+    else { A.son('perdu'); message = { texte: 'Fuite ! Le circuit est trop court', t: 2 }; }
+  }
+  let fuiteIci = null;
+
+  function finNiveau() {
+    if (rempli >= distance) {
+      // bonus : les tuyaux en plus ; malus : les tuyaux posés mais inutiles
+      let inutiles = 0;
+      for (const ligne of grille) for (const c of ligne) if (c && PIECES[c.type] && !c.eau.length) inutiles++;
+      const bonus = (rempli - distance) * 200 + boucles * 0;
+      const malus = inutiles * 50;
+      score = Math.max(0, score + bonus - malus);
+      etat = 'bilan';
+      A.panneau({
+        pastille: 'Tuyaux', titre: `Niveau ${niveau} réussi !`,
+        lignes: [['Tuyaux remplis', `${rempli} / ${distance}`], ['Bonus (tuyaux en plus)', '+' + A.format(bonus)], ['Tuyaux inutiles', malus ? '−' + A.format(malus) : '0'], ['Score', A.format(score)]],
+        boutons: [{ texte: 'Niveau suivant', primaire: true, action: () => { A.fermerPanneau(); nouveauNiveau(niveau + 1); } }]
+      });
+    } else perdu();
+  }
+
+  function perdu() {
+    etat = 'fin';
+    const r = A.record('tuyaux', score);
+    A.finPartie('tuyaux', { score });
+    A.panneau({
+      pastille: 'Tuyaux', titre: r.nouveau && score > 0 ? 'Nouveau record !' : 'Partie terminée',
+      texte: `L'eau a fui au niveau ${niveau} après ${rempli} tuyau${rempli > 1 ? 'x' : ''} (il en fallait ${distance}).`,
+      lignes: [['Score', A.format(score)], ['Niveau atteint', String(niveau)], ['Record', A.format(r.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancerPartie }, { texte: 'Menu', action: menu }]
+    });
+  }
+
+  /* ---------- Dessin ---------- */
+  // chemin d'une ouverture à une autre (liste de points dans la case, de 0 à CASE)
+  function chemin(de, vers) {
+    const bord = d => [CASE / 2 + DX[d] * CASE / 2, CASE / 2 + DY[d] * CASE / 2];
+    const a = bord(de), b = bord(vers), c = [CASE / 2, CASE / 2];
+    const pts = [];
+    for (let i = 0; i <= 16; i++) {
+      const t = i / 16;
+      if ((de + vers) % 2 === 0 && de !== vers) pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);      // tout droit
+      else pts.push([(1 - t) ** 2 * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) ** 2 * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]]);
+    }
+    return pts;
+  }
+  function trait(pts, x0, y0, largeur, couleur, jusqua = 1) {
+    const n = Math.max(1, Math.round((pts.length - 1) * jusqua));
+    ctx.beginPath();
+    ctx.moveTo(x0 + pts[0][0], y0 + pts[0][1]);
+    for (let i = 1; i <= n; i++) ctx.lineTo(x0 + pts[i][0], y0 + pts[i][1]);
+    ctx.lineWidth = largeur; ctx.strokeStyle = couleur; ctx.stroke();
+  }
+  function dessinerTuyau(type, x0, y0, c, petit = false) {
+    ctx.lineCap = 'butt';
+    const o = PIECES[type];
+    const paires = type === 'X' ? [[1, 3], [0, 2]] : [[o[0], o[1]]];
+    const k = petit ? 0.82 : 1;
+    ctx.save();
+    if (petit) { ctx.translate(x0 + CASE * 0.09, y0 + CASE * 0.09); ctx.scale(k, k); x0 = 0; y0 = 0; }
+    for (const [a, b] of paires) {
+      const pts = chemin(a, b);
+      trait(pts, x0, y0, 24, '#3f4a5a');
+      trait(pts, x0, y0, 18, '#8d99ad');
+      trait(pts, x0, y0, 10, '#141922');
+    }
+    // l'eau
+    if (c && c.eau) for (const e of c.eau) {
+      const enCours = eau && eau.x === c.x && eau.y === c.y && eau.de === e.de && etat !== 'fuite';
+      const pts = chemin(e.de, e.vers);
+      ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 8;
+      trait(pts, x0, y0, 10, '#38bdf8', enCours ? Math.max(0.03, eau.p) : 1);
+      ctx.shadowBlur = 0;
+    }
+    // brides aux ouvertures
+    for (const d of o) {
+      const bx = x0 + CASE / 2 + DX[d] * (CASE / 2 - 3), by = y0 + CASE / 2 + DY[d] * (CASE / 2 - 3);
+      ctx.fillStyle = '#c3ccd9';
+      if (d % 2) ctx.fillRect(bx - 3, by - 14, 6, 28); else ctx.fillRect(bx - 14, by - 3, 28, 6);
+    }
+    ctx.restore();
+  }
+
+  function dessiner() {
+    T.effacer('#0a0a0a');
+    ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+    // en-tête : file d'attente et infos
+    ctx.textAlign = 'left'; ctx.fillStyle = '#7d8590'; ctx.font = `700 11px ${MONO}`;
+    ctx.fillText('PROCHAINS TUYAUX', GX, 22);
+    for (let i = 0; i < file.length; i++) {
+      const x = GX + i * (CASE + 8), y = 30;
+      ctx.fillStyle = i === 0 ? '#1f2937' : '#151b23'; ctx.strokeStyle = i === 0 ? '#facc15' : '#2a3340'; ctx.lineWidth = i === 0 ? 2.5 : 1;
+      ctx.fillRect(x, y, CASE, CASE); ctx.strokeRect(x, y, CASE, CASE);
+      ctx.globalAlpha = i === 0 ? 1 : 0.65;
+      dessinerTuyau(file[i], x, y, null, true);
+      ctx.globalAlpha = 1;
+    }
+    const xi = GX + 5 * (CASE + 8) + 4;
+    ctx.fillStyle = '#e5e7eb'; ctx.font = `800 22px ${MONO}`; ctx.fillText(A.format(score), xi, 50);
+    ctx.font = `700 11px ${MONO}`; ctx.fillStyle = '#7d8590';
+    ctx.fillText(`NIVEAU ${niveau}`, xi, 70);
+    ctx.fillStyle = rempli >= distance ? '#4ade80' : '#7d8590';
+    ctx.fillText(`TUYAUX ${rempli}/${distance}`, xi, 88);
+    // jauge du temps avant l'eau
+    const tot = Math.max(9, 22 - (niveau - 1) * 2);
+    ctx.fillStyle = '#1f2937'; ctx.fillRect(GX, 102, COLS * CASE, 10);
+    ctx.fillStyle = attente > 0 ? (attente < 4 ? '#f87171' : '#38bdf8') : '#1e3a5f';
+    ctx.fillRect(GX, 102, COLS * CASE * Math.max(0, attente) / tot, 10);
+    ctx.fillStyle = '#7d8590'; ctx.font = `700 10px ${MONO}`; ctx.textAlign = 'right';
+    ctx.fillText(attente > 0 ? `L'EAU ARRIVE DANS ${Math.ceil(attente)} s` : (rapide ? 'ACCÉLÉRÉ ×2 POINTS' : (A.TACTILE ? 'DOUBLE-TOUCHE LA SOURCE POUR ACCÉLÉRER' : 'F : ACCÉLÉRER L’EAU (×2 POINTS)')), GX + COLS * CASE, 126);
+
+    // la grille
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const x0 = GX + x * CASE, y0 = GY + y * CASE;
+      ctx.fillStyle = (x + y) % 2 ? '#141a22' : '#171e27';
+      ctx.fillRect(x0, y0, CASE, CASE);
+      const c = grille[y][x];
+      if (!c) continue;
+      c.x = x; c.y = y;
+      if (c.type === 'rocher') {
+        ctx.fillStyle = '#4b5563'; ctx.beginPath(); ctx.moveTo(x0 + 10, y0 + 48); ctx.lineTo(x0 + 16, y0 + 18); ctx.lineTo(x0 + 34, y0 + 10); ctx.lineTo(x0 + 52, y0 + 22); ctx.lineTo(x0 + 54, y0 + 50); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.moveTo(x0 + 16, y0 + 18); ctx.lineTo(x0 + 34, y0 + 10); ctx.lineTo(x0 + 36, y0 + 28); ctx.lineTo(x0 + 20, y0 + 32); ctx.fill();
+        continue;
+      }
+      if (c.type === 'source') {
+        const pts = chemin(OPP(source.d), source.d).slice(8);
+        trait(pts, x0, y0, 24, '#3f4a5a'); trait(pts, x0, y0, 18, '#8d99ad'); trait(pts, x0, y0, 10, '#141922');
+        if (attente <= 0) { ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 8; trait(pts, x0, y0, 10, '#38bdf8', eau.x === x && eau.y === y ? Math.max(0.05, eau.p) : 1); ctx.shadowBlur = 0; }
+        ctx.fillStyle = '#0369a1'; ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x0 + CASE / 2, y0 + CASE / 2, 17, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#e0f2fe'; ctx.font = `800 9px ${MONO}`; ctx.textAlign = 'center';
+        ctx.fillText(attente > 0 ? Math.ceil(attente) : 'EAU', x0 + CASE / 2, y0 + CASE / 2 + 3);
+        continue;
+      }
+      if (c.casse > 0) ctx.globalAlpha = 0.4;
+      dessinerTuyau(c.type, x0, y0, c);
+      ctx.globalAlpha = 1;
+    }
+    // explosions (pièce remplacée)
+    for (const e of explosions) {
+      ctx.strokeStyle = `rgba(250,204,21,${e.t / 0.35})`; ctx.lineWidth = 3;
+      ctx.strokeRect(GX + e.x * CASE + 4 + (0.35 - e.t) * 20, GY + e.y * CASE + 4 + (0.35 - e.t) * 20, CASE - 8 - (0.35 - e.t) * 40, CASE - 8 - (0.35 - e.t) * 40);
+    }
+    // fuite
+    if (etat === 'fuite' && fuiteIci) {
+      const fx = GX + (fuiteIci.x + 0.5) * CASE - DX[eau.vers] * CASE * 0.5, fy = GY + (fuiteIci.y + 0.5) * CASE - DY[eau.vers] * CASE * 0.5;
+      for (let i = 0; i < 9; i++) { ctx.fillStyle = 'rgba(56,189,248,.6)'; ctx.beginPath(); ctx.arc(fx + Math.sin(i * 2.1 + performance.now() / 90) * 14, fy + Math.cos(i * 1.7 + performance.now() / 110) * 14, 4, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // curseur
+    if (etat === 'jeu') {
+      ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.strokeRect(GX + curseur.x * CASE + 2, GY + curseur.y * CASE + 2, CASE - 4, CASE - 4);
+      ctx.setLineDash([]);
+    }
+    // cadre
+    ctx.strokeStyle = '#2a3340'; ctx.lineWidth = 2; ctx.strokeRect(GX - 1, GY - 1, COLS * CASE + 2, ROWS * CASE + 2);
+    if (message && message.t > 0) {
+      ctx.textAlign = 'center'; ctx.font = `800 17px ${MONO}`;
+      const tw = ctx.measureText(message.texte).width + 30;
+      ctx.fillStyle = 'rgba(0,0,0,.75)'; ctx.fillRect(W / 2 - tw / 2, GY + ROWS * CASE / 2 - 24, tw, 40);
+      ctx.fillStyle = '#facc15'; ctx.fillText(message.texte, W / 2, GY + ROWS * CASE / 2 + 2);
+    }
+  }
+
+  /* ---------- Commandes ---------- */
+  let dernierToucheSource = 0;
+  T.canvas.addEventListener('pointerdown', e => {
+    if (etat !== 'jeu') return;
+    const pt = T.point(e);
+    const x = Math.floor((pt.x - GX) / CASE), y = Math.floor((pt.y - GY) / CASE);
+    if (!dans(x, y)) return;
+    curseur = { x, y };
+    if (x === source.x && y === source.y) {
+      const t = performance.now();
+      if (t - dernierToucheSource < 400) accelerer();
+      dernierToucheSource = t;
+      return;
+    }
+    poser(x, y);
+  });
+  T.canvas.addEventListener('pointermove', e => {
+    if (etat !== 'jeu' || e.pointerType !== 'mouse') return;
+    const pt = T.point(e);
+    const x = Math.floor((pt.x - GX) / CASE), y = Math.floor((pt.y - GY) / CASE);
+    if (dans(x, y)) curseur = { x, y };
+  });
+  function accelerer() { if (etat === 'jeu' && !rapide) { rapide = true; A.son('bonus'); } }
+  addEventListener('keydown', e => {
+    if (etat !== 'jeu' || A.panneauOuvert) return;
+    if (e.code === 'KeyF') { accelerer(); return; }
+    const d = { ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] }[e.code];
+    if (d) { e.preventDefault(); curseur = { x: Math.max(0, Math.min(COLS - 1, curseur.x + d[0])), y: Math.max(0, Math.min(ROWS - 1, curseur.y + d[1])) }; }
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); poser(curseur.x, curseur.y); }
+  });
+
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Score', A.format(score)], ['Niveau', String(niveau)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancerPartie }, { texte: 'Menu', action: menu }] });
+  }
+  A.surPerteFocus = pause;
+  addEventListener('keydown', e => { if ((e.code === 'KeyP' || e.code === 'Escape') && etat === 'jeu') pause(); });
+
+  function menu() {
+    etat = 'menu';
+    if (!grille) nouveauNiveau(1), etat = 'menu';
+    A.panneau({
+      pastille: 'Tuyaux', titre: 'Tuyaux',
+      texte: 'L’eau va bientôt sortir de la source. Pose les tuyaux pour lui faire un circuit assez long avant qu’elle arrive… et qu’elle déborde !',
+      lignes: A.TACTILE
+        ? [['Poser', 'Touche une case'], ['Remplacer', 'Touche un tuyau vide (−50)'], ['Accélérer', 'Touche 2 fois la source']]
+        : [['Poser', 'Clic sur une case (ou flèches + Espace)'], ['Remplacer', 'Clic sur un tuyau vide (−50)'], ['Accélérer', 'F (points ×2)'], ['Record', A.format(A.record('tuyaux') || 0)]],
+      aide: 'Les croisements peuvent être traversés deux fois (+500). Les tuyaux posés mais pas utilisés coûtent des points à la fin du niveau.',
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancerPartie }]
+    });
+  }
+
+  A.boutonsCoin(pause);
+  // pour les tests automatiques (lecture seule)
+  window.etatTuyaux = () => ({ source, file: [...file], etat, rempli, distance, niveau, score });
+  menu();
+  A.boucle(dt => {
+    if (etat === 'jeu') {
+      avancerEau(dt);
+      for (const ligne of grille) for (const c of ligne) if (c && c.casse > 0) c.casse -= dt;
+    }
+    if (etat === 'fuite') { finNiveauT -= dt; if (finNiveauT <= 0) finNiveau(); }
+    explosions = explosions.filter(e => (e.t -= dt) > 0);
+    if (message) message.t -= dt;
+    dessiner();
+  });
+})();
+</script>
+</body>
+</html>

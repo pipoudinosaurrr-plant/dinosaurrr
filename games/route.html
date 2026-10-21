@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Traverse la route</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; background: #000; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Traverse la route"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const W = 540, H = 780;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const TX = 48;                 // largeur d'une case
+  const TZ = 46;                 // profondeur d'une rangée à l'écran
+  const X0 = W / 2 - TX / 2;     // x de la colonne 0
+  const LIM = 5;                 // colonnes jouables : −5 … 5
+  const BASE = H * 0.76;         // où se trouve la rangée de la caméra
+
+  const hasard = (a, b) => a + Math.random() * (b - a);
+  const entier = (a, b) => Math.floor(hasard(a, b + 1));
+  const choisir = l => l[Math.floor(Math.random() * l.length)];
+
+  let rangees, joueur, camZ, score, etat = 'menu', mort, file, tempsRepos, secousse, particules, pieces, piecesPrises;
+
+  /* ---------- Génération du monde ---------- */
+  const COULEURS_VOITURES = ['#ef4444', '#3b82f6', '#f59e0b', '#a855f7', '#10b981', '#f472b6', '#e5e7eb', '#06b6d4'];
+  function difficulte(z) { return Math.min(1, z / 260); }
+
+  function creerRangee(z, type) {
+    const d = difficulte(z);
+    const r = { z, type, objets: [], arbres: new Set(), dir: Math.random() < 0.5 ? -1 : 1, vitesse: 0 };
+    if (type === 'herbe') {
+      if (z > 3) {
+        const n = entier(1, 3 + Math.round(d * 2));
+        for (let i = 0; i < n; i++) r.arbres.add(entier(-LIM, LIM));
+        // un passage est toujours possible : on garde au moins une colonne libre au centre de la zone
+        if (r.arbres.size >= 9) r.arbres.clear();
+      }
+      // les colonnes hors limites sont toujours plantées
+      for (let x = -9; x <= 9; x++) if (Math.abs(x) > LIM) r.arbres.add(x);
+      if (z > 3 && Math.random() < 0.12) { let x = entier(-LIM, LIM); if (!r.arbres.has(x)) r.piece = x; }
+    } else if (type === 'route') {
+      r.vitesse = hasard(1.6, 3.2) + d * 2.6;
+      const camion = Math.random() < 0.3;
+      const largeur = camion ? 2.6 : 1.35;
+      const ecart = hasard(2.6, 5) - d * 0.8 + largeur;
+      const n = Math.ceil(24 / ecart);
+      let x = hasard(-12, -12 + ecart);
+      const couleur = choisir(COULEURS_VOITURES);
+      for (let i = 0; i < n; i++) { r.objets.push({ x, w: largeur, camion, couleur: Math.random() < 0.6 ? couleur : choisir(COULEURS_VOITURES) }); x += ecart * hasard(0.9, 1.25); }
+    } else if (type === 'riviere') {
+      if (Math.random() < 0.28 && z > 6) {
+        r.nenuphars = true;
+        r.vitesse = 0;
+        const libres = []; for (let x = -LIM; x <= LIM; x++) libres.push(x);
+        const n = entier(3, 5);
+        for (let i = 0; i < n; i++) { const x = libres.splice(Math.floor(Math.random() * libres.length), 1)[0]; r.objets.push({ x: x - 0.4, w: 0.8 }); }
+      } else {
+        r.vitesse = hasard(1.0, 2.0) + d * 1.3;
+        const longueur = hasard(2.2, 3.8) - d * 0.8;
+        const ecart = longueur + hasard(1.4, 2.8) + d * 0.6;
+        let x = hasard(-12, -12 + ecart);
+        while (x < 12) { r.objets.push({ x, w: longueur }); x += ecart * hasard(0.9, 1.15); }
+      }
+    } else if (type === 'rail') {
+      r.train = null;
+      r.minuterie = hasard(2, 6);
+      r.alerte = 0;
+    }
+    return r;
+  }
+
+  let prochainType = [];
+  function genererJusqua(zMax) {
+    while (rangees.length === 0 || rangees[rangees.length - 1].z < zMax) {
+      const z = rangees.length ? rangees[rangees.length - 1].z + 1 : -6;
+      if (z <= 2) { rangees.push(creerRangee(z, 'herbe')); continue; }
+      if (!prochainType.length) {
+        const d = difficulte(z);
+        const bloc = choisir(['route', 'route', 'route', 'riviere', 'riviere', 'rail', 'herbe']);
+        const n = bloc === 'herbe' ? entier(1, 2) : bloc === 'rail' ? entier(1, 2) : bloc === 'route' ? entier(1, 3 + Math.round(d * 2)) : entier(1, 3 + Math.round(d));
+        for (let i = 0; i < n; i++) prochainType.push(bloc);
+        prochainType.push('herbe');
+        if (Math.random() < 0.5) prochainType.push('herbe');
+      }
+      const type = prochainType.shift();
+      const r = creerRangee(z, type);
+      // deux rivières de suite : sens opposés, c'est plus joli et plus juste
+      const avant = rangees[rangees.length - 1];
+      if (avant && avant.type === type && type !== 'herbe') r.dir = -avant.dir;
+      // il existe toujours un passage : nénuphar ↔ case libre ↔ nénuphar
+      const libreDans = (rg, x) => rg.type === 'herbe' ? !rg.arbres.has(x) : rg.nenuphars ? rg.objets.some(o => Math.round(o.x + o.w / 2) === x) : true;
+      if (avant && (r.nenuphars || (avant.nenuphars && r.type === 'herbe'))) {
+        const cols = []; for (let x = -LIM; x <= LIM; x++) cols.push(x);
+        if (!cols.some(x => libreDans(avant, x) && libreDans(r, x))) {
+          const x = cols.filter(c => libreDans(avant, c))[0] ?? 0;
+          if (r.type === 'herbe') r.arbres.delete(x);
+          else r.objets.push({ x: x - 0.4, w: 0.8 });
+        }
+      }
+      rangees.push(r);
+    }
+    while (rangees.length && rangees[0].z < camZ - 8) rangees.shift();
+  }
+  const rangee = z => rangees.find(r => r.z === z);
+
+  /* ---------- La partie ---------- */
+  function lancerPartie() {
+    A.fermerPanneau();
+    rangees = []; prochainType = []; camZ = 0;
+    joueur = { x: 0, z: 0, saut: null, regard: 0, surTronc: null };
+    score = 0; mort = null; file = []; tempsRepos = 0; secousse = 0; particules = []; piecesPrises = 0;
+    genererJusqua(24);
+    etat = 'jeu';
+  }
+
+  function bouger(dx, dz) {
+    if (etat !== 'jeu' || mort) return;
+    if (joueur.saut) { if (file.length < 2) file.push([dx, dz]); return; }
+    joueur.regard = dz > 0 ? 0 : dz < 0 ? 2 : dx > 0 ? 1 : 3;
+    const r0 = rangee(joueur.z);
+    let x = joueur.x + dx;
+    const z = joueur.z + dz;
+    const dest = rangee(z);
+    if (!dest) return;
+    if (dz !== 0 || (r0 && r0.type !== 'riviere')) x = Math.round(x);   // on se recale sur la grille en quittant un tronc
+    if (z < camZ - 3) return;
+    if (Math.abs(x) > LIM + 0.4 && !(r0 && r0.type === 'riviere' && dz === 0)) return;
+    if (dest.type === 'herbe' && dest.arbres.has(Math.round(x))) { A.son('touche'); return; }
+    joueur.saut = { x0: joueur.x, z0: joueur.z, x1: x, z1: z, t: 0 };
+    tempsRepos = 0;
+    A.son('saut');
+  }
+
+  function finSaut() {
+    const s = joueur.saut;
+    joueur.x = s.x1; joueur.z = s.z1; joueur.saut = null;
+    if (joueur.z > score) {
+      score = joueur.z;
+    }
+    const r = rangee(joueur.z);
+    if (r && r.piece !== undefined && Math.round(joueur.x) === r.piece) { delete r.piece; piecesPrises++; A.son('piece'); }
+    if (file.length) { const [dx, dz] = file.shift(); bouger(dx, dz); }
+  }
+
+  // pour tester en local seulement : route.html#invincible
+  const INVINCIBLE = location.hash === '#invincible' && ['localhost', '127.0.0.1'].includes(location.hostname);
+  function mourir(cause) {
+    if (mort || INVINCIBLE) return;
+    mort = { cause, t: 0 };
+    secousse = 0.3;
+    A.son(cause === 'eau' ? 'petite' : cause === 'lent' ? 'perdu' : 'explosion');
+    if (cause === 'eau') for (let i = 0; i < 16; i++) particules.push({ x: joueur.x, z: joueur.z, h: 10, vx: hasard(-1.5, 1.5), vz: hasard(-1, 1), vh: hasard(60, 160), t: 0.8, c: '#bfe9ff' });
+    setTimeout(finPartie, 1100);
+  }
+
+  function finPartie() {
+    etat = 'fin';
+    const r = A.record('route', score);
+    A.finPartie('route', { score });
+    const causes = { voiture: 'Écrasé par une voiture !', train: 'Le train est passé…', eau: 'Plouf ! Tombé à l’eau.', lent: 'Trop lent : il faut avancer !', bord: 'Emporté hors de l’écran !' };
+    A.panneau({
+      pastille: 'Traverse la route', titre: r.nouveau && score > 0 ? 'Nouveau record !' : causes[mort.cause] || 'Perdu !',
+      lignes: [['Distance', String(score)], ['Pièces', String(piecesPrises)], ['Record', String(r.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancerPartie }, { texte: 'Menu', action: menu }]
+    });
+  }
+
+  /* ---------- Mise à jour ---------- */
+  function avancer(dt) {
+    // objets qui bougent
+    for (const r of rangees) {
+      if (r.type === 'route' || (r.type === 'riviere' && !r.nenuphars)) {
+        for (const o of r.objets) {
+          o.x += r.dir * r.vitesse * dt;
+          if (r.dir > 0 && o.x > 13) o.x -= 26 + o.w;
+          if (r.dir < 0 && o.x + o.w < -13) o.x += 26 + o.w;
+        }
+      } else if (r.type === 'rail') {
+        if (r.train) {
+          r.train.x += r.dir * 26 * dt;
+          if ((r.dir > 0 && r.train.x > 16) || (r.dir < 0 && r.train.x + r.train.w < -16)) { r.train = null; r.minuterie = hasard(3, 8); }
+        } else {
+          r.minuterie -= dt;
+          if (r.minuterie <= 1.1 && r.alerte <= 0) { r.alerte = 1.1; if (Math.abs(r.z - joueur.z) < 10) A.son('decompte'); }
+          if (r.alerte > 0) { r.alerte -= dt; if (r.alerte <= 0) { r.train = { x: r.dir > 0 ? -16 - 14 : 16, w: 14 }; if (Math.abs(r.z - joueur.z) < 8) A.son('boss'); } }
+        }
+      }
+    }
+    if (mort) { mort.t += dt; return; }
+
+    // le saut
+    if (joueur.saut) { joueur.saut.t += dt / 0.11; if (joueur.saut.t >= 1) finSaut(); }
+
+    // sur un tronc : on est emporté
+    const zIci = joueur.saut ? (joueur.saut.t < 0.5 ? joueur.saut.z0 : joueur.saut.z1) : joueur.z;
+    const r = rangee(zIci);
+    if (r && !joueur.saut && r.type === 'riviere') {
+      const support = r.objets.find(o => joueur.x > o.x - 0.15 && joueur.x < o.x + o.w + 0.15);
+      if (!support) return mourir('eau');
+      if (!r.nenuphars) joueur.x += r.dir * r.vitesse * dt;
+      if (Math.abs(joueur.x) > LIM + 0.9) return mourir('bord');
+    }
+    // voitures et trains
+    const px = joueur.saut ? joueur.saut.x0 + (joueur.saut.x1 - joueur.saut.x0) * joueur.saut.t : joueur.x;
+    if (r && r.type === 'route') for (const o of r.objets) if (px + 0.3 > o.x && px - 0.3 < o.x + o.w) return mourir('voiture');
+    if (r && r.type === 'rail' && r.train && px + 0.3 > r.train.x && px - 0.3 < r.train.x + r.train.w) return mourir('train');
+
+    // la caméra avance toute seule : il ne faut pas traîner
+    const cible = joueur.z - 1.2;
+    const lente = 0.18 + Math.min(0.75, score * 0.004);
+    camZ = Math.max(camZ + lente * dt, camZ + (cible - camZ) * Math.min(1, dt * 3));
+    if (joueur.z < camZ - 3.3) return mourir('lent');
+    genererJusqua(Math.ceil(camZ) + 20);
+
+    if (file.length && !joueur.saut) { const [dx, dz] = file.shift(); bouger(dx, dz); }
+  }
+
+  /* ---------- Dessin ---------- */
+  const yRangee = z => BASE - (z - camZ) * TZ;     // bord proche (bas) de la rangée
+  const xCol = x => X0 + x * TX;
+  function ombre(c, k) {
+    const n = parseInt(c.slice(1), 16);
+    const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+    return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+  }
+  // un pavé : x (colonnes, bord gauche), z (rangée), dz (décalage dans la rangée), w, p (profondeur en rangées), h (hauteur en pixels)
+  function pave(x, z, dz, w, p, h, couleur, sol = 0) {
+    const bas = yRangee(z) - dz * TZ - sol;
+    const gx = xCol(x), lw = w * TX, lp = p * TZ;
+    ctx.fillStyle = ombre(couleur, 0.72); ctx.fillRect(gx, bas - h, lw, h);               // face avant
+    ctx.fillStyle = ombre(couleur, 0.55); ctx.fillRect(gx + lw - Math.min(6, lw * 0.15), bas - h, Math.min(6, lw * 0.15), h);   // un peu de côté
+    ctx.fillStyle = couleur; ctx.fillRect(gx, bas - h - lp, lw, lp);                        // dessus
+  }
+
+  function dessinerSol(r) {
+    const y = yRangee(r.z);
+    if (y < -TZ || y - TZ > H) return;
+    if (r.type === 'herbe') {
+      ctx.fillStyle = r.z % 2 ? '#7bc74d' : '#72bd45'; ctx.fillRect(0, y - TZ, W, TZ);
+    } else if (r.type === 'route') {
+      ctx.fillStyle = '#434a54'; ctx.fillRect(0, y - TZ, W, TZ);
+      const avant = rangee(r.z - 1);
+      if (avant && avant.type === 'route') { ctx.fillStyle = '#d1d5db'; for (let x = -12; x < 12; x += 1.2) ctx.fillRect(xCol(x), y - 2, TX * 0.55, 3); }
+    } else if (r.type === 'riviere') {
+      ctx.fillStyle = '#3aa0e8'; ctx.fillRect(0, y - TZ, W, TZ);
+      ctx.fillStyle = 'rgba(255,255,255,.18)';
+      const t = performance.now() / 1000;
+      for (let i = 0; i < 6; i++) { const x = ((i * 97 + r.z * 41 + t * 30 * (r.dir || 1)) % (W + 60) + W + 60) % (W + 60) - 30; ctx.fillRect(x, y - TZ * (0.3 + (i % 3) * 0.2), 22, 2); }
+    } else if (r.type === 'rail') {
+      ctx.fillStyle = '#8a7a6b'; ctx.fillRect(0, y - TZ, W, TZ);
+      ctx.fillStyle = '#5b4636'; for (let x = 0; x < W; x += 18) ctx.fillRect(x, y - TZ + 8, 9, TZ - 16);
+      ctx.fillStyle = '#c7cdd6'; ctx.fillRect(0, y - TZ + 13, W, 3); ctx.fillRect(0, y - 16, W, 3);
+    }
+  }
+
+  function dessinerObjets(r) {
+    const y = yRangee(r.z);
+    if (y < -60 || y - TZ > H + 40) return;
+    if (r.type === 'herbe') {
+      for (const x of [...r.arbres].sort((a, b) => a - b)) {
+        const hors = Math.abs(x) > LIM;
+        const h = 26 + ((x * 31 + r.z * 17) & 15);
+        pave(x + 0.38, r.z, 0.3, 0.24, 0.3, 12, '#7c4a26');
+        pave(x + 0.12, r.z, 0.15, 0.76, 0.65, h, hors ? '#2f6b2a' : '#3f8f35', 12);
+      }
+      if (r.piece !== undefined) {
+        const bob = Math.sin(performance.now() / 200 + r.z) * 3;
+        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.ellipse(xCol(r.piece) + TX / 2, y - TZ * 0.5 - 16 + bob, 8, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#a16207'; ctx.fillRect(xCol(r.piece) + TX / 2 - 1.5, y - TZ * 0.5 - 21 + bob, 3, 10);
+      }
+    } else if (r.type === 'route') {
+      for (const o of r.objets) {
+        if (o.camion) {
+          pave(o.x, r.z, 0.15, o.w * 0.72, 0.7, 26, '#e5e7eb', 4);
+          const cab = r.dir > 0 ? o.x + o.w * 0.74 : o.x;
+          pave(cab, r.z, 0.15, o.w * 0.26, 0.7, 22, o.couleur, 4);
+        } else {
+          pave(o.x, r.z, 0.15, o.w, 0.7, 14, o.couleur, 4);
+          pave(o.x + o.w * 0.22, r.z, 0.25, o.w * 0.56, 0.5, 10, '#1f2937', 18);
+        }
+        // roues
+        ctx.fillStyle = '#111';
+        const bas = yRangee(r.z) - 0.15 * TZ;
+        ctx.fillRect(xCol(o.x) + 5, bas - 6, 9, 6); ctx.fillRect(xCol(o.x + o.w) - 14, bas - 6, 9, 6);
+      }
+    } else if (r.type === 'riviere') {
+      for (const o of r.objets) {
+        if (r.nenuphars) {
+          ctx.fillStyle = '#2f9e44'; ctx.beginPath(); ctx.ellipse(xCol(o.x + o.w / 2), y - TZ * 0.5, TX * 0.42, TZ * 0.36, 0, 0.3, Math.PI * 2 - 0.1); ctx.lineTo(xCol(o.x + o.w / 2), y - TZ * 0.5); ctx.fill();
+        } else pave(o.x, r.z, 0.18, o.w, 0.64, 8, '#8b5a2b', -2);
+      }
+    } else if (r.type === 'rail') {
+      // feu qui clignote
+      const on = r.alerte > 0 && Math.floor(performance.now() / 120) % 2 === 0;
+      pave(-LIM + 0.08, r.z, 0.88, 0.1, 0.1, 34, '#6b7280');
+      ctx.fillStyle = '#111'; ctx.fillRect(xCol(-LIM + 0.02), y - 0.88 * TZ - 44, 16, 12);
+      ctx.fillStyle = on ? '#ef4444' : '#4b1d1d'; ctx.beginPath(); ctx.arc(xCol(-LIM + 0.02) + 8, y - 0.88 * TZ - 38, 4.5, 0, Math.PI * 2); ctx.fill();
+      if (r.train) {
+        for (let i = 0; i < 4; i++) {
+          const x = r.train.x + i * 3.6;
+          pave(x, r.z, 0.12, 3.4, 0.76, 30, i === (r.dir > 0 ? 3 : 0) ? '#dc2626' : '#e5e7eb', 3);
+          ctx.fillStyle = '#1e3a8a'; for (let k = 0; k < 3; k++) ctx.fillRect(xCol(x + 0.3 + k * 1.05), yRangee(r.z) - 0.12 * TZ - 24, TX * 0.6, 8);
+        }
+      }
+    }
+  }
+
+  function dessinerJoueur() {
+    let x = joueur.x, z = joueur.z, saut = 0;
+    if (joueur.saut) {
+      const s = joueur.saut;
+      x = s.x0 + (s.x1 - s.x0) * s.t; z = s.z0 + (s.z1 - s.z0) * s.t;
+      saut = Math.sin(Math.PI * s.t) * 14;
+    }
+    const zr = Math.floor(z), dz = z - zr;
+    const ecrase = mort && (mort.cause === 'voiture' || mort.cause === 'train');
+    if (mort && mort.cause === 'eau') return;
+    // ombre
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(xCol(x) + TX / 2, yRangee(zr) - dz * TZ - TZ * 0.45, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
+    if (ecrase) { pave(x + 0.1, zr, dz + 0.2, 0.8, 0.6, 4, '#f97316'); return; }
+    const s = saut + 2;
+    pave(x + 0.25, zr, dz + 0.32, 0.5, 0.38, 18, '#f97316', s);          // sweat orange
+    pave(x + 0.28, zr, dz + 0.34, 0.44, 0.34, 15, '#fcd7b6', s + 18);    // tête
+    pave(x + 0.26, zr, dz + 0.33, 0.48, 0.36, 5, '#1f2937', s + 33);     // cheveux
+    // yeux selon la direction
+    const bas = yRangee(zr) - (dz + 0.34) * TZ - s - 18;
+    ctx.fillStyle = '#111';
+    const gx = xCol(x + 0.28), lw = TX * 0.44;
+    if (joueur.regard === 0) { /* de dos */ }
+    else if (joueur.regard === 2) { ctx.fillRect(gx + lw * 0.22, bas - 10, 4, 4); ctx.fillRect(gx + lw * 0.62, bas - 10, 4, 4); }
+    else if (joueur.regard === 1) ctx.fillRect(gx + lw * 0.72, bas - 10, 4, 4);
+    else ctx.fillRect(gx + lw * 0.1, bas - 10, 4, 4);
+  }
+
+  function dessiner() {
+    T.effacer('#000');
+    ctx.save();
+    if (secousse > 0) ctx.translate((Math.random() - 0.5) * 10 * secousse, (Math.random() - 0.5) * 10 * secousse);
+    ctx.fillStyle = '#72bd45'; ctx.fillRect(0, 0, W, H);
+    const visibles = rangees.filter(r => yRangee(r.z) > -TZ * 2 && yRangee(r.z) - TZ < H + TZ).sort((a, b) => b.z - a.z);
+    for (const r of visibles) dessinerSol(r);
+    // zones hors limites : un peu assombries
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.fillRect(0, 0, xCol(-LIM), H); ctx.fillRect(xCol(LIM + 1), 0, W - xCol(LIM + 1), H);
+    const zJoueur = joueur.saut ? Math.max(joueur.saut.z0, joueur.saut.z1) : joueur.z;
+    for (const r of visibles) {
+      dessinerObjets(r);
+      if (r.z === zJoueur) dessinerJoueur();
+    }
+    // éclaboussures
+    for (const p of particules) {
+      ctx.fillStyle = p.c; ctx.fillRect(xCol(p.x) + TX / 2 + p.vx * 30 * (0.8 - p.t), yRangee(p.z) - TZ / 2 - p.h, 4, 4);
+    }
+    ctx.restore();
+    // score
+    ctx.fillStyle = '#fff'; ctx.font = `900 40px ${MONO}`; ctx.textAlign = 'left';
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.35)';
+    ctx.strokeText(String(score), 18, 54); ctx.fillText(String(score), 18, 54);
+    ctx.font = `700 13px ${MONO}`;
+    const rec = A.record('route');
+    ctx.strokeText('RECORD ' + (rec || 0), 20, 76); ctx.fillText('RECORD ' + (rec || 0), 20, 76);
+    if (piecesPrises) { ctx.fillStyle = '#facc15'; ctx.strokeText('● ' + piecesPrises, 20, 96); ctx.fillText('● ' + piecesPrises, 20, 96); }
+  }
+
+  /* ---------- Commandes ---------- */
+  addEventListener('keydown', e => {
+    if (A.panneauOuvert || etat !== 'jeu') return;
+    const m = { ArrowUp: [0, 1], KeyW: [0, 1], Space: [0, 1], ArrowDown: [0, -1], KeyS: [0, -1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] }[e.code];
+    if (!m) return;
+    e.preventDefault();
+    if (!e.repeat) bouger(m[0], m[1]);
+  });
+  // tactile : toucher = avancer, glisser = aller dans cette direction
+  let depart = null;
+  T.canvas.addEventListener('pointerdown', e => { if (etat === 'jeu') depart = { x: e.clientX, y: e.clientY }; });
+  T.canvas.addEventListener('pointerup', e => {
+    if (!depart || etat !== 'jeu') return;
+    const dx = e.clientX - depart.x, dy = e.clientY - depart.y;
+    depart = null;
+    if (Math.hypot(dx, dy) < 22) return bouger(0, 1);
+    if (Math.abs(dx) > Math.abs(dy)) bouger(dx > 0 ? 1 : -1, 0);
+    else bouger(0, dy < 0 ? 1 : -1);
+  });
+
+  function pause() {
+    if (etat !== 'jeu' || mort) return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Distance', String(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancerPartie }, { texte: 'Menu', action: menu }] });
+  }
+  A.surPerteFocus = pause;
+  addEventListener('keydown', e => { if ((e.code === 'KeyP' || e.code === 'Escape') && etat === 'jeu') pause(); });
+
+  function menu() {
+    etat = 'menu';
+    if (!rangees) { lancerPartie(); etat = 'menu'; }
+    A.panneau({
+      pastille: 'Traverse la route', titre: 'Traverse la route',
+      texte: 'Avance le plus loin possible : évite les voitures et les trains, saute sur les troncs pour passer les rivières. Et ne traîne pas !',
+      lignes: A.TACTILE
+        ? [['Avancer', 'Touche l’écran'], ['Gauche / droite / reculer', 'Glisse le doigt']]
+        : [['Bouger', 'Flèches ou ZQSD/WASD'], ['Avancer', 'Espace aussi'], ['Record', String(A.record('route') || 0)]],
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancerPartie }]
+    });
+  }
+
+  A.boutonsCoin(pause);
+  menu();
+  A.boucle(dt => {
+    if (etat === 'jeu') avancer(dt);
+    else if (etat === 'fin' || etat === 'menu') { /* le monde continue de bouger en fond */ for (const r of rangees) if (r.type === 'route') for (const o of r.objets) { o.x += r.dir * r.vitesse * dt; if (r.dir > 0 && o.x > 13) o.x -= 26 + o.w; if (r.dir < 0 && o.x + o.w < -13) o.x += 26 + o.w; } }
+    particules = particules.filter(p => { p.t -= dt; p.h += p.vh * dt; p.vh -= 500 * dt; return p.t > 0; });
+    secousse = Math.max(0, secousse - dt);
+    dessiner();
+  });
+})();
+</script>
+</body>
+</html>

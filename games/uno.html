@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Uno</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 54px 10px max(12px, env(safe-area-inset-bottom)); background: radial-gradient(900px 500px at 50% 45%, #13261a, #050805 70%); overflow: hidden; }
+    #jeu[hidden] { display: none; }
+
+    /* adversaires */
+    .adversaires { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 900px; }
+    .adv { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; border: 1px solid #263026; border-radius: 14px; background: rgba(0, 0, 0, .45); transition: border-color .2s, box-shadow .2s; }
+    .adv.actif { border-color: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, .15); }
+    .adv .rond { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 14px; }
+    .adv .nom { font-size: 13px; font-weight: 600; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .adv .nb { display: flex; align-items: center; gap: 4px; color: var(--doux); font: 600 12px var(--mono); }
+    .adv .dos-mini { width: 12px; height: 17px; border-radius: 3px; background: linear-gradient(135deg, #111, #2b2b2b); border: 1.5px solid #e5e5e5; }
+    .adv .badge { position: absolute; top: -9px; right: -6px; padding: 1px 7px; border-radius: 999px; background: #facc15; color: #000; font: 800 11px var(--mono); }
+    .adv .contre { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); padding: 2px 9px; border: 0; border-radius: 999px; background: #ef4444; color: #fff; font: 800 11px var(--police); cursor: pointer; white-space: nowrap; animation: clig .5s infinite alternate; }
+    @keyframes clig { to { transform: translateX(-50%) scale(1.08); } }
+
+    /* table */
+    .table { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: clamp(18px, 5vw, 46px); }
+    .tas { position: relative; display: grid; place-items: center; gap: 6px; }
+    .tas small { color: var(--doux); font: 600 11px var(--mono); }
+    .pioche { cursor: pointer; }
+    .pioche.peut .uc { box-shadow: 0 0 0 3px #facc15, 0 12px 30px rgba(0, 0, 0, .6); animation: respire 1s ease-in-out infinite alternate; }
+    @keyframes respire { to { transform: translateY(-4px); } }
+    .anneau { position: absolute; inset: -9px; border-radius: 18px; border: 4px solid var(--c, #fff); opacity: .85; box-shadow: 0 0 22px var(--c, #fff); pointer-events: none; }
+    .sens { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); color: rgba(255, 255, 255, .5); font-size: 20px; }
+    .defausse .uc.pop { animation: pose .3s cubic-bezier(.2, 1.4, .4, 1); }
+    @keyframes pose { from { transform: translateY(-40px) rotate(-12deg) scale(1.15); opacity: .4; } }
+
+    .statut { min-height: 22px; text-align: center; font-size: 14px; color: var(--doux); }
+    .statut b { color: #fff; }
+    .chrono { width: min(420px, 80vw); height: 4px; border-radius: 4px; background: #1d261d; overflow: hidden; }
+    .chrono i { display: block; height: 100%; background: #22c55e; transition: width .25s linear; }
+    .chrono.urgent i { background: #ef4444; }
+
+    /* ma main */
+    .ma-zone { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .actions { display: flex; gap: 8px; min-height: 40px; }
+    #btnPasser[hidden] { display: none; }
+    .pile-d { position: relative; }
+    .btn-uno { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: linear-gradient(#ffdf4d, #f59e0b); color: #3b1d00; font: 900 15px var(--police); letter-spacing: .04em; cursor: pointer; box-shadow: 0 6px 18px rgba(245, 158, 11, .35); }
+    .btn-uno:disabled { opacity: .3; cursor: default; box-shadow: none; }
+    .btn-uno.dit { background: #22c55e; color: #052e16; }
+    .main { --w: clamp(58px, 11vw, 92px); display: flex; justify-content: center; max-width: 100%; padding: 22px 12px 6px; overflow-x: auto; overflow-y: visible; scrollbar-width: thin; }
+    .main .uc { flex: none; margin-left: calc(var(--w) * var(--chevauche, -.38)); transition: transform .15s, margin .2s; cursor: default; }
+    .main .uc:first-child { margin-left: 0; }
+    .main .uc.ok { cursor: pointer; transform: translateY(-14px); box-shadow: 0 0 0 2px #fff, 0 10px 22px rgba(0, 0, 0, .55); }
+    .main .uc.ok:hover { transform: translateY(-24px); z-index: 2; }
+    .main.attente .uc { filter: brightness(.82); }
+
+    /* une carte */
+    .uc { --w: 86px; position: relative; width: var(--w); aspect-ratio: 5 / 7.4; border-radius: calc(var(--w) * .12); border: calc(var(--w) * .05) solid #fff; background: var(--fond-c); color: #fff; box-shadow: 0 8px 20px rgba(0, 0, 0, .55); user-select: none; overflow: hidden; }
+    .uc[data-c="R"] { --fond-c: linear-gradient(160deg, #f0524f, #c62828); --c: #e53935; }
+    .uc[data-c="J"] { --fond-c: linear-gradient(160deg, #ffd54a, #f2a900); --c: #fbc02d; color: #3b2a00; }
+    .uc[data-c="V"] { --fond-c: linear-gradient(160deg, #4cc35a, #1f7a2c); --c: #43a047; }
+    .uc[data-c="B"] { --fond-c: linear-gradient(160deg, #42a5f5, #1251a3); --c: #1e88e5; }
+    .uc[data-c="N"] { --fond-c: linear-gradient(160deg, #2a2a2a, #050505); }
+    .uc .milieu { position: absolute; inset: 16% 12%; display: grid; place-items: center; border-radius: calc(var(--w) * .1); background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 calc(var(--w) * .025) rgba(255, 255, 255, .5); font: 900 calc(var(--w) * .46) / 1 var(--police); letter-spacing: -.04em; text-shadow: 0 2px 0 rgba(0, 0, 0, .25); }
+    .uc .coin { position: absolute; font: 900 calc(var(--w) * .17) / 1 var(--police); }
+    .uc .coin.h { top: 5%; left: 8%; }
+    .uc .coin.b { bottom: 5%; right: 8%; transform: rotate(180deg); }
+    .uc .quatre { width: 64%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(#e53935 0 25%, #1e88e5 0 50%, #43a047 0 75%, #fbc02d 0); box-shadow: 0 0 0 calc(var(--w) * .03) #fff; display: grid; place-items: center; font: 900 calc(var(--w) * .26) / 1 var(--police); color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, .6); }
+    .uc.dos { background: repeating-linear-gradient(45deg, #161616 0 8px, #1f1f1f 8px 16px); }
+    .uc.dos .milieu { background: radial-gradient(circle, #22c55e 0 30%, transparent 31%), rgba(255, 255, 255, .06); }
+
+    /* choix de la couleur (joker) */
+    .choix-couleur { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(0, 0, 0, .6); }
+    .choix-couleur[hidden] { display: none; }
+    .choix-couleur .boite { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--bord2); border-radius: 18px; background: #0b0b0b; text-align: center; }
+    .choix-couleur .grille { display: grid; grid-template-columns: repeat(2, 84px); gap: 10px; }
+    .choix-couleur button { height: 84px; border: 3px solid rgba(255, 255, 255, .85); border-radius: 16px; cursor: pointer; font: 800 13px var(--police); color: #fff; }
+    .fin-mains { display: grid; gap: 6px; max-width: 900px; font-size: 12.5px; color: var(--doux); text-align: center; }
+
+    @media (max-height: 620px) { .table .uc { --w: 64px !important; } .main { padding-top: 16px; } }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="adversaires" id="adversaires"></div>
+    <div class="table">
+      <div class="tas pioche" id="pioche" title="Piocher une carte">
+        <div class="uc dos" style="--w: clamp(66px, 13vw, 104px)"><div class="milieu"></div></div>
+        <small id="nbPioche"></small>
+      </div>
+      <div class="tas defausse">
+        <span class="sens" id="sens">↻</span>
+        <div class="pile-d"><span class="anneau" id="anneau"></span><div id="dessus"></div></div>
+        <small id="couleurTexte"></small>
+      </div>
+    </div>
+    <div class="statut" id="statut"></div>
+    <div class="chrono" id="chrono"><i></i></div>
+    <div class="ma-zone">
+      <div class="actions">
+        <button class="btn-uno" id="btnUno" disabled>UNO !</button>
+        <button class="btn" id="btnPasser" hidden>Garder et passer</button>
+      </div>
+      <div class="main" id="main"></div>
+    </div>
+  </main>
+  <div class="choix-couleur" id="choixCouleur" hidden>
+    <div class="boite">
+      <b>Choisis la couleur</b>
+      <div class="grille">
+        <button data-c="R" style="background:#e53935">Rouge</button>
+        <button data-c="J" style="background:#fbc02d;color:#3b2a00">Jaune</button>
+        <button data-c="V" style="background:#43a047">Vert</button>
+        <button data-c="B" style="background:#1e88e5">Bleu</button>
+      </div>
+      <button class="btn" data-c="">Annuler</button>
+    </div>
+  </div>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur, { jouable } from './multi/jeux/uno.js';
+
+    const $ = id => document.getElementById(id);
+    const NOMS = { R: 'rouge', J: 'jaune', V: 'vert', B: 'bleu' };
+    const TEINTES = { R: '#e53935', J: '#fbc02d', V: '#43a047', B: '#1e88e5' };
+    const SYMBOLES = { passe: '⊘', inverse: '⇄', '+2': '+2', joker: '', '+4': '+4' };
+
+    function carteHTML(c, attrs = '', style = '', classe = '') {
+      const sym = SYMBOLES[c.v] ?? c.v;
+      const coin = c.v === 'joker' ? '★' : sym;
+      const milieu = c.c === 'N' ? `<div class="quatre">${c.v === '+4' ? '+4' : ''}</div>` : `<span>${sym}</span>`;
+      return `<div class="uc${classe ? ' ' + classe : ''}" data-c="${c.c}" ${attrs} style="${style}" title="${c.c === 'N' ? (c.v === '+4' ? 'Joker +4' : 'Joker') : `${c.v} ${NOMS[c.c]}`}"><span class="coin h">${coin}</span><div class="milieu">${milieu}</div><span class="coin b">${coin}</span></div>`;
+    }
+
+    /* petits sons */
+    let audio = null;
+    function bip(f1, f2, d, type = 'square', vol = .06, retard = 0) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audio.currentTime + retard, o = audio.createOscillator(), g = audio.createGain();
+        o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d);
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + d + .02);
+      } catch (e) { /* rien */ }
+    }
+    const SON = {
+      pose: () => bip(500, 260, .08, 'triangle', .12),
+      pioche: () => bip(300, 420, .07, 'triangle', .08),
+      uno: () => { bip(660, 660, .1); bip(880, 880, .16, 'square', .06, .1); },
+      contre: () => { bip(220, 110, .3, 'sawtooth', .07); },
+      tour: () => bip(880, 1320, .12, 'sine', .07)
+    };
+
+    let vue = null, ctxJeu = null, dernierePose = '', choixEnCours = null, unoPrepare = false, ancienTour = -1;
+    const monIndex = () => (vue && ctxJeu ? vue.j.indexOf(ctxJeu.moi) : -1);
+    const monTour = () => vue && !vue.fini && vue.tour === monIndex();
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const mi = monIndex();
+      if (v.tour !== ancienTour) { if (monTour()) SON.tour(); ancienTour = v.tour; unoPrepare = false; }
+      // adversaires (dans l'ordre du jeu, à partir de moi)
+      const n = v.j.length;
+      const ordre = mi < 0 ? v.j.map((_, i) => i) : Array.from({ length: n - 1 }, (_, k) => (mi + 1 + k) % n);
+      $('adversaires').innerHTML = ordre.map(i => {
+        const id = v.j[i];
+        const nom = ctx.nom(id);
+        return `<div class="adv${!v.fini && v.tour === i ? ' actif' : ''}">
+          <span class="rond" style="background:${ctx.couleur(id)}">${echapper((nom[0] || '?').toUpperCase())}</span>
+          <span><span class="nom">${echapper(nom)}</span><span class="nb"><i class="dos-mini"></i>${v.nb[i]}</span></span>
+          ${v.nb[i] === 1 && v.unoDit.includes(id) ? '<span class="badge">UNO</span>' : ''}
+          ${v.oubli === id && mi >= 0 ? `<button class="contre" data-contre="${echapper(id)}">Contre-Uno !</button>` : ''}
+        </div>`;
+      }).join('');
+
+      // la table
+      const cle = v.dessus.id + ':' + v.pioche;
+      $('dessus').innerHTML = carteHTML(v.dessus, '', '--w: clamp(66px, 13vw, 104px)');
+      if (cle !== dernierePose) { $('dessus').firstChild.classList.add('pop'); dernierePose = cle; }
+      $('anneau').style.setProperty('--c', TEINTES[v.couleur]);
+      $('couleurTexte').textContent = 'Couleur : ' + NOMS[v.couleur];
+      $('sens').textContent = v.sens > 0 ? '↻' : '↺';
+      $('nbPioche').textContent = v.pioche + ' cartes';
+      $('pioche').classList.toggle('peut', monTour() && !v.aPioche && !v.main.some(c => jouable(c, v.dessus, v.couleur)));
+
+      // ma main (triée par couleur puis valeur)
+      const ordreC = { R: 0, J: 1, V: 2, B: 3, N: 4 };
+      const rang = c => (/\d/.test(c.v) ? Number(c.v) : { passe: 10, inverse: 11, '+2': 12, joker: 13, '+4': 14 }[c.v]);
+      const main = [...v.main].sort((a, b) => ordreC[a.c] - ordreC[b.c] || rang(a) - rang(b));
+      const peut = c => monTour() && (v.aPioche ? c.id === v.aPioche : jouable(c, v.dessus, v.couleur));
+      const zone = $('main');
+      zone.classList.toggle('attente', !monTour());
+      const chev = main.length <= 6 ? -0.12 : main.length <= 10 ? -0.38 : main.length <= 16 ? -0.55 : -0.66;
+      zone.style.setProperty('--chevauche', chev);
+      zone.innerHTML = main.map(c => carteHTML(c, `data-id="${c.id}"`, '', peut(c) ? 'ok' : '')).join('');
+
+      // boutons
+      const btn = $('btnUno');
+      const dejaDit = v.unoDit.includes(ctx.moi);
+      const peutDire = mi >= 0 && !v.fini && ((v.main.length === 2 && monTour()) || (v.main.length === 1 && v.oubli === ctx.moi));
+      btn.disabled = !peutDire && !(unoPrepare && v.main.length === 2);
+      btn.classList.toggle('dit', unoPrepare || (dejaDit && v.main.length <= 1));
+      btn.textContent = unoPrepare || (dejaDit && v.main.length <= 1) ? 'UNO dit ✓' : 'UNO !';
+      $('btnPasser').hidden = !(monTour() && v.aPioche);
+
+      // statut
+      const qui = v.j[v.tour];
+      let s;
+      if (v.fini) s = v.gagnant === mi ? '<b>Tu as gagné !</b>' : `<b>${echapper(ctx.nom(v.j[v.gagnant]))}</b> a gagné.`;
+      else if (mi < 0) s = `Tu regardes la partie · au tour de ${echapper(ctx.nom(qui))}`;
+      else if (monTour()) s = v.aPioche ? '<b>Tu peux poser la carte piochée</b> ou la garder.' : (v.main.some(c => jouable(c, v.dessus, v.couleur)) ? `<b>À toi !</b> Pose une carte ${NOMS[v.couleur]}, un ${SYMBOLES[v.dessus.v] || v.dessus.v} ou un joker.` : '<b>Aucune carte ne va :</b> pioche.');
+      else s = `Au tour de <b>${echapper(ctx.nom(qui))}</b>…`;
+      $('statut').innerHTML = s;
+      const ch = $('chrono');
+      ch.querySelector('i').style.width = v.fini ? '0%' : (v.reste / 30 * 100) + '%';
+      ch.classList.toggle('urgent', v.reste <= 8);
+      ch.style.visibility = v.fini ? 'hidden' : 'visible';
+    }
+
+    function jouer(c) {
+      if (!monTour()) return;
+      if (c.c === 'N') { choixEnCours = c; $('choixCouleur').hidden = false; return; }
+      ctxJeu.envoyer({ t: 'jouer', carte: c.id, uno: unoPrepare });
+    }
+    $('main').addEventListener('click', e => {
+      const el = e.target.closest('.uc.ok');
+      if (!el || !vue) return;
+      const c = vue.main.find(x => x.id === Number(el.dataset.id));
+      if (c) jouer(c);
+    });
+    $('choixCouleur').addEventListener('click', e => {
+      const b = e.target.closest('[data-c]');
+      if (!b) return;
+      $('choixCouleur').hidden = true;
+      if (b.dataset.c && choixEnCours) ctxJeu.envoyer({ t: 'jouer', carte: choixEnCours.id, couleur: b.dataset.c, uno: unoPrepare });
+      choixEnCours = null;
+    });
+    $('pioche').addEventListener('click', () => { if (monTour() && !vue.aPioche) ctxJeu.envoyer({ t: 'piocher' }); });
+    $('btnPasser').addEventListener('click', () => ctxJeu.envoyer({ t: 'passer' }));
+    $('btnUno').addEventListener('click', () => {
+      if (!vue) return;
+      if (vue.main.length === 2 && monTour()) { unoPrepare = true; afficher(vue, ctxJeu); SON.uno(); }
+      ctxJeu.envoyer({ t: 'uno' });
+    });
+    $('adversaires').addEventListener('click', e => { const b = e.target.closest('[data-contre]'); if (b) ctxJeu.envoyer({ t: 'contre' }); });
+    addEventListener('keydown', e => {
+      if (!vue || e.target.matches('input')) return;
+      if (e.code === 'KeyU') $('btnUno').click();
+      if (e.code === 'Space' && monTour() && !vue.aPioche) { e.preventDefault(); ctxJeu.envoyer({ t: 'piocher' }); }
+    });
+
+    demarrerJeu({
+      id: 'uno',
+      moteur,
+      zone: $('jeu'),
+      titre: 'Uno',
+      intro: 'Débarrasse-toi de toutes tes cartes avant les autres. Même couleur, même chiffre ou même symbole… et n’oublie pas de dire UNO quand il ne t’en reste qu’une !',
+      regles: [['Jouer', 'Clique une carte qui va (elles sont surélevées).'], ['Rien ne va ?', 'Clique la pioche (ou Espace).'], ['UNO !', 'Clique UNO (ou U) quand il te reste 2 cartes, avant de poser.'], ['Contre-Uno', 'Si quelqu’un oublie, attrape-le : il pioche 2.']],
+      reglesTactile: [['Jouer', 'Touche une carte qui va.'], ['Rien ne va ?', 'Touche la pioche.'], ['UNO !', 'Touche UNO quand il te reste 2 cartes, avant de poser.'], ['Contre-Uno', 'Si quelqu’un oublie, attrape-le : il pioche 2.']],
+      soloBots: 3,
+      debut() { dernierePose = ''; ancienTour = -1; unoPrepare = false; },
+      evenement(ev, ctx) {
+        const [quoi, a, b] = ev;
+        if (quoi === 'joue') SON.pose();
+        if (quoi === 'pioche') { SON.pioche(); if (b >= 2) ctx.toast(`${ctx.nom(a)} pioche ${b} cartes`); }
+        if (quoi === 'uno') { SON.uno(); if (a !== ctx.moi) ctx.toast(`${ctx.nom(a)} : UNO !`); }
+        if (quoi === 'contre') { SON.contre(); ctx.toast(b === ctx.moi ? `${ctx.nom(a)} t’a attrapé : tu pioches 2 !` : `${ctx.nom(a)} attrape ${ctx.nom(b)} : +2 cartes !`, 3000); }
+        if (quoi === 'passe' && a === ctx.moi) ctx.toast('Tu passes ton tour !');
+        if (quoi === 'temps') ctx.toast(`${ctx.nom(a)} a mis trop de temps`);
+      },
+      afficher
+    });
+  </script>
+</body>
+</html>

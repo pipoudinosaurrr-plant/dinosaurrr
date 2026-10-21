@@ -9,5 +9,6 @@ import quiz from './quiz.js';
 import dessin from './dessin.js';
 import echecs from './echecs.js';
 import hockey from './hockey.js';
+import uno from './uno.js';
 
-export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey };
+export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno };
