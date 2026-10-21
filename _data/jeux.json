@@ -14,8 +14,8 @@
  },
  {
   "id": "dinoio",
-  "titre": "Dino.io",
-  "description": "Une grande arène ouverte à tout le site : mange les œufs pour grossir, mange les dinos plus petits que toi et fuis les plus gros. Divise-toi pour attaquer, attention aux cactus !",
+  "titre": "Arène.io",
+  "description": "Une grande arène ouverte à tout le site : mange les points pour grossir, absorbe les joueurs plus petits que toi et fuis les plus gros. Divise-toi pour attaquer, attention aux cactus !",
   "icone": "dinoio",
   "fichier": "games/dinoio.html",
   "largeur": 980,
@@ -157,7 +157,7 @@
  },
  {
   "id": "turbo",
-  "titre": "Turbo Dino",
+  "titre": "Turbo",
   "description": "Course de voitures en 3D façon arcade : 3 circuits, 7 adversaires, virages, bosses et nitro. Finis premier pour débloquer le circuit suivant.",
   "icone": "turbo",
   "fichier": "games/turbo.html",
@@ -170,7 +170,7 @@
  },
  {
   "id": "blaster",
-  "titre": "Dino Blaster",
+  "titre": "Blaster",
   "description": "Shooter spatial : ton vaisseau tire tout seul, esquive les tirs, ramasse les bonus et affronte un boss toutes les 5 vagues.",
   "icone": "blaster",
   "fichier": "games/blaster.html",
@@ -183,7 +183,7 @@
  },
  {
   "id": "aventure",
-  "titre": "Dino Aventure",
+  "titre": "Aventure",
   "description": "Jeu de plateformes en pixel art : 5 niveaux, pièces, ennemis à écraser, ressorts et plateformes mobiles. Décroche les 3 étoiles !",
   "icone": "aventure",
   "fichier": "games/aventure.html",
@@ -235,8 +235,8 @@
  },
  {
   "id": "dinorun",
-  "titre": "Dino Run",
-  "description": "Le dino court tout seul : saute par-dessus les cactus, baisse-toi sous les ptérodactyles. Ça accélère, et la nuit tombe…",
+  "titre": "Runner",
+  "description": "Ton personnage court tout seul : saute par-dessus les plots, baisse-toi sous les drones. Ça accélère, et la nuit tombe…",
   "icone": "dinorun",
   "fichier": "games/dinorun.html",
   "largeur": 840,
@@ -248,8 +248,8 @@
  },
  {
   "id": "flap",
-  "titre": "Dino Flap",
-  "description": "Tape pour battre des ailes et faire passer ton ptérodactyle entre les tuyaux. Médailles de bronze à platine.",
+  "titre": "Flap",
+  "description": "Tape pour battre des ailes et faire passer l'oiseau entre les tuyaux. Médailles de bronze à platine.",
   "icone": "flap",
   "fichier": "games/flap.html",
   "largeur": 400,
@@ -275,7 +275,7 @@
  {
   "id": "pendu",
   "titre": "Pendu",
-  "description": "Devine le mot lettre par lettre avant que le T-Rex attrape le petit dino. Seul ou à 2 avec un mot secret.",
+  "description": "Devine le mot lettre par lettre avant que la potence soit complète. Seul ou à 2 avec un mot secret.",
   "icone": "pendu",
   "fichier": "games/pendu.html",
   "largeur": 600,
@@ -301,7 +301,7 @@
  {
   "id": "demineur",
   "titre": "Démineur",
-  "description": "Le grand classique : trouve toutes les mines sans en faire sauter une. 3 niveaux, records, et un dino à la place du smiley.",
+  "description": "Le grand classique : trouve toutes les mines sans en faire sauter une. 3 niveaux et des records.",
   "icone": "mine",
   "fichier": "games/demineur.html",
   "largeur": 380,

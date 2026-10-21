@@ -1,5 +1,5 @@
 /* ==========================================================
-   DinoAmp : un lecteur de musique façon années 2000
+   Lecteur de musique façon années 2000
    Les musiques sont des morceaux chiptune originaux, joués en direct
    par le navigateur (WebAudio) : aucun fichier, aucun droit d'auteur.
    DinoMusique.lecteur(conteneur) : affiche le lecteur dans une fenêtre
@@ -19,12 +19,12 @@
   const ACCORDS = { I: [0, 4, 7], ii: [2, 5, 9], iii: [4, 7, 11], IV: [5, 9, 12], V: [7, 11, 14], vi: [9, 12, 16], bVII: [10, 14, 17], i: [0, 3, 7], iv: [5, 8, 12], v: [7, 10, 14], bVI: [8, 12, 15], bIII: [3, 7, 10] };
 
   const MORCEAUX = [
-    { titre: 'Dino Groove', auteur: 'DinoAmp', tonique: 'C3', tempo: 124, graine: 7, accords: ['I', 'V', 'vi', 'IV'], gamme: [0, 2, 4, 7, 9], style: 'pop' },
-    { titre: 'Volcan en pixels', auteur: 'DinoAmp', tonique: 'A2', tempo: 140, graine: 21, accords: ['i', 'bVI', 'bIII', 'bVII'], gamme: [0, 3, 5, 7, 10], style: 'action' },
-    { titre: 'Coucher de ptéro', auteur: 'DinoAmp', tonique: 'F3', tempo: 92, graine: 5, accords: ['I', 'iii', 'IV', 'V'], gamme: [0, 2, 4, 7, 9], style: 'calme' },
-    { titre: 'Course des raptors', auteur: 'DinoAmp', tonique: 'E3', tempo: 156, graine: 42, accords: ['i', 'iv', 'v', 'i'], gamme: [0, 3, 5, 7, 10], style: 'action' },
-    { titre: 'Fossile funk', auteur: 'DinoAmp', tonique: 'D3', tempo: 108, graine: 13, accords: ['i', 'iv', 'bVII', 'bIII'], gamme: [0, 3, 5, 7, 10], style: 'funk' },
-    { titre: 'Œuf qui éclot', auteur: 'DinoAmp', tonique: 'G3', tempo: 116, graine: 88, accords: ['I', 'vi', 'ii', 'V'], gamme: [0, 2, 4, 7, 9], style: 'pop' }
+    { titre: 'Neon Groove', auteur: 'XP Music', tonique: 'C3', tempo: 124, graine: 7, accords: ['I', 'V', 'vi', 'IV'], gamme: [0, 2, 4, 7, 9], style: 'pop' },
+    { titre: 'Volcan en pixels', auteur: 'XP Music', tonique: 'A2', tempo: 140, graine: 21, accords: ['i', 'bVI', 'bIII', 'bVII'], gamme: [0, 3, 5, 7, 10], style: 'action' },
+    { titre: 'Coucher de soleil', auteur: 'XP Music', tonique: 'F3', tempo: 92, graine: 5, accords: ['I', 'iii', 'IV', 'V'], gamme: [0, 2, 4, 7, 9], style: 'calme' },
+    { titre: 'Course de nuit', auteur: 'XP Music', tonique: 'E3', tempo: 156, graine: 42, accords: ['i', 'iv', 'v', 'i'], gamme: [0, 3, 5, 7, 10], style: 'action' },
+    { titre: 'Funk 2000', auteur: 'XP Music', tonique: 'D3', tempo: 108, graine: 13, accords: ['i', 'iv', 'bVII', 'bIII'], gamme: [0, 3, 5, 7, 10], style: 'funk' },
+    { titre: 'Lever du jour', auteur: 'XP Music', tonique: 'G3', tempo: 116, graine: 88, accords: ['I', 'vi', 'ii', 'V'], gamme: [0, 2, 4, 7, 9], style: 'pop' }
   ];
 
   // fabrique la partition d'un morceau : 4 mesures × 16 doubles-croches, jouées 4 fois (A A' B A'')
@@ -172,7 +172,7 @@
     const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     conteneur.innerHTML = `
       <div class="dinoamp">
-        <div class="ecran"><div><div class="temps">0:00</div><div class="etat">ARRÊT</div></div><div><div class="titre"><span>DinoAmp — choisis un morceau</span></div><canvas width="200" height="34"></canvas></div></div>
+        <div class="ecran"><div><div class="temps">0:00</div><div class="etat">ARRÊT</div></div><div><div class="titre"><span>Lecteur de musique — choisis un morceau</span></div><canvas width="200" height="34"></canvas></div></div>
         <div class="barre" title="Avancer"><i></i></div>
         <div class="boutons">
           <button data-b="prec" title="Précédent">⏮</button><button data-b="lecture" title="Lecture">▶</button><button data-b="pause" title="Pause">⏸</button><button data-b="stop" title="Arrêt">⏹</button><button data-b="suiv" title="Suivant">⏭</button>

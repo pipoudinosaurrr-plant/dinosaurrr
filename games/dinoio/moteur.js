@@ -1,6 +1,6 @@
 /* ==========================================================
-   Dino.io — une grande arène ouverte à tout le monde
-   Mange les œufs pour grossir, mange les dinos plus petits que toi.
+   Arène.io — une grande arène ouverte à tout le monde
+   Mange les points pour grossir, absorbe les joueurs plus petits que toi.
    Le même fichier sert au serveur (arène en ligne) et au mode hors ligne.
    ========================================================== */
 
@@ -11,7 +11,7 @@ export const MASSE_DEPART = 20;
 export const MAX_CELLULES = 8;
 export const BOTS_MIN = 11;           // joueurs + bots : au moins ça
 export const COULEURS = ['#22c55e', '#3b82f6', '#f97316', '#ec4899', '#a855f7', '#eab308', '#06b6d4', '#f43f5e', '#84cc16', '#14b8a6', '#fb7185', '#8b5cf6'];
-export const NOMS_BOTS = ['Rex', 'Trici', 'Ptero', 'Brachio', 'Stego', 'Raptor', 'Ankylo', 'Spino', 'Diplo', 'Iguano', 'Pachy', 'Compso', 'Allo', 'Galli', 'Bronto'];
+export const NOMS_BOTS = ['Atlas', 'Nova', 'Orion', 'Vega', 'Lyra', 'Titan', 'Iris', 'Zéphyr', 'Kai', 'Luna', 'Neo', 'Sol', 'Rio', 'Mira', 'Axel'];
 const CACTUS_MASSE = 130;             // un dino plus gros que ça éclate sur un cactus
 const FUSION = 12;                    // secondes avant que tes morceaux se recollent
 
@@ -271,10 +271,10 @@ export function piloterBots(w, dt) {
 /* ---------- Pouvoirs admin (compte du propriétaire seulement) ---------- */
 
 export const COMMANDES_ADMIN = [
-  { id: 'masse', nom: '+500 de masse', icone: '🍖', texte: 'a pris 500 de masse' },
-  { id: 'geant', nom: 'Devenir géant (×3)', icone: '🦖', texte: 'est devenu géant' },
+  { id: 'masse', nom: '+500 de masse', icone: '➕', texte: 'a pris 500 de masse' },
+  { id: 'geant', nom: 'Devenir géant (×3)', icone: '⬆️', texte: 'est devenu géant' },
   { id: 'invincible', nom: 'Invincible 30 s', icone: '🛡️', texte: 'est invincible 30 s' },
-  { id: 'aimant', nom: 'Aspirer les œufs autour', icone: '🧲', texte: 'a aspiré tous les œufs' }
+  { id: 'aimant', nom: 'Aspirer les points autour', icone: '🧲', texte: 'a aspiré tous les points' }
 ];
 
 export function admin(w, id, cmd) {

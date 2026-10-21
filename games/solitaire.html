@@ -67,19 +67,17 @@
           else g.fillText(s, x, y);
         }
       } else {
-        // figures : cadre coloré, grande lettre et un petit dino couronné
+        // figures : cadre coloré, couronne, grande lettre et le symbole
         g.fillStyle = ROUGE(c) ? '#fde2e2' : '#e0e7ff';
         g.fillRect(17, 14, CW - 34, CH - 28);
         g.strokeStyle = coul; g.lineWidth = 1; g.strokeRect(17.5, 14.5, CW - 35, CH - 29);
         g.fillStyle = '#facc15'; g.beginPath(); g.moveTo(26, 34); g.lineTo(29, 26); g.lineTo(33, 31); g.lineTo(36, 24); g.lineTo(39, 31); g.lineTo(43, 26); g.lineTo(46, 34); g.fill();
-        g.fillStyle = v === 11 ? '#16a34a' : v === 12 ? '#9333ea' : '#ea580c';
-        g.fillRect(28, 36, 16, 12); g.fillRect(40, 40, 8, 6); g.fillRect(26, 48, 14, 16); g.fillRect(22, 58, 6, 4);
-        g.fillStyle = '#fff'; g.fillRect(38, 38, 3, 3); g.fillStyle = '#000'; g.fillRect(39, 39, 2, 2);
+        g.fillStyle = coul; g.font = `bold 26px ${POLICE}`; g.fillText(s, CW / 2, 52);
         g.fillStyle = coul; g.font = `bold 15px ${POLICE}`; g.fillText(VALEURS[v] + s, CW / 2, 74);
       }
       IMAGES[c * 13 + v - 1] = can;
     }
-    // le dos : bleu XP avec un motif et un dino
+    // le dos : bleu XP avec un motif
     const [can, g] = toileCarte();
     bordCarte(g, '#fff');
     const grad = g.createLinearGradient(0, 0, CW, CH);
@@ -87,8 +85,7 @@
     g.fillStyle = grad; g.beginPath(); g.roundRect(4, 4, CW - 8, CH - 8, 3); g.fill();
     g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 1;
     for (let i = -CH; i < CW + CH; i += 7) { g.beginPath(); g.moveTo(i, 4); g.lineTo(i + CH, CH - 4); g.stroke(); g.beginPath(); g.moveTo(i + CH, 4); g.lineTo(i, CH - 4); g.stroke(); }
-    g.fillStyle = '#4ade80'; g.fillRect(28, 38, 14, 10); g.fillRect(38, 42, 8, 5); g.fillRect(25, 48, 13, 14); g.fillRect(20, 56, 6, 4); g.fillRect(28, 62, 3, 6); g.fillRect(34, 62, 3, 6);
-    g.fillStyle = '#fff'; g.fillRect(37, 40, 2, 2);
+    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2; g.beginPath(); g.roundRect(14, 14, CW - 28, CH - 28, 4); g.stroke();
     IMAGES.dos = can;
   }
 

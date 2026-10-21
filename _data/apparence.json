@@ -1,12 +1,12 @@
 {
   "theme": "noir",
-  "accent": "bleu",
+  "accent": "vert",
   "demarrerTexte": "démarrer",
   "tailleTexte": "normal",
   "pixelisation": "normal",
   "mobileTheme": "noir",
   "mobileAccent": "vert",
   "sonParDefaut": true,
-  "veilleParDefaut": "dino",
+  "veilleParDefaut": "etoiles",
   "veilleMinutes": 3
 }

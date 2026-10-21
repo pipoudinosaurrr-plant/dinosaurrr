@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dino Aventure</title>
+  <title>Aventure</title>
   <link rel="stylesheet" href="jeu.css">
   <style>
     html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <canvas id="jeu" aria-label="Dino Aventure : jeu de plateformes"></canvas>
+  <canvas id="jeu" aria-label="Aventure : jeu de plateformes"></canvas>
   <script src="arcade.js"></script>
 <script>
 (() => {
@@ -187,7 +187,7 @@
       plan: ['depart', 'chauves', 'plateformes', 'ennemis', 'controle', 'tour', 'mobile', 'pics', 'controle', 'chauves', 'trou3', 'pics_plateformes', 'ennemis', 'arrivee']
     },
     {
-      nom: 'Château du T-Rex', par: 95,
+      nom: 'Château final', par: 95,
       theme: { ciel: ['#2e1065', '#6d28d9'], colline1: '#3b0764', colline2: '#1e1b4b', herbe: '#71717a', herbe2: '#52525b', sol: '#3f3f46', sol2: '#27272a', brique: '#52525b', brique2: '#27272a', chateau: true, lave: true },
       plan: ['depart', 'pics', 'mobile', 'ennemis', 'tour', 'controle', 'plateformes', 'chauves', 'ressort', 'mobile', 'controle', 'pics_plateformes', 'trou3', 'ennemis', 'pyramide', 'arrivee']
     }
@@ -207,60 +207,13 @@
   /* ==========================================================
      Sprites
      ========================================================== */
-  const DINO_C = { G: '#22c55e', D: '#15803d', W: '#fff', K: '#111', Y: '#fde047', R: '#f87171' };
+  // le héros : un petit personnage en combinaison
+  const DINO_C = { G: '#3b82f6', D: '#1e3a8a', W: '#fff', K: '#111', Y: '#fde047', R: '#f87171' };
   const DINO = {
-    repos: A.sprite([
-      '......GGGGG.',
-      '.....GGWKGGG',
-      '.....GGGGGGG',
-      '.....GGGRRR.',
-      'G....GGGG...',
-      'G...GGGGGG..',
-      'GG.GGGGGGGG.',
-      '.GGGGGGGD...',
-      '..GGGGGGD...',
-      '...GGGGG....',
-      '...GG.GG....',
-      '...D..D.....'], DINO_C),
-    course1: A.sprite([
-      '......GGGGG.',
-      '.....GGWKGGG',
-      '.....GGGGGGG',
-      '.....GGGRRR.',
-      'G....GGGG...',
-      'G...GGGGGG..',
-      'GG.GGGGGGGG.',
-      '.GGGGGGGD...',
-      '..GGGGGGD...',
-      '...GGGGG....',
-      '..GG...GG...',
-      '..D.....D...'], DINO_C),
-    course2: A.sprite([
-      '......GGGGG.',
-      '.....GGWKGGG',
-      '.....GGGGGGG',
-      '.....GGGRRR.',
-      'G....GGGG...',
-      'G...GGGGGG..',
-      'GG.GGGGGGGG.',
-      '.GGGGGGGD...',
-      '..GGGGGGD...',
-      '...GGGGG....',
-      '....GGG.....',
-      '....D.D.....'], DINO_C),
-    saut: A.sprite([
-      '......GGGGG.',
-      '.....GGWKGGG',
-      '.....GGGGGGG',
-      '.....GGGRRR.',
-      'G....GGGG...',
-      'G...GGGGGGG.',
-      'GG.GGGGGGG..',
-      '.GGGGGGGD...',
-      '..GGGGGGD...',
-      '...GGGGGG...',
-      '..GG....GG..',
-      '..D......D..'], DINO_C)
+    repos: A.sprite(['....DDDD....', '...DGGGGD...', '...GGWKGWK..', '...GGGGGGG..', '....GGGGG...', '..GGGGGGGGG.', '..G.GGGGG.G.', '....GGGGG...', '....DDDDD...', '....GG.GG...', '....GG.GG...', '....DD.DD...'], DINO_C),
+    course1: A.sprite(['....DDDD....', '...DGGGGD...', '...GGWKGWK..', '...GGGGGGG..', '....GGGGG...', '..GGGGGGGGG.', '..G.GGGGG.G.', '....GGGGG...', '....DDDDD...', '....GG.GG...', '...GG...GG..', '...DD...DD..'], DINO_C),
+    course2: A.sprite(['....DDDD....', '...DGGGGD...', '...GGWKGWK..', '...GGGGGGG..', '....GGGGG...', '..GGGGGGGGG.', '..G.GGGGG.G.', '....GGGGG...', '....DDDDD...', '....GG.GG...', '.....GGG....', '.....D.D....'], DINO_C),
+    saut: A.sprite(['....DDDD....', '...DGGGGD...', '...GGWKGWK..', '...GGGGGGG..', '....GGGGG...', '..GGGGGGGGG.', '..G.GGGGG.G.', '....GGGGG...', '....DDDDD...', '....GG.GG...', '..GG.....GG.', '..DD.....DD.'], DINO_C)
   };
   for (const k of Object.keys(DINO)) DINO[k + 'G'] = A.miroir(DINO[k]);
   const SCARABEE = [
@@ -797,7 +750,7 @@
     charger(choisi);
     A.panneau({
       pastille: 'Plateformes · 5 niveaux',
-      titre: 'Dino Aventure',
+      titre: 'Aventure',
       texte: 'Saute sur les ennemis, ramasse les pièces et atteins le drapeau. 3 étoiles : finir, toutes les pièces, battre le chrono.',
       choix: NIVEAUX.map((nv, i) => {
         const r = A.stock.lire('arcade-aventure-' + i, null);

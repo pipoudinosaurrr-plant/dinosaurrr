@@ -25,8 +25,8 @@ export function niveauDe(xp) {
 }
 
 export const TITRES = [
-  [1, 'Bébé dino'], [3, 'Petit raptor'], [5, 'Raptor'], [8, 'Tricératops'],
-  [10, 'T-Rex'], [15, 'Roi des dinos'], [20, 'Légende vivante']
+  [1, 'Débutant'], [3, 'Apprenti'], [5, 'Confirmé'], [8, 'Expert'],
+  [10, 'Maître'], [15, 'Grand maître'], [20, 'Légende']
 ];
 export function titreDe(niveau) {
   let t = TITRES[0][1];
@@ -34,34 +34,34 @@ export function titreDe(niveau) {
   return t;
 }
 
-// avatars : un dino de couleur + un accessoire ; certains se débloquent avec le niveau
+// avatars : les initiales du joueur dans un rond de couleur ; certains styles se débloquent avec le niveau
 export const AVATARS = [
-  { id: 'vert', nom: 'Dino vert', couleur: '#22c55e', acc: '', niveau: 1 },
-  { id: 'bleu', nom: 'Dino bleu', couleur: '#3b82f6', acc: '', niveau: 1 },
-  { id: 'orange', nom: 'Dino orange', couleur: '#f97316', acc: '', niveau: 1 },
-  { id: 'rose', nom: 'Dino rose', couleur: '#ec4899', acc: '', niveau: 1 },
-  { id: 'violet', nom: 'Dino violet', couleur: '#a855f7', acc: '', niveau: 1 },
-  { id: 'jaune', nom: 'Dino jaune', couleur: '#eab308', acc: '', niveau: 1 },
-  { id: 'casquette', nom: 'Dino casquette', couleur: '#06b6d4', acc: 'casquette', niveau: 3 },
-  { id: 'lunettes', nom: 'Dino lunettes de soleil', couleur: '#f43f5e', acc: 'lunettes', niveau: 5 },
-  { id: 'fete', nom: 'Dino chapeau de fête', couleur: '#84cc16', acc: 'fete', niveau: 8 },
-  { id: 'casque', nom: 'Dino casque audio', couleur: '#8b5cf6', acc: 'casque', niveau: 10 },
-  { id: 'cornes', nom: 'Tricératops', couleur: '#14b8a6', acc: 'cornes', niveau: 15 },
-  { id: 'couronne', nom: 'Roi dino', couleur: '#f59e0b', acc: 'couronne', niveau: 20 }
+  { id: 'vert', nom: 'Vert', couleur: '#22c55e', acc: '', niveau: 1 },
+  { id: 'bleu', nom: 'Bleu', couleur: '#3b82f6', acc: '', niveau: 1 },
+  { id: 'orange', nom: 'Orange', couleur: '#f97316', acc: '', niveau: 1 },
+  { id: 'rose', nom: 'Rose', couleur: '#ec4899', acc: '', niveau: 1 },
+  { id: 'violet', nom: 'Violet', couleur: '#a855f7', acc: '', niveau: 1 },
+  { id: 'jaune', nom: 'Jaune', couleur: '#eab308', acc: '', niveau: 1 },
+  { id: 'casquette', nom: 'Cadre argent', couleur: '#06b6d4', acc: 'casquette', niveau: 3 },
+  { id: 'lunettes', nom: 'Dégradé', couleur: '#f43f5e', acc: 'lunettes', niveau: 5 },
+  { id: 'fete', nom: 'Double cadre', couleur: '#84cc16', acc: 'fete', niveau: 8 },
+  { id: 'casque', nom: 'Néon', couleur: '#8b5cf6', acc: 'casque', niveau: 10 },
+  { id: 'cornes', nom: 'Cadre or', couleur: '#14b8a6', acc: 'cornes', niveau: 15 },
+  { id: 'couronne', nom: 'Légende (or animé)', couleur: '#f59e0b', acc: 'couronne', niveau: 20 }
 ];
 export const avatarDe = id => AVATARS.find(a => a.id === id) || AVATARS[0];
 
 // les classements de tous les temps (sens : '+' plus haut = mieux, '-' plus bas = mieux)
 export const CLASSEMENTS = {
-  dinorun: { nom: 'Dino Run', sens: '+' },
-  flap: { nom: 'Dino Flap', sens: '+' },
+  dinorun: { nom: 'Runner', sens: '+' },
+  flap: { nom: 'Flap', sens: '+' },
   2048: { nom: '2048', sens: '+' },
   serpent: { nom: 'Serpent', sens: '+' },
   blocs: { nom: 'Blocs', sens: '+' },
   briques: { nom: 'Casse-briques', sens: '+' },
-  blaster: { nom: 'Dino Blaster', sens: '+' },
+  blaster: { nom: 'Blaster', sens: '+' },
   meteorites: { nom: 'Pluie de météorites', sens: '+' },
-  dinoio: { nom: 'Dino.io (taille max)', sens: '+' },
+  dinoio: { nom: 'Arène.io (taille max)', sens: '+' },
   solitaire: { nom: 'Solitaire', sens: '+' },
   reflexes: { nom: 'Test de réflexes (ms)', sens: '-' }
 };
@@ -76,8 +76,8 @@ export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'bloc
 const score = (jeu, min) => e => e.ev && e.ev.jeu === jeu && Number(e.ev.score) >= min;
 const gagne = (jeu, enligne) => e => e.ev && e.ev.jeu === jeu && e.ev.gagne && (!enligne || e.ev.enligne);
 export const SUCCES = [
-  { id: 'premiere', nom: 'C’est parti !', desc: 'Jouer ta première partie.', icone: '🥚', test: e => e.parties >= 1 },
-  { id: 'habitue', nom: 'Habitué', desc: 'Jouer 25 parties.', icone: '🦕', test: e => e.parties >= 25 },
+  { id: 'premiere', nom: 'C’est parti !', desc: 'Jouer ta première partie.', icone: '▶️', test: e => e.parties >= 1 },
+  { id: 'habitue', nom: 'Habitué', desc: 'Jouer 25 parties.', icone: '🎲', test: e => e.parties >= 25 },
   { id: 'accro', nom: 'Accro', desc: 'Jouer 100 parties.', icone: '🔥', test: e => e.parties >= 100 },
   { id: 'legende', nom: 'Légende du site', desc: 'Jouer 500 parties.', icone: '🏛️', test: e => e.parties >= 500 },
   { id: 'touche', nom: 'Touche-à-tout', desc: 'Jouer à 8 jeux différents.', icone: '🎮', test: e => e.jeux >= 8 },
@@ -86,22 +86,22 @@ export const SUCCES = [
   { id: 'victoire10', nom: 'Champion du quartier', desc: 'Gagner 10 parties en ligne.', icone: '🥉', test: e => e.victoires >= 10 },
   { id: 'victoire50', nom: 'Invincible', desc: 'Gagner 50 parties en ligne.', icone: '🥇', test: e => e.victoires >= 50 },
   { id: 'niveau5', nom: 'Ça grandit', desc: 'Atteindre le niveau 5.', icone: '📈', test: e => e.niveau >= 5 },
-  { id: 'niveau10', nom: 'T-Rex', desc: 'Atteindre le niveau 10.', icone: '🦖', test: e => e.niveau >= 10 },
+  { id: 'niveau10', nom: 'Maître', desc: 'Atteindre le niveau 10.', icone: '🎖️', test: e => e.niveau >= 10 },
   { id: 'defi1', nom: 'Relevé !', desc: 'Réussir un défi du jour.', icone: '🎯', test: e => e.defis >= 1 },
   { id: 'defi7', nom: 'Une semaine de défis', desc: 'Réussir 7 défis du jour.', icone: '📅', test: e => e.defis >= 7 },
   { id: 'ami1', nom: 'Pas tout seul', desc: 'Avoir un ami sur le site.', icone: '🤝', test: e => e.amis >= 1 },
   { id: 'chat1', nom: 'Bavard', desc: 'Envoyer un message dans le chat.', icone: '💬', test: e => e.chat >= 1 },
   { id: 'champion', nom: 'Champion de tournoi', desc: 'Gagner un tournoi.', icone: '🏆', test: e => e.tournois >= 1 },
-  { id: 'dinorun1000', nom: 'Coureur de fond', desc: 'Faire 1 000 à Dino Run.', icone: '🏃', test: score('dinorun', 1000) },
-  { id: 'flap20', nom: 'Pilote de ptérodactyle', desc: 'Passer 20 tuyaux à Dino Flap.', icone: '🪽', test: score('flap', 20) },
+  { id: 'dinorun1000', nom: 'Coureur de fond', desc: 'Faire 1 000 à Runner.', icone: '🏃', test: score('dinorun', 1000) },
+  { id: 'flap20', nom: 'Haut vol', desc: 'Passer 20 tuyaux à Flap.', icone: '🪽', test: score('flap', 20) },
   { id: '2048', nom: 'Mathématicien', desc: 'Faire 5 000 points à 2048.', icone: '🔢', test: score('2048', 5000) },
   { id: 'serpent300', nom: 'Long comme un bras', desc: 'Faire 300 points au Serpent.', icone: '🐍', test: score('serpent', 300) },
   { id: 'blocs10k', nom: 'Empileur', desc: 'Faire 10 000 points à Blocs.', icone: '🧱', test: score('blocs', 10000) },
-  { id: 'blaster20k', nom: 'As de l’espace', desc: 'Faire 20 000 points à Dino Blaster.', icone: '🚀', test: score('blaster', 20000) },
-  { id: 'dinoio500', nom: 'Gros dino', desc: 'Atteindre une taille de 500 à Dino.io.', icone: '🍖', test: score('dinoio', 500) },
-  { id: 'turbo', nom: 'Pilote de course', desc: 'Gagner une course à Turbo Dino.', icone: '🏁', test: gagne('turbo') },
+  { id: 'blaster20k', nom: 'As de l’espace', desc: 'Faire 20 000 points à Blaster.', icone: '🚀', test: score('blaster', 20000) },
+  { id: 'dinoio500', nom: 'Poids lourd', desc: 'Atteindre une taille de 500 à Arène.io.', icone: '⚫', test: score('dinoio', 500) },
+  { id: 'turbo', nom: 'Pilote de course', desc: 'Gagner une course à Turbo.', icone: '🏁', test: gagne('turbo') },
   { id: 'solitaire', nom: 'Patient', desc: 'Gagner une partie de Solitaire.', icone: '🃏', test: gagne('solitaire') },
-  { id: 'pendu', nom: 'Sauveur de dino', desc: 'Gagner au Pendu.', icone: '🔤', test: gagne('pendu') },
+  { id: 'pendu', nom: 'Sauvé !', desc: 'Gagner au Pendu.', icone: '🔤', test: gagne('pendu') },
   { id: 'demineur', nom: 'Démineur pro', desc: 'Gagner au Démineur.', icone: '💣', test: gagne('demineur') },
   { id: 'echecs', nom: 'Grand maître', desc: 'Gagner aux échecs (contre l’ordinateur ou en ligne).', icone: '♟️', test: gagne('echecs') },
   { id: 'hockey', nom: 'Roi de la glisse', desc: 'Gagner à l’Air hockey.', icone: '🏒', test: gagne('hockey') }
@@ -110,15 +110,15 @@ export const SUCCES = [
 /* ---------- Défi du jour ----------
    Un défi différent chaque jour (le même pour tout le monde). */
 export const DEFIS = [
-  { texte: 'Fais au moins 500 à Dino Run.', jeu: 'dinorun', score: 500 },
-  { texte: 'Passe 10 tuyaux à Dino Flap.', jeu: 'flap', score: 10 },
+  { texte: 'Fais au moins 500 à Runner.', jeu: 'dinorun', score: 500 },
+  { texte: 'Passe 10 tuyaux à Flap.', jeu: 'flap', score: 10 },
   { texte: 'Fais 2 000 points à 2048.', jeu: '2048', score: 2000 },
   { texte: 'Fais 150 points au Serpent.', jeu: 'serpent', score: 150 },
   { texte: 'Fais 3 000 points à Blocs.', jeu: 'blocs', score: 3000 },
   { texte: 'Fais 2 000 points au Casse-briques.', jeu: 'briques', score: 2000 },
-  { texte: 'Fais 8 000 points à Dino Blaster.', jeu: 'blaster', score: 8000 },
-  { texte: 'Atteins une taille de 200 à Dino.io.', jeu: 'dinoio', score: 200 },
-  { texte: 'Gagne une course à Turbo Dino.', jeu: 'turbo', gagne: true },
+  { texte: 'Fais 8 000 points à Blaster.', jeu: 'blaster', score: 8000 },
+  { texte: 'Atteins une taille de 200 à Arène.io.', jeu: 'dinoio', score: 200 },
+  { texte: 'Gagne une course à Turbo.', jeu: 'turbo', gagne: true },
   { texte: 'Gagne une partie de Solitaire.', jeu: 'solitaire', gagne: true },
   { texte: 'Gagne une partie de Pendu.', jeu: 'pendu', gagne: true },
   { texte: 'Gagne au Démineur.', jeu: 'demineur', gagne: true },

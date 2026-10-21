@@ -311,7 +311,7 @@
       const el = $('#entete');
       const c = C.compte;
       if (!el || !c) return;
-      el.innerHTML = `<div class="ligne-entete">${AV ? AV.svg(c.avatar, 64) : ''}<div style="min-width:0;flex:1"><h1>${echapper(c.nom)}</h1><p class="sous" style="margin:0">Membre depuis le ${date(c.cree)}</p></div></div>${htmlNiveau(c)}`;
+      el.innerHTML = `<div class="ligne-entete">${AV ? AV.svg(c.avatar, 64, c.nom) : ''}<div style="min-width:0;flex:1"><h1>${echapper(c.nom)}</h1><p class="sous" style="margin:0">Membre depuis le ${date(c.cree)}</p></div></div>${htmlNiveau(c)}`;
     }
 
     function htmlStats(stats) {
@@ -409,7 +409,7 @@
       const zone = $('#contenu');
       const niv = c.niveau || 1;
       zone.innerHTML = `
-        ${D && AV ? `<h2 style="margin-top:0">Mon avatar</h2><div class="grille-avatars">${D.AVATARS.map(a => `<button type="button" class="choix-avatar ${a.id === c.avatar ? 'actif' : ''} ${niv < a.niveau ? 'bloque' : ''}" data-avatar="${a.id}" title="${echapper(a.nom)}${niv < a.niveau ? ' (niveau ' + a.niveau + ')' : ''}">${AV.svg(a.id, 46)}${niv < a.niveau ? `<span>niv. ${a.niveau}</span>` : ''}</button>`).join('')}</div><p class="message" id="msg-avatar" hidden></p>` : ''}
+        ${D && AV ? `<h2 style="margin-top:0">Mon avatar</h2><div class="grille-avatars">${D.AVATARS.map(a => `<button type="button" class="choix-avatar ${a.id === c.avatar ? 'actif' : ''} ${niv < a.niveau ? 'bloque' : ''}" data-avatar="${a.id}" title="${echapper(a.nom)}${niv < a.niveau ? ' (niveau ' + a.niveau + ')' : ''}">${AV.svg(a.id, 46, c.nom)}${niv < a.niveau ? `<span>niv. ${a.niveau}</span>` : ''}</button>`).join('')}</div><p class="message" id="msg-avatar" hidden></p>` : ''}
         <div class="interrupteur"><span>Mode invisible<small>Tu n’apparais pas dans la liste des joueurs en ligne.</small></span><input type="checkbox" id="invisible" ${c.invisible ? 'checked' : ''}></div>
         <label for="invitations">Qui peut m’inviter à jouer</label>
         <select id="invitations">
@@ -612,7 +612,7 @@
       ul.innerHTML = liste.length ? liste.map(c => `
         <li class="compte-admin">
           <details>
-            <summary>${AV ? AV.svg(c.avatar || 'vert', 30) : ''}<span class="nom" style="margin-left:8px">${echapper(c.nom)}${c.bloque ? ' <span class="badge-rouge">bloqué</span>' : ''}${c.banni ? ` <span class="badge-rouge">banni${c.banni > Date.now() + 50 * 365 * 86400000 ? '' : ' jusqu’au ' + new Date(c.banni).toLocaleDateString('fr-FR')}</span>` : ''}<small>niv. ${c.niveau} · vu ${ilYa(c.vu)} · créé le ${date(c.cree)} · ${c.victoires} V / ${c.parties} parties</small></span></summary>
+            <summary>${AV ? AV.svg(c.avatar || 'vert', 30, c.nom) : ''}<span class="nom" style="margin-left:8px">${echapper(c.nom)}${c.bloque ? ' <span class="badge-rouge">bloqué</span>' : ''}${c.banni ? ` <span class="badge-rouge">banni${c.banni > Date.now() + 50 * 365 * 86400000 ? '' : ' jusqu’au ' + new Date(c.banni).toLocaleDateString('fr-FR')}</span>` : ''}<small>niv. ${c.niveau} · vu ${ilYa(c.vu)} · créé le ${date(c.cree)} · ${c.victoires} V / ${c.parties} parties</small></span></summary>
             <div class="actions-admin" data-nom="${echapper(c.nom)}">
               <a class="btn petit" href="#profil/${encodeURIComponent(c.nom)}">Voir le profil</a>
               <form class="ligne" data-form="victoires">
@@ -685,7 +685,7 @@
         const moi = C.connecte && C.compte.nom.toLowerCase() === d.profil.nom.toLowerCase();
         carte.innerHTML = `
           <span class="pastille">Profil joueur</span>
-          <div class="ligne-entete">${AV ? AV.svg(d.profil.avatar, 64) : ''}<div style="min-width:0;flex:1"><h1>${echapper(d.profil.nom)}</h1><p class="sous" style="margin:0">Membre depuis le ${date(d.profil.cree)}</p></div></div>
+          <div class="ligne-entete">${AV ? AV.svg(d.profil.avatar, 64, d.profil.nom) : ''}<div style="min-width:0;flex:1"><h1>${echapper(d.profil.nom)}</h1><p class="sous" style="margin:0">Membre depuis le ${date(d.profil.cree)}</p></div></div>
           ${htmlNiveau(d.profil)}
           ${htmlStats(d.stats || [])}
           ${D && d.succes && d.succes.length ? `<h2>Succès (${d.succes.length})</h2><div class="petits-succes">${d.succes.map(x => { const s = D.SUCCES.find(y => y.id === x.id); return s ? `<span title="${echapper(s.nom + ' : ' + s.desc)}">${s.icone}</span>` : ''; }).join('')}</div>` : ''}

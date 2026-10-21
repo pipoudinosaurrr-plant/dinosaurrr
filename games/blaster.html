@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dino Blaster</title>
+  <title>Blaster</title>
   <link rel="stylesheet" href="jeu.css">
   <style>
     html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <canvas id="jeu" aria-label="Dino Blaster : shooter spatial"></canvas>
+  <canvas id="jeu" aria-label="Blaster : shooter spatial"></canvas>
   <script src="arcade.js"></script>
 <script>
 (() => {
@@ -677,7 +677,7 @@
     const rv = A.record('blaster-vague');
     A.panneau({
       pastille: 'Shooter spatial',
-      titre: 'Dino Blaster',
+      titre: 'Blaster',
       texte: 'Ton vaisseau tire tout seul. Esquive les tirs, ramasse les bonus et détruis le boss toutes les 5 vagues.',
       lignes: [['Record', A.format(A.record('blaster-score') || 0)], ['Meilleure vague', rv ? String(rv) : '–'],
         ['Bonus', '<span style="color:#22c55e">P</span> arme · <span style="color:#f97316">B</span> bombe · <span style="color:#38bdf8">S</span> bouclier · <span style="color:#f43f5e">♥</span> vie']],

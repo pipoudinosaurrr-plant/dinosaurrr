@@ -599,7 +599,7 @@
       $('joueurs').innerHTML = salle.joueurs.map(j => `
         <li>
           <i style="background:${echapper(j.couleur)}"></i>
-          ${j.avatar && window.DinoAvatar ? `<span style="display:inline-flex;flex:none">${window.DinoAvatar.svg(j.avatar, 24)}</span>` : ''}
+          ${j.avatar && window.DinoAvatar ? `<span style="display:inline-flex;flex:none">${window.DinoAvatar.svg(j.avatar, 24, j.nom)}</span>` : ''}
           <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}${j.niveau ? ` <span style="color:#737373;font-size:11px">niv. ${j.niveau}</span>` : ''}</span>
           ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
           ${j.hote ? '<span class="tag">HÔTE</span>' : ''}

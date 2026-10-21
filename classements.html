@@ -77,7 +77,7 @@
       const l = choix === 'xp' ? donnees.xp : (donnees.classements[choix] || []);
       const moi = C && C.compte ? C.compte.nom : '';
       $('liste').innerHTML = l.length ? l.map((x, i) => `
-        <li class="${x.nom === moi ? 'moi' : ''}"><span class="place">${i + 1}</span>${AV ? AV.svg(x.avatar, 36) : ''}
+        <li class="${x.nom === moi ? 'moi' : ''}"><span class="place">${i + 1}</span>${AV ? AV.svg(x.avatar, 36, x.nom) : ''}
           <span class="nom">${echapper(x.nom)}<small>niveau ${x.niveau} · ${echapper(D.titreDe(x.niveau))}</small></span>
           <span class="score">${format(choix, x.score)}</span></li>`).join('')
         : '<li class="vide">Personne pour l’instant. Sois le premier !</li>';

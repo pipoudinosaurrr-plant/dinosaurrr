@@ -124,7 +124,7 @@ window.XP_EXTRAS = function (api) {
     if (t === 'veille' || t === 'ecran de veille' || t === 'scrnsave') { lancerVeille(); return true; }
     if (t === 'shutdown' || t === 'arreter') { api.arreter(); return true; }
     if (t === 'logoff' || t === 'fermer la session') { api.fermerSession(); return true; }
-    if (t === 'konami' || t === 'dinos') { pluieDeDinos(); return true; }
+    if (t === 'konami' || t === 'pixels') { pluieDePixels(); return true; }
     const app = ALIAS[t] || ALIAS[t + '.exe'];
     if (app && api.APPS[app]) { api.ouvrirApp(app); return true; }
     return false;
@@ -232,14 +232,10 @@ window.XP_EXTRAS = function (api) {
   /* ================= Invite de commandes ================= */
 
   const PALETTE = ['#000000', '#000080', '#008000', '#008080', '#800000', '#800080', '#808000', '#c0c0c0', '#808080', '#0000ff', '#00ff00', '#00ffff', '#ff0000', '#ff00ff', '#ffff00', '#ffffff'];
-  const DINO_ASCII = [
-    '                 __',
-    '                / _)   Rrrrr !',
-    '       _.----._/ /',
-    '      /         /',
-    '   __/ (  | (  |',
-    '  /__.-\'|_|--|_|'
-  ];
+  const LOGO_ASCII = () => {
+    const t = NOM.toUpperCase().split('').join(' ');
+    return ['╔' + '═'.repeat(t.length + 6) + '╗', '║   ' + t + '   ║', '╚' + '═'.repeat(t.length + 6) + '╝'];
+  };
 
   function contenuCmd(corps, etat) {
     corps.classList.add('sans-defilement');
@@ -303,7 +299,7 @@ window.XP_EXTRAS = function (api) {
     ];
 
     const commandes = {
-      async aide() { AIDE.forEach(([c, d]) => ecrire(c.padEnd(9) + d)); ecrire(''); ecrire('Il y a aussi des commandes cachées… essaie DINO, MATRIX ou HACK.'); },
+      async aide() { AIDE.forEach(([c, d]) => ecrire(c.padEnd(9) + d)); ecrire(''); ecrire('Il y a aussi des commandes cachées… essaie LOGO, MATRIX ou HACK.'); },
       async help() { return commandes.aide(); },
       async cls() { sortie.textContent = ''; },
       async echo(arg) { ecrire(arg || 'ECHO est activé.'); },
@@ -338,7 +334,7 @@ window.XP_EXTRAS = function (api) {
           ecrire(`${dateDos(d)}    <REP>          Blog`);
           ecrire(`${dateDos(d)}    <REP>          Jeux`);
           if (stockage.lire('site-blocnotes', '')) { ecrire(`${dateDos(d)}    ${String(stockage.lire('site-blocnotes', '').length).padStart(14)} notes.txt`); n++; }
-          ecrire(`${dateDos(d)}             2 600 dino.exe`); n++;
+          ecrire(`${dateDos(d)}             2 600 systeme.exe`); n++;
         } else if (dossier === 'Jeux') {
           JEUX.forEach(j => { ecrire(`${dateDos(d)}    ${String(2000 + j.id.length * 731).padStart(14)} ${j.id}.exe`); n++; });
         } else {
@@ -359,7 +355,7 @@ window.XP_EXTRAS = function (api) {
           return;
         }
         if (normaliser(arg).startsWith('notes')) { (stockage.lire('site-blocnotes', '') || '(fichier vide)').split('\n').forEach(l => ecrire(l)); return; }
-        if (normaliser(arg).startsWith('dino')) { ecrire('Ce fichier ne peut pas être lu : c\'est un dino. Tape DINO pour le voir.'); return; }
+        if (normaliser(arg).startsWith('systeme')) { ecrire('Ce fichier ne peut pas être lu : c\'est un programme.'); return; }
         ecrire('Le fichier spécifié est introuvable.');
       },
       async jeux() {
@@ -383,7 +379,7 @@ window.XP_EXTRAS = function (api) {
       async calc(arg) {
         const e = String(arg || '').replace(/,/g, '.').replace(/x/gi, '*');
         if (!/^[\d+\-*/().\s%]+$/.test(e)) { ecrire('Utilisation : CALC 12*7  (chiffres et + - * / ( ) seulement)'); return; }
-        try { const r = Function('"use strict";return (' + e + ')')(); ecrire(Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10).replace('.', ',') : 'Division par zéro ? Le dino refuse.'); }
+        try { const r = Function('"use strict";return (' + e + ')')(); ecrire(Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10).replace('.', ',') : 'Calcul impossible.'); }
         catch (err) { ecrire('Calcul impossible.'); }
       },
       async ping(arg) {
@@ -411,7 +407,7 @@ window.XP_EXTRAS = function (api) {
         JEUX.forEach((j, i) => ecrire('│   ' + (i === JEUX.length - 1 ? '└───' : '├───') + j.titre));
         ecrire('└───notes.txt');
       },
-      async dino() { ecrire(''); DINO_ASCII.forEach(l => ecrire(l, 'console-vert')); ecrire(''); },
+      async logo() { ecrire(''); LOGO_ASCII().forEach(l => ecrire(l, 'console-vert')); ecrire(''); },
       async veille() { lancerVeille(); },
       async crash() { ecranBleu(); },
       async shutdown() { api.arreter(); },
@@ -422,14 +418,14 @@ window.XP_EXTRAS = function (api) {
         await pluieMatrice();
       },
       async hack() {
-        const lignes = ['Connexion au mainframe du dino…', 'Contournement du pare-feu préhistorique…', 'Téléchargement de 65 millions d\'années de données…', 'Décryptage des œufs…', 'Injection de pizza dans le noyau…'];
+        const lignes = ['Connexion au serveur central…', 'Contournement du pare-feu…', 'Téléchargement de 65 Go de données…', 'Décryptage des fichiers…', 'Injection de pizza dans le noyau…'];
         for (const l of lignes) {
           ecrire(l, 'console-vert');
           for (let k = 0; k < 3; k++) { ecrire('  ' + Array.from({ length: 6 }, () => Math.random().toString(16).slice(2, 10)).join(' '), 'console-vert'); await pause(70); }
           await pause(250);
         }
         ecrire('');
-        ecrire(txt('hackFin', 'ACCÈS REFUSÉ. Le dino a tout vu. Bien essayé.'), 'console-rouge');
+        ecrire(txt('hackFin', 'ACCÈS REFUSÉ. Bien essayé.'), 'console-rouge');
       }
     };
     commandes.ls = commandes.dir;
@@ -695,50 +691,12 @@ window.XP_EXTRAS = function (api) {
   /* ================= Écrans de veille ================= */
 
   const VEILLES = [
-    { id: 'volants', nom: 'Dinos volants' },
-    { id: 'dino', nom: 'Dino rebondissant' },
+    { id: 'logo', nom: 'Logo rebondissant' },
     { id: 'etoiles', nom: 'Voyage dans les étoiles' },
     { id: 'tuyaux', nom: 'Tuyaux en pixels' },
     { id: 'aucun', nom: '(Aucun)' }
   ];
-  const reglagesVeille = () => Object.assign({ type: A.veilleParDefaut || 'dino', minutes: Number(A.veilleMinutes) || 3 }, stockage.lire('site-veille', {}));
-
-  const DINO = [
-    '..........kkkk..',
-    '.........kwwwwk.',
-    '.........kwowwk.',
-    '.........kwwwk..',
-    '..........kwwk..',
-    '..........kwwk..',
-    '.....kkkkkkwwk..',
-    '...kkwwwwwwwwk..',
-    '..kwwwwwwwwwwk..',
-    '.kwwwwwwwwwwwk..',
-    'kwwkwwwwwwwwk...',
-    'kwk.kwwkkwwk....',
-    '.k..kwwk.kwwk...',
-    '....kkkk.kkkk...'
-  ];
-  function dessinerDino(g, x, y, couleur, echelle = 1) {
-    DINO.forEach((ligne, j) => [...ligne].forEach((ch, i) => {
-      if (ch === '.') return;
-      g.fillStyle = ch === 'k' ? '#000' : ch === 'o' ? '#000' : couleur;
-      g.fillRect(x + i * echelle, y + j * echelle, echelle, echelle);
-    }));
-  }
-
-  // ptérodactyle en pixels, ailes en haut (0) ou en bas (1)
-  const PTERO = [
-    ['....kk..............', '...kwwk.............', '...kwwwk......kkk...', '....kwwwk...kkwwwk..', '.....kwwwkkkwwwwwk..', '..kkkkwwwwwwwwwwkk..', '.kwowwwwwwwwwwkk....', 'kkwwwwwwkkkkkk......', '..kkkkkk............'],
-    ['....................', '....................', '.............kkk....', '...kkkkk...kkwwwk...', '..kwowwwkkkwwwwwwk..', 'kkwwwwwwwwwwwwwkk...', '..kkkkwwwwwwwkk.....', '.....kwwwkkk........', '....kwwk............', '....kkk.............']
-  ];
-  function dessinerPtero(g, x, y, couleur, e, image) {
-    PTERO[image].forEach((ligne, j) => [...ligne].forEach((ch, i) => {
-      if (ch === '.') return;
-      g.fillStyle = ch === 'w' ? couleur : '#000';
-      g.fillRect(x + i * e, y + j * e, e, e);
-    }));
-  }
+  const reglagesVeille = () => { const r = Object.assign({ type: A.veilleParDefaut || 'etoiles', minutes: Number(A.veilleMinutes) || 3 }, stockage.lire('site-veille', {})); if (!VEILLES.some(v => v.id === r.type)) r.type = 'etoiles'; return r; };
 
   // fait tourner un écran de veille dans une toile ; renvoie une fonction pour l'arrêter
   function animerVeille(type, toile) {
@@ -746,33 +704,7 @@ window.XP_EXTRAS = function (api) {
     const W = toile.width, H = toile.height;
     let fini = false, raf = 0;
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-    if (type === 'volants') {
-      // des ptérodactyles traversent l'écran en diagonale (comme les fameux grille-pain volants)
-      const couleurs = ['#3fae4f', '#f2b81e', '#ff4fa8', '#3fb7f2', '#ff7a2e', '#b06aff', '#e5e5e5'];
-      const base = Math.max(2, Math.round(W / 300));
-      const nouveau = (partout) => {
-        const e = base * (Math.random() < 0.3 ? 2 : 1);
-        return { x: partout ? Math.random() * W * 1.2 : W + Math.random() * W * 0.5, y: partout ? Math.random() * H - H * 0.2 : -Math.random() * H * 0.6 - 40, e, v: (0.6 + Math.random() * 0.8) * (W / 900) * (e > base ? 1.4 : 1), c: couleurs[Math.floor(Math.random() * couleurs.length)], phase: Math.random() * 10 };
-      };
-      const dinos = Array.from({ length: Math.max(8, Math.round(W * H / 90000)) }, () => nouveau(true));
-      const etoiles = Array.from({ length: 90 }, () => [Math.random() * W, Math.random() * H, Math.random()]);
-      let t = 0;
-      const tour = () => {
-        if (fini) return;
-        t++;
-        g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-        etoiles.forEach(s => { g.fillStyle = s[2] > .85 ? '#fff' : '#3a3a3a'; g.fillRect(Math.round(s[0]), Math.round(s[1]), 1, 1); });
-        dinos.sort((a, b) => a.e - b.e);
-        for (const d of dinos) {
-          d.x -= d.v * 2; d.y += d.v;
-          if (d.x < -25 * d.e || d.y > H + 20) Object.assign(d, nouveau(false));
-          dessinerPtero(g, Math.round(d.x), Math.round(d.y), d.c, d.e, Math.floor((t + d.phase * 10) / 14) % 2);
-        }
-        raf = requestAnimationFrame(tour);
-      };
-      tour();
-    }
-    if (type === 'dino') {
+    if (type === 'logo') {
       const couleurs = ['#3fae4f', '#f2b81e', '#ff4fa8', '#3fb7f2', '#ff7a2e', '#b06aff', '#ffffff'];
       const e = Math.max(1, Math.round(W / 220));
       let x = W * .3, y = H * .4, vx = W / 520, vy = H / 420, c = 0;
@@ -782,10 +714,11 @@ window.XP_EXTRAS = function (api) {
         g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
         etoiles.forEach(s => { g.fillStyle = s[2] > .8 ? '#fff' : '#555'; g.fillRect(Math.round(s[0]), Math.round(s[1]), 1, 1); });
         x += vx; y += vy;
-        const w = 16 * e, h = 14 * e;
+        g.font = `bold italic ${Math.round(10 * e)}px "Trebuchet MS", Tahoma, sans-serif`;
+        const w = Math.ceil(g.measureText(NOM).width), h = Math.round(11 * e);
         if (x < 0 || x + w > W) { vx = -vx; x = Math.max(0, Math.min(W - w, x)); c = (c + 1) % couleurs.length; }
         if (y < 0 || y + h > H) { vy = -vy; y = Math.max(0, Math.min(H - h, y)); c = (c + 1) % couleurs.length; }
-        dessinerDino(g, Math.round(x), Math.round(y), couleurs[c], e);
+        g.fillStyle = couleurs[c]; g.textBaseline = 'top'; g.fillText(NOM, Math.round(x), Math.round(y));
         raf = requestAnimationFrame(tour);
       };
       tour();
@@ -932,25 +865,25 @@ window.XP_EXTRAS = function (api) {
 
   /* ================= Écran bleu (pour rire) ================= */
 
-  const TEXTE_ECRAN_BLEU = "Un problème a été détecté et {nom} a été arrêté pour éviter\nd'endommager votre ordinateur.\n\n{code}\n\nSi c'est la première fois que vous voyez cet écran d'arrêt,\nredémarrez votre ordinateur. Si cet écran apparaît encore,\ndonnez une part de pizza au dino et réessayez.\n\nInformations techniques :\n\n*** STOP: 0x0000D1N0 (0xC0FFEE00, 0x00000042, 0xBADC0DE5, 0x00000000)\n\nAppuyez sur une touche ou cliquez pour redémarrer…";
+  const TEXTE_ECRAN_BLEU = "Un problème a été détecté et {nom} a été arrêté pour éviter\nd'endommager votre ordinateur.\n\n{code}\n\nSi c'est la première fois que vous voyez cet écran d'arrêt,\nredémarrez votre ordinateur. Si cet écran apparaît encore,\ncontactez l'administrateur du site.\n\nInformations techniques :\n\n*** STOP: 0x0000007E (0xC0FFEE00, 0x00000042, 0xBADC0DE5, 0x00000000)\n\nAppuyez sur une touche ou cliquez pour redémarrer…";
   function ecranBleu() {
     if ($('.ecran-bleu')) return;
     son('erreur');
-    const code = txt('ecranBleuCode', 'DINO_TROP_MIGNON_EXCEPTION');
+    const code = txt('ecranBleuCode', 'SYSTEM_SERVICE_EXCEPTION');
     const texte = txt('ecranBleuTexte', TEXTE_ECRAN_BLEU, { code });
     const e = creer(`<div class="ecran-bleu" role="alertdialog" aria-label="Écran bleu"><pre>${echapper(texte)}</pre></div>`);
     document.body.append(e);
     const fin = () => {
       e.remove();
       window.removeEventListener('keydown', fin, true);
-      api.bulle(NOM, txt('ecranBleuRetour', 'Le dino a redémarré. Tout va bien.'), 3000);
+      api.bulle(NOM, txt('ecranBleuRetour', 'Le système a redémarré. Tout va bien.'), 3000);
     };
     setTimeout(() => { window.addEventListener('keydown', fin, true); e.addEventListener('pointerdown', fin); }, 600);
   }
 
-  /* ================= Code Konami : pluie de dinos ================= */
+  /* ================= Code Konami : pluie de pixels ================= */
 
-  function pluieDeDinos() {
+  function pluieDePixels() {
     const toile = document.createElement('canvas');
     toile.className = 'pluie-dinos';
     const e = 3;
@@ -958,17 +891,11 @@ window.XP_EXTRAS = function (api) {
     document.body.append(toile);
     const g = toile.getContext('2d');
     const couleurs = ['#3fae4f', '#f2b81e', '#ff4fa8', '#3fb7f2', '#ff7a2e', '#b06aff'];
-    const dinos = Array.from({ length: 46 }, () => ({ x: Math.random() * toile.width, y: -20 - Math.random() * toile.height, v: .4 + Math.random() * 1.2, c: couleurs[Math.floor(Math.random() * couleurs.length)], m: Math.random() < .5 }));
+    const pixels = Array.from({ length: 160 }, () => ({ x: Math.random() * toile.width, y: -20 - Math.random() * toile.height, v: .4 + Math.random() * 1.2, c: couleurs[Math.floor(Math.random() * couleurs.length)], t: 2 + Math.floor(Math.random() * 4) }));
     const debut = performance.now();
     const tour = t => {
       g.clearRect(0, 0, toile.width, toile.height);
-      dinos.forEach(d => {
-        d.y += d.v;
-        g.save();
-        if (d.m) { g.translate(Math.round(d.x) + 16, 0); g.scale(-1, 1); dessinerDino(g, 0, Math.round(d.y), d.c); }
-        else dessinerDino(g, Math.round(d.x), Math.round(d.y), d.c);
-        g.restore();
-      });
+      pixels.forEach(d => { d.y += d.v; g.fillStyle = d.c; g.fillRect(Math.round(d.x), Math.round(d.y), d.t, d.t); });
       if (t - debut < 7000) requestAnimationFrame(tour); else toile.remove();
     };
     requestAnimationFrame(tour);
@@ -981,7 +908,7 @@ window.XP_EXTRAS = function (api) {
     window.addEventListener('keydown', e => {
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       i = k === code[i] ? i + 1 : (k === code[0] ? 1 : 0);
-      if (i === code.length) { i = 0; pluieDeDinos(); api.bulle('Code secret', txt('konami', 'Tu as trouvé le code Konami. Pluie de dinos !'), 4000); }
+      if (i === code.length) { i = 0; pluieDePixels(); api.bulle('Code secret', txt('konami', 'Tu as trouvé le code Konami.'), 4000); }
     });
   }
 
@@ -1024,7 +951,7 @@ window.XP_EXTRAS = function (api) {
       if (!sel.length) return;
       e.preventDefault();
       boite({ titre: 'Confirmer la suppression', icone: 'attention', boutons: ['Oui', 'Non'], texte: sel.length > 1 ? `Voulez-vous vraiment envoyer ces ${sel.length} éléments dans la Corbeille ?` : `Voulez-vous vraiment envoyer « ${echapper($('span', sel[0]).textContent)} » dans la Corbeille ?` })
-        .then(r => { if (r === 'Oui') boite({ titre: 'Erreur', icone: 'erreur', texte: echapper(txt('suppressionRefus', "Impossible de supprimer : le dino s'est assis dessus et refuse de bouger.")) }); });
+        .then(r => { if (r === 'Oui') boite({ titre: 'Erreur', icone: 'erreur', texte: echapper(txt('suppressionRefus', "Impossible de supprimer : ce fichier est utilisé par le système.")) }); });
     });
   }
 

@@ -413,7 +413,7 @@ export function demarrerJeu(cfg) {
     const suisHote = salle.hote === moi;
     $('.joueurs').innerHTML = salle.joueurs.map(j => `
       <li>
-        ${j.avatar && window.DinoAvatar ? `<span class="avatar-salon">${window.DinoAvatar.svg(j.avatar, 26)}</span>` : `<i style="background:${echapper(j.couleur)}"></i>`}
+        ${j.avatar && window.DinoAvatar ? `<span class="avatar-salon">${window.DinoAvatar.svg(j.avatar, 26, j.nom)}</span>` : `<i style="background:${echapper(j.couleur)}"></i>`}
         <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}${j.niveau ? ` <span class="niveau-salon">niv. ${j.niveau}</span>` : ''}</span>
         ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
         ${j.hote ? '<span class="tag">HÔTE</span>' : ''}

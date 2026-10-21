@@ -37,15 +37,15 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 
 **Progression des joueurs** (`assets/progres-defs.js` : niveaux, titres, avatars, succès, défis du jour, classements — ajoute une ligne pour un nouveau succès ou défi) : XP à chaque partie (solo limité à 300 XP par jour), défi du jour, succès, avatars à débloquer, Hall of Fame (`classements.html`). Les jeux envoient leur fin de partie avec `DinoProgres.fin(jeu, { score, gagne })` (`assets/progres.js`).
 
-**Chat** (`chat.html`, compte obligatoire, filtre de mots à compléter dans `MOTS_FILTRES` de `serveur/index.js`), **Tournois** (`tournoi.html`, résultats automatiques), **DinoAmp** (`assets/musique.js`, musiques chiptune originales générées en direct), écran de veille « Dinos volants », statistiques du site et bannissement dans la console admin.
+**Chat** (`chat.html`, compte obligatoire, filtre de mots à compléter dans `MOTS_FILTRES` de `serveur/index.js`), **Tournois** (`tournoi.html`, résultats automatiques), **Lecteur de musique** (`assets/musique.js`, musiques chiptune originales générées en direct), statistiques du site et bannissement dans la console admin.
 
 **Droits admin** (compte `Pipou_Dinosaur` seulement, vérifié par le serveur) : bouton ⚡ Admin en pleine partie dans tous les jeux à plusieurs (`games/multi/admin.js`, et `admin` dans chaque moteur), et onglet ⚡ Admin dans « Mon compte » (comptes, victoires, mots de passe, message à tout le site, fermer une partie). En ligne, les autres joueurs voient les pouvoirs utilisés et la partie ne compte pas dans les victoires.
 
-Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Dino.io (une seule grande arène pour tout le site, moteur dans `games/dinoio/moteur.js`, objet `Arene` du serveur), Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine, Échecs, Air hockey (les deux derniers se jouent aussi à 2 sur le même écran).
+Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (une seule grande arène pour tout le site, moteur dans `games/dinoio/moteur.js`, objet `Arene` du serveur), Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine, Échecs, Air hockey (les deux derniers se jouent aussi à 2 sur le même écran).
 
-Les jeux en solo : Turbo Dino (course de voitures 3D), Dino Blaster (shooter spatial), Dino Aventure (plateformes), Blocs, Serpent, Casse-briques, Dino Run, Dino Flap, 2048, Pendu, Solitaire, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
+Les jeux en solo : Turbo (course de voitures 3D), Blaster (shooter spatial), Aventure (plateformes), Blocs, Serpent, Casse-briques, Runner, Flap, 2048, Pendu, Solitaire, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
 
-Les jeux d'arcade (Turbo, Blaster, Aventure, Blocs, Serpent, Casse-briques, Dino Run, Dino Flap, 2048) partagent `games/arcade.js` : clavier (flèches, WASD/ZQSD), boutons tactiles sur téléphone, menus, pause, records et sons.
+Les jeux d'arcade (Turbo, Blaster, Aventure, Blocs, Serpent, Casse-briques, Runner, Flap, 2048) partagent `games/arcade.js` : clavier (flèches, WASD/ZQSD), boutons tactiles sur téléphone, menus, pause, records et sons.
 
 ---
 

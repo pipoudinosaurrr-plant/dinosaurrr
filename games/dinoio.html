@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dino.io</title>
+  <title>Arène.io</title>
   <link rel="stylesheet" href="jeu.css">
   <link rel="stylesheet" href="multi/salon.css">
   <style>
@@ -41,8 +41,8 @@
   <section class="ecran" id="accueil">
     <div class="carte">
       <span class="pastille"><span class="point-vert"></span>Arène en ligne · ouverte à tous</span>
-      <h1>Dino.io</h1>
-      <p class="intro">Une seule grande arène pour tout le site. Mange les œufs pour grossir, puis mange les dinos plus petits que toi… et fuis les plus gros !</p>
+      <h1>Arène.io</h1>
+      <p class="intro">Une seule grande arène pour tout le site. Mange les points pour grossir, puis absorbe les joueurs plus petits que toi… et fuis les plus gros !</p>
       <label class="etiquette" for="pseudo">Ton pseudo</label>
       <input type="text" id="pseudo" maxlength="14" autocomplete="off" spellcheck="false">
       <span class="etiquette" style="margin-top:12px;display:block">Ta couleur</span>
@@ -102,9 +102,9 @@
 
     /* ---------- Accueil ---------- */
     const champ = $('pseudo');
-    champ.value = stock.lire('cercle-pseudo', 'Dino' + Math.floor(100 + Math.random() * 900));
-    brancherPseudo(champ, () => stock.lire('cercle-pseudo', 'Dino' + Math.floor(100 + Math.random() * 900)));
-    const pseudo = () => { const p = champ.value.trim().slice(0, 14) || 'Dino'; if (!champ.readOnly) stock.ecrire('cercle-pseudo', p); return p; };
+    champ.value = stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900));
+    brancherPseudo(champ, () => stock.lire('cercle-pseudo', 'Joueur' + Math.floor(100 + Math.random() * 900)));
+    const pseudo = () => { const p = champ.value.trim().slice(0, 14) || 'Joueur'; if (!champ.readOnly) stock.ecrire('cercle-pseudo', p); return p; };
     let couleur = stock.lire('dinoio-couleur', M.COULEURS[Math.floor(Math.random() * M.COULEURS.length)]);
     if (!M.COULEURS.includes(couleur)) couleur = M.COULEURS[0];
     function dessinerCouleurs() {
@@ -113,8 +113,8 @@
     $('couleurs').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; couleur = b.dataset.c; stock.ecrire('dinoio-couleur', couleur); dessinerCouleurs(); });
     dessinerCouleurs();
     const regles = TACTILE
-      ? [['Bouger', 'Pose le doigt : ton dino va vers lui.'], ['Diviser', 'Le bouton DIVISER te coupe en deux pour attraper une proie.'], ['Cactus', 'Trop gros ? Les cactus te font éclater.']]
-      : [['Bouger', 'Ton dino suit la souris.'], ['Diviser', 'Espace : tu te coupes en deux pour attraper une proie.'], ['Cactus', 'Trop gros ? Les cactus te font éclater.']];
+      ? [['Bouger', 'Pose le doigt : ta cellule va vers lui.'], ['Diviser', 'Le bouton DIVISER te coupe en deux pour attraper une proie.'], ['Cactus', 'Trop gros ? Les cactus te font éclater.']]
+      : [['Bouger', 'Ta cellule suit la souris.'], ['Diviser', 'Espace : tu te coupes en deux pour attraper une proie.'], ['Cactus', 'Trop gros ? Les cactus te font éclater.']];
     $('regles').innerHTML = regles.map(([a, b]) => `<div class="regle"><b>${a}</b><span>${b}</span></div>`).join('');
 
     function message(t) { $('message').textContent = t || ''; $('message').hidden = !t; }
@@ -389,17 +389,6 @@
       const x = (c.x - cam.x) * cam.s + cw / 2, y = (c.y - cam.y) * cam.s + ch / 2;
       if (x < -r - 40 || y < -r - 40 || x > cw + r + 40 || y > ch + r + 40) return;
       const dir = Math.hypot(c.vx, c.vy) > 0.3 ? Math.atan2(c.vy, c.vx) : 0;
-      // pics sur le dos (une petite crête tout autour)
-      g.fillStyle = assombrir(coul, 0.7);
-      const n = 14;
-      g.beginPath();
-      for (let i = 0; i <= n * 2; i++) {
-        const a = dir + Math.PI + (i / (n * 2)) * Math.PI * 2;
-        const rr = i % 2 ? r * 1.0 : r * 1.12;
-        const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
-        if (i) g.lineTo(px, py); else g.moveTo(px, py);
-      }
-      g.fill();
       // corps
       g.fillStyle = coul;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
@@ -511,7 +500,7 @@
         if (x < x0 || x > x1 || y < y0 || y > y1) continue;
         const px = (x - cam.x) * cam.s + cw / 2, py = (y - cam.y) * cam.s + ch / 2;
         g.fillStyle = COUL_OEUFS[oeufs[i + 2]] || '#fff';
-        g.beginPath(); g.ellipse(px, py, ro * 0.82, ro, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.arc(px, py, ro * 0.85, 0, Math.PI * 2); g.fill();
       }
 
       // cactus sous les petits, au-dessus des gros (comme les virus d'agar.io)

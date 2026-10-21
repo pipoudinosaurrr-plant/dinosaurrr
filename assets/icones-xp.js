@@ -77,7 +77,7 @@
     <rect x="12" y="13" width="9" height="3" fill="#c2410c" stroke="#7c2d12" stroke-width=".6"/>
     <rect x="15" y="8" width="3" height="4" rx="1.2" fill="#facc15" stroke="#a16207" stroke-width=".6"/>
     <path d="M25 9v13" stroke="#e5e5e5" stroke-width="1.3"/><path d="M25.5 9.5h4l-1 1.6 1 1.6h-4z" fill="#22c55e"/>
-    <path d="M6 21v-4h2v-2h3v2h-1v4z" fill="#16a34a"/><rect x="9" y="15.6" width=".9" height=".9" fill="#fff"/></svg>`;
+    <rect x="6.5" y="13.5" width="3.4" height="3" rx="1" fill="#1e3a8a"/><rect x="6.2" y="16.3" width="4" height="3.6" rx=".8" fill="#3b82f6"/><path d="M6.8 19.9v1.6M9.6 19.9v1.6" stroke="#1e3a8a" stroke-width="1"/><rect x="8.6" y="14.4" width=".9" height=".9" fill="#fff"/></svg>`;
   // Serpent
   D.serpent = `<svg viewBox="0 0 32 32"><defs>${lin('sec', '#1a1a1a', '#050505')}</defs>
     <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#sec)" stroke="#000"/>
@@ -104,19 +104,17 @@
   // Dino Run : le T-Rex qui saute un cactus
   D.dinorun = `<svg viewBox="0 0 32 32"><defs>${lin('drc', '#ffffff', '#e5e5e5')}</defs>
     <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#drc)" stroke="#525252"/>
-    <path d="M3 24.5h26" stroke="#737373" stroke-width="1"/><path d="M6 26.5h3M14 27h2M22 26.5h4" stroke="#a3a3a3" stroke-width=".8"/>
-    <g fill="#535353"><rect x="9" y="7" width="8" height="5"/><rect x="10" y="12" width="4" height="1"/><rect x="5" y="12" width="7" height="5"/><rect x="3.5" y="11" width="1.5" height="3"/>
-      <rect x="12" y="13.5" width="2" height="1"/><rect x="6" y="17" width="2" height="3"/><rect x="9" y="17" width="2" height="2"/></g>
-    <rect x="11" y="8" width="1.2" height="1.2" fill="#fff"/>
-    <g fill="#16a34a" stroke="#14532d" stroke-width=".5"><rect x="21.5" y="13" width="3" height="11.5" rx="1"/><path d="M19 16.5h2.5v2h-1.5a1.5 1.5 0 0 1-1.5-1.5v-3h.5z"/><path d="M27 15h-2.5v2h1a1.5 1.5 0 0 0 1.5-1.5V13h0z"/></g></svg>`;
+    <path d="M3 24.5h26" stroke="#737373" stroke-width="1"/>
+    <g fill="#404040"><circle cx="12" cy="7.5" r="2.3"/><path d="M10.5 10.5l3 .5 2.5 3 3 .5-.4 1.6-3.6-.6-1.4-1.4-1 3.6 2.6 2.4-1.2 5.4h-1.8l1-4.6-2.6-2-1.8 3.4-3.6 1-.6-1.6 2.8-.9 2.2-4.6.2-2.8-1.8 1.6-2.4.2-.2-1.6 2.6-.4z"/></g>
+    <g fill="#f97316" stroke="#9a3412" stroke-width=".5"><path d="M22 24.5l2-8h1.6l2 8z"/></g><path d="M22.9 21h3.8M23.6 18.5h2.4" stroke="#fff" stroke-width="1"/></svg>`;
   // Dino Flap : ptérodactyle entre deux tuyaux
   D.flap = `<svg viewBox="0 0 32 32"><defs>${lin('flc', '#38bdf8', '#bae6fd')}${lin('flt', '#86efac', '#15803d', 1, 0)}</defs>
     <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#flc)" stroke="#0c4a6e"/>
     <g fill="url(#flt)" stroke="#14532d" stroke-width=".7"><rect x="19" y="3" width="7" height="8"/><rect x="18" y="10" width="9" height="3"/><rect x="19" y="22" width="7" height="7"/><rect x="18" y="19.5" width="9" height="3"/></g>
     <path d="M3 27h26v2H3z" fill="#facc15"/>
-    <path d="M5 16.5l4-1.5 3 1 2.5-.5-1.5 2-4 1z" fill="#f97316" stroke="#7c2d12" stroke-width=".6" stroke-linejoin="round"/>
-    <path d="M8 15.5l1-4.5 3.5 4.5z" fill="#fb923c" stroke="#7c2d12" stroke-width=".6" stroke-linejoin="round"/>
-    <circle cx="12.6" cy="16" r=".6" fill="#000"/><path d="M14.5 16l2.2.4-2 .8" fill="#fde047"/></svg>`;
+    <circle cx="10" cy="16.5" r="4.6" fill="#facc15" stroke="#a16207" stroke-width=".8"/>
+    <path d="M5.5 16.5c1.5-2 3.5-2 4.5-.5-1 1.5-3 1.8-4.5.5z" fill="#fde68a" stroke="#a16207" stroke-width=".6"/>
+    <circle cx="11.8" cy="15" r="1.3" fill="#fff"/><circle cx="12.2" cy="15" r=".6" fill="#111"/><path d="M14.3 16.2l2.6.6-2.4 1z" fill="#f97316"/></svg>`;
   // 2048 : quatre tuiles
   D.tuiles = `<svg viewBox="0 0 32 32"><rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="#bbada0" stroke="#776e65"/>
     <rect x="4.5" y="4.5" width="11" height="11" rx="1.6" fill="#eee4da"/><rect x="16.5" y="4.5" width="11" height="11" rx="1.6" fill="#f2b179"/>
@@ -158,10 +156,8 @@
     <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="url(#dic)" stroke="#022c16"/>
     <path d="M3 10h26M3 18h26M3 26h26M10 3v26M18 3v26M26 3v26" stroke="#fff" stroke-opacity=".07"/>
     <circle cx="7" cy="7" r="1.2" fill="#fde68a"/><circle cx="25" cy="25" r="1.2" fill="#fca5a5"/><circle cx="26" cy="8" r="1.1" fill="#bfdbfe"/><circle cx="6" cy="24" r="1.1" fill="#f5d0fe"/>
-    <path d="M14 4.8l1.6 1.9 2-1.5 1 2.3 2.4-.6.2 2.5 2.4.5-.9 2.3 2 1.4-1.8 1.8 1.2 2.1-2.4.8" fill="none" stroke="#15803d" stroke-width="1.6" stroke-linejoin="round"/>
-    <circle cx="15" cy="16" r="9" fill="url(#dig)" stroke="#14532d" stroke-width="1"/>
-    <circle cx="18" cy="13.5" r="1.9" fill="#fff"/><circle cx="18.6" cy="13.3" r=".9" fill="#111"/><circle cx="20.5" cy="17" r="1.9" fill="#fff"/><circle cx="21.1" cy="16.9" r=".9" fill="#111"/>
-    <circle cx="25.5" cy="20.5" r="3" fill="#f97316" stroke="#7c2d12" stroke-width=".7"/><circle cx="26.3" cy="19.8" r=".7" fill="#fff"/></svg>`;
+    <circle cx="14" cy="16" r="9" fill="url(#dig)" stroke="#14532d" stroke-width="1"/>
+    <circle cx="25" cy="19.5" r="3.4" fill="#f97316" stroke="#7c2d12" stroke-width=".7"/><circle cx="21.5" cy="9.5" r="2.2" fill="#3b82f6" stroke="#1e3a8a" stroke-width=".6"/></svg>`;
 
   // Hall of Fame : une coupe dorée
   D.trophee = `<svg viewBox="0 0 32 32"><defs>${lin('trc', '#fde68a', '#d97706')}${lin('trp', '#78350f', '#451a03')}</defs>
@@ -417,26 +413,14 @@
     <g fill="url(#co)" stroke="#8a5a00"><path d="M8.5 6.8v20.7h2.5V6.2zM21 6.2v21.3h2.5V6.8z"/><rect x="13.5" y="12.5" width="5" height="6" rx="1"/></g>
     <rect x="15.4" y="14.6" width="1.2" height="2.4" fill="#4a2a0c"/><path d="M6 9.5l1-1M26 9.5l-1-1" stroke="#fff6c2"/></svg>`;
 
-  // Petit dino en pixels (bouton « démarrer ») : un caractère = un pixel
+  // petites images en pixels : un caractère = un pixel
   const pixels = (lignes, couleurs) => {
     const n = lignes.length;
     let r = '';
     lignes.forEach((ligne, y) => [...ligne].forEach((c, x) => { if (couleurs[c]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${couleurs[c]}"/>`; }));
     return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges">${r}</svg>`;
   };
-  D.dino = pixels([
-    '.......kkk.',
-    '......kwowk',
-    '......kwwk.',
-    '.......kwk.',
-    '.......kwk.',
-    '..kkkkkkwk.',
-    '.kwwwwwwwk.',
-    'kwwwwwwwwk.',
-    'kwkwwwwwk..',
-    '.k.kwk.kwk.',
-    '...kk...kk.'
-  ], { k: '#1d4d1d', w: '#ffffff', o: '#1d4d1d' });
+  D.dino = `<svg viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="7" fill="#111" stroke="#3f3f46"/><text x="15" y="22" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="17" fill="#fff">d</text><circle cx="23" cy="20.5" r="2.4" fill="#22c55e"/></svg>`;
 
   // Un cache pour ne fabriquer chaque image qu'une fois
   const cache = {};

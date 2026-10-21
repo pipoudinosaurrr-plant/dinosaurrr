@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Turbo Dino</title>
+  <title>Turbo</title>
   <link rel="stylesheet" href="jeu.css">
   <style>
     html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <canvas id="jeu" aria-label="Turbo Dino : course de voitures"></canvas>
+  <canvas id="jeu" aria-label="Turbo : course de voitures"></canvas>
   <script src="arcade.js"></script>
 <script>
 (() => {
@@ -109,7 +109,7 @@
 
   const S = {};
   function preparerSprites() {
-    S.joueur = [-1, 0, 1].map(v => voiture('#16a34a', '#14532d', v, true));
+    S.joueur = [-1, 0, 1].map(v => voiture('#16a34a', '#14532d', v, false));
     const COULEURS = [['#dc2626', '#7f1d1d'], ['#2563eb', '#1e3a8a'], ['#eab308', '#854d0e'], ['#9333ea', '#4c1d95'], ['#ea580c', '#7c2d12'], ['#0891b2', '#164e63'], ['#db2777', '#831843']];
     S.voitures = COULEURS.map(([c, s]) => voiture(c, s));
 
@@ -222,7 +222,7 @@
       }
     },
     {
-      id: 'foret', nom: 'Forêt Rex', sous: 'Moyen · virages',
+      id: 'foret', nom: 'Forêt noire', sous: 'Moyen · virages',
       ciel: ['#f97316', '#fde68a'], soleil: '#fff7ed', brouillard: '#fcd9a7', densite: 5,
       montagnes: '#7c2d12', collines: '#14532d',
       couleurs: {
@@ -278,7 +278,7 @@
   let montagnes = [], collines = [];
   let circuitChoisi = Number(A.stock.lire('turbo-circuit', 0)) || 0;
 
-  const NOMS = ['Rex', 'Raptor', 'Tricé', 'Ptéro', 'Stégo', 'Ankylo', 'Bronto'];
+  const NOMS = ['Max', 'Léo', 'Nina', 'Sam', 'Alex', 'Zoé', 'Tom'];
 
   /* ---------- Construction de la route ---------- */
   function hauteurFin() { return segments.length ? segments[segments.length - 1].p2.monde.y : 0; }
@@ -555,7 +555,7 @@
       A.panneau({
         pastille: circuit.nom,
         titre: rang === 1 ? '🏆 Victoire !' : rang <= 3 ? `Podium : ${rang}e !` : `${rang}e sur 8`,
-        texte: rang === 1 ? (circuitChoisi + 1 < CIRCUITS.length ? `Bravo ! Le circuit « ${CIRCUITS[circuitChoisi + 1].nom} » est débloqué.` : 'Tu as battu tous les dinos du circuit le plus dur !') : 'Finis premier pour débloquer le circuit suivant.',
+        texte: rang === 1 ? (circuitChoisi + 1 < CIRCUITS.length ? `Bravo ! Le circuit « ${CIRCUITS[circuitChoisi + 1].nom} » est débloqué.` : 'Tu as battu tous les pilotes du circuit le plus dur !') : 'Finis premier pour débloquer le circuit suivant.',
         lignes: [
           ['Temps total', A.chrono(temps) + (rTemps.nouveau ? ' 🏅' : '')],
           ['Meilleur tour', A.chrono(meilleurTour) + (rTour.nouveau ? ' 🏅' : '')],
@@ -878,7 +878,7 @@
     const debloque = A.stock.lire('arcade-turbo-debloque', 0);
     A.panneau({
       pastille: 'Course · 3 tours · 8 voitures',
-      titre: 'Turbo Dino',
+      titre: 'Turbo',
       texte: 'Finis premier pour débloquer le circuit suivant. Attention aux virages : hors de la route, tu ralentis !',
       choix: CIRCUITS.map((c, i) => {
         const rec = A.record('turbo-' + c.id + '-temps');

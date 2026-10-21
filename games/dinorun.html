@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dino Run</title>
+  <title>Runner</title>
   <link rel="stylesheet" href="jeu.css">
   <style>
     html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <canvas id="jeu" aria-label="Dino Run"></canvas>
+  <canvas id="jeu" aria-label="Runner"></canvas>
   <script src="arcade.js"></script>
 <script>
 (() => {
@@ -26,35 +26,38 @@
   const k = '#535353';
   const DC = { X: k, W: '#fff' };
   const sp = (l, c = DC) => A.sprite(l, c, 2);
+  // le coureur (un petit personnage en pixels)
   const DINO_HAUT = [
-    '..........XXXXXXXX',
-    '.........XXWXXXXXXX',
-    '.........XXXXXXXXXX',
-    '.........XXXXXXXXXX',
-    '.........XXXXX.....',
-    '.........XXXXXXXX..',
-    'X.......XXXXX......',
-    'X.....XXXXXXX......',
-    'XX...XXXXXXXXXX....',
-    'XXX.XXXXXXXXX.X....',
-    'XXXXXXXXXXXXX......',
-    '.XXXXXXXXXXXX......',
-    '..XXXXXXXXXX.......',
-    '...XXXXXXXX........'];
-  const JAMBES = [['....XXX.XX.........', '....XX...X.........', '....X....XX........'], ['....XX..XXX........', '....X...X..........', '....XX.............'], ['....XXX.XXX........', '....X....X.........', '....XX...XX........']];
+    '.......XXXX........',
+    '......XXXXXX.......',
+    '......XXXXWW.......',
+    '......XXXXXX.......',
+    '.......XXXX........',
+    '........XX.........',
+    '.....XXXXXXXX......',
+    '....XXXXXXXXXX.....',
+    '...XX.XXXXXX.XX....',
+    '...X..XXXXXX..X....',
+    '......XXXXXX.......',
+    '......XXXXXX.......',
+    '......XXXXXX.......',
+    '......XX..XX.......'];
+  const JAMBES = [['......XX..XX.......', '......X....X.......', '.....XX....XX......'], ['.......XX.X........', '......XX...X.......', '......X.....XX.....'], ['......X..XX........', '.....XX...X........', '....XX....XX.......']];
   const DINO = JAMBES.map(j => sp([...DINO_HAUT, ...j]));
   const DINO_BAS = [
-    ['..................XXXXXXXX', 'X.......XXXXXXXXXXXWXXXXXX', 'XXX..XXXXXXXXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXXXXXXXXXXXXX', '.XXXXXXXXXXXXXXXXXXXX.....', '..XXXXXXXXXXXXXXXXXXXXXX..', '...XXXXXXXXXX.XX..........', '....XXX.XX................', '....XX...X................', '....X....XX...............'],
-    ['..................XXXXXXXX', 'X.......XXXXXXXXXXXWXXXXXX', 'XXX..XXXXXXXXXXXXXXXXXXXXX', 'XXXXXXXXXXXXXXXXXXXXXXXXXX', '.XXXXXXXXXXXXXXXXXXXX.....', '..XXXXXXXXXXXXXXXXXXXXXX..', '...XXXXXXXXXX.XX..........', '....XX..XXX...............', '....X...X.................', '....XX....................']
+    ['.................XXXX.....', '................XXXXXX....', '................XXXXWW....', '.....XXXXXXXXXXXXXXXX.....', '...XXXXXXXXXXXXXXXXX......', '..XXXXXXXXXXXXXXX.........', '..XX..XXXXXXXXX...........', '......XX....XX............', '.....XX......XX...........', '....XX........XX..........'],
+    ['.................XXXX.....', '................XXXXXX....', '................XXXXWW....', '.....XXXXXXXXXXXXXXXX.....', '...XXXXXXXXXXXXXXXXX......', '..XXXXXXXXXXXXXXX.........', '..XX..XXXXXXXXX...........', '.......XX..XX.............', '......XX....X.............', '......X.....XX............']
   ].map(l => sp(l));
-  const DINO_MORT = sp([...DINO_HAUT.map((l, i) => i === 1 ? '.........XXWXXXXXXX'.replace('W', 'O') : l), ...JAMBES[0]], { X: k, W: '#fff', O: '#fff' });
+  const DINO_MORT = sp([...DINO_HAUT, ...JAMBES[0]], { X: k, W: '#f87171' });
+  // les obstacles : des plots et des barrières
   const CACTUS = [
-    sp(['....XX....', '....XX....', '.X..XX....', '.X..XX..X.', '.X..XX..X.', '.XXXXX..X.', '....XXXXX.', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....', '....XX....']),
-    sp(['.....XXX.....', '.....XXX.....', '..X..XXX.....', '.XX..XXX..X..', '.XX..XXX.XX..', '.XX..XXX.XX..', '.XX..XXX.XX..', '.XXXXXXX.XX..', '..XXXXXXXXX..', '.....XXXXX...', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....', '.....XXX.....'])
+    sp(['....XX....', '....XX....', '...XXXX...', '...XWWX...', '...XXXX...', '..XXXXXX..', '..XWWWWX..', '..XXXXXX..', '.XXXXXXXX.', '.XXXXXXXX.', 'XXXXXXXXXX', 'XXXXXXXXXX'], { X: k, W: '#fff' }),
+    sp(['XX.......XX..', 'XX.......XX..', 'XXXXXXXXXXX..', 'XWWXXWWXXWW..', 'XXXXXXXXXXX..', 'XX.......XX..', 'XX.......XX..', 'XXXXXXXXXXX..', 'XWWXXWWXXWW..', 'XXXXXXXXXXX..', 'XX.......XX..', 'XX.......XX..', 'XX.......XX..', 'XX.......XX..', 'XX.......XX..', 'XX.......XX..', 'XXX.....XXX..', 'XXX.....XXX..'], { X: k, W: '#fff' })
   ];
+  // les drones (2 images pour les hélices)
   const PTERO = [
-    sp(['....X..............', '...XX..............', '..XXX..XX..........', '.XXXXXXXXX.........', 'XXXXXXXXXXXXXXXX...', '......XXXXXXXXXXXXX', '.......XXXXXXXXX...', '........XXXXXX.....', '.........XXX.......', '.........XX........', '.........X.........']),
-    sp(['....X..............', '...XX..............', '..XXX..............', '.XXXXXXXXX.........', 'XXXXXXXXXXXXXXXX...', '......XXXXXXXXXXXXX', '.......XXXXXX......', '......XXX..........', '.....XX............', '....X..............', '...................'])
+    sp(['XXXXX.......XXXXX..', '..X...........X....', '..XXXXXXXXXXXXX....', '...XXXXXXXXXXX.....', '....XXWWWXXXXX.....', '....XXXXXXXXXX.....', '.....X......X......', '....XX......XX.....', '...................', '...................', '...................'], { X: k, W: '#fff' }),
+    sp(['..XXXXX....XXXXX...', '..X...........X....', '..XXXXXXXXXXXXX....', '...XXXXXXXXXXX.....', '....XXXWWWXXXX.....', '....XXXXXXXXXX.....', '.....X......X......', '....XX......XX.....', '...................', '...................', '...................'], { X: k, W: '#fff' })
   ];
   const NUAGE = sp(['......XXXXX.....', '....XX.....XX...', '..XX.........XXX', 'XX...............', 'XXXXXXXXXXXXXXXXX'], { X: '#c9c9c9' });
   const ETOILE = sp(['..Y..', '.YYY.', 'YYYYY', '.YYY.', 'Y...Y'], { Y: '#facc15' });
@@ -142,7 +145,7 @@
     finT = 0.5;
     setTimeout(() => A.panneau({
       pastille: 'Game over',
-      titre: r.nouveau ? '🏅 Nouveau record !' : 'Aïe, un cactus !',
+      titre: r.nouveau ? '🏅 Nouveau record !' : 'Aïe, un obstacle !',
       lignes: [['Score', String(score).padStart(5, '0')], ['Record', String(record).padStart(5, '0')]],
       boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }, { texte: 'Menu', action: menu }]
     }), 450);
@@ -212,8 +215,8 @@
     nouvellePartie();
     A.panneau({
       pastille: 'Course sans fin',
-      titre: 'Dino Run',
-      texte: 'Saute par-dessus les cactus, baisse-toi sous les ptérodactyles. L’étoile te rend invincible 5 secondes. Ça accélère tout le temps !',
+      titre: 'Runner',
+      texte: 'Saute par-dessus les plots, baisse-toi sous les drones. L’étoile te rend invincible 5 secondes. Ça accélère tout le temps !',
       lignes: [['Record', String(A.record('dinorun') || 0).padStart(5, '0')]],
       boutons: [{ texte: 'Courir', primaire: true, action: lancer }],
       aide: A.TACTILE ? 'Touche l’écran pour sauter (reste appuyé = plus haut) · bouton ▼ pour te baisser' : 'Espace ou ↑ sauter (reste appuyé = plus haut) · ↓ se baisser · P pause'

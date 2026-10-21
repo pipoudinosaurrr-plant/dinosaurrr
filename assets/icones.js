@@ -31,7 +31,7 @@ window.ICONES = {
   briques: '<rect x="3" y="4" width="5" height="3"/><rect x="9.5" y="4" width="5" height="3"/><rect x="16" y="4" width="5" height="3"/><rect x="6" y="8.5" width="5" height="3"/><rect x="13" y="8.5" width="5" height="3"/><circle cx="12" cy="15" r="1.4"/><path d="M8 19.5h8"/>',
   echecs: '<path d="M7 21h10M8 18h8l-1-7H9z"/><path d="M7 11h10V5h-2.5v2.5h-2V5h-1v2.5h-2V5H7z"/>',
   hockey: '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M4 12h16"/><circle cx="12" cy="17" r="2.2"/><circle cx="14" cy="7.5" r="1.3"/>',
-  dinorun: '<path d="M3 20h18"/><path d="M14 20V8a2 2 0 0 1 4 0v12"/><path d="M14 14h-2a2 2 0 0 1-2-2v-1.5M18 12h1.5a1.5 1.5 0 0 0 1.5-1.5V9"/><path d="M4 16l2-2 2 2"/>',
+  dinorun: '<circle cx="13" cy="4.5" r="2"/><path d="M11 8l-3 4 3 1 1 4-2 4M12 13l4-1 2 3M11 8l4 1 2 3M3 21h18"/>',
   flap: '<path d="M4 3v6h4V3M4 21v-6h4v6"/><path d="M12 12.5l3-1.5 2 1 3-.5-2 2.5-3.5.5z"/><path d="M14.5 11l1.5-4 2 4.5"/>',
   tuiles: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M6 6h2.2v1.2H6v1.6h2.2"/>',
   pendu: '<path d="M4 21h9M7 21V3h9v3"/><path d="M7 7l3-4"/><circle cx="16" cy="8.5" r="2.5"/><path d="M16 11v5M14 13.5h4M16 16l-2 3M16 16l2 3"/>',

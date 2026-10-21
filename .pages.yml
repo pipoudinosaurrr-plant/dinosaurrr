@@ -83,7 +83,21 @@ content:
         type: select
         options:
           values:
-            - name: pixel
+            - name: sombre
+              label: Sombre (vert)
+            - name: nuitbleue
+              label: Nuit bleue
+            - name: aurore
+              label: Aurore
+            - name: crepuscule
+              label: Crépuscule
+            - name: graphite
+              label: Graphite
+            - name: bleu
+              label: (Aucun) Bleu
+            - name: noir
+              label: (Aucun) Noir
+      - name: pixel
               label: Colline en pixels
             - name: coucher
               label: Coucher de soleil
@@ -394,7 +408,7 @@ content:
                 - name: tournois
                   label: "Tournois"
                 - name: musique
-                  label: "DinoAmp (musique)"
+                  label: "Lecteur de musique"
                 - name: jeu-cercle
                   label: "Jeu : Le Cercle"
                 - name: jeu-dinoio
@@ -522,10 +536,8 @@ content:
         type: select
         options:
           values:
-            - name: volants
-              label: "Dinos volants"
-            - name: dino
-              label: "Dino rebondissant"
+            - name: logo
+              label: "Logo rebondissant"
             - name: etoiles
               label: "Voyage dans les étoiles"
             - name: tuyaux

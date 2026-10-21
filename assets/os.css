@@ -302,7 +302,7 @@ img { -webkit-user-drag: none; }
 
 body.mode-bureau {
   --barre-h: 30px;
-  --xp: Tahoma, "Segoe UI", Geneva, Verdana, "DejaVu Sans", sans-serif;
+  --xp: "Inter", system-ui, -apple-system, "Segoe UI", Tahoma, Roboto, sans-serif;
   --xp-titre: "Trebuchet MS", Tahoma, "DejaVu Sans", sans-serif;
   --xp-lecture: Verdana, Tahoma, "DejaVu Sans", sans-serif;
   --xp-sel: #316ac5;           /* le bleu de sélection de XP */
@@ -1688,3 +1688,26 @@ body.mode-mobile { overflow-x: hidden; background: #000; }
 .fermeture-xp small { opacity: .85; }
 .fermeture-xp .sablier { width: 28px; height: 28px; border: 4px solid rgba(255, 255, 255, .35); border-top-color: #fff; border-radius: 50%; animation: tourne-xp 0.9s linear infinite; }
 @keyframes tourne-xp { to { transform: rotate(360deg); } }
+
+/* ==========================================================
+   Thème noir « sobre » (comme la version téléphone) :
+   l'intérieur des fenêtres passe en sombre en inversant les couleurs
+   (les teintes sont gardées), et on ré-inverse les images, icônes,
+   pages intégrées et jeux pour qu'ils gardent leurs vraies couleurs.
+   ========================================================== */
+body.mode-bureau[data-theme="noir"] .fenetre > .corps,
+body.mode-bureau[data-theme="noir"] .barre-menus,
+body.mode-bureau[data-theme="noir"] .menu-contextuel,
+body.mode-bureau[data-theme="noir"] .menu-gauche,
+body.mode-bureau[data-theme="noir"] .menu-droite {
+  filter: invert(1) hue-rotate(180deg);
+}
+body.mode-bureau[data-theme="noir"] .fenetre > .corps :is(img, iframe, video, canvas, .dinoamp, .ecran-apercu, .liste-fonds i, .console),
+body.mode-bureau[data-theme="noir"] .barre-menus img,
+body.mode-bureau[data-theme="noir"] .menu-contextuel img,
+body.mode-bureau[data-theme="noir"] :is(.menu-gauche, .menu-droite) img {
+  filter: invert(1) hue-rotate(180deg);
+}
+/* les petites icônes en pixels gardent leur rendu net */
+body.mode-bureau[data-theme="noir"] .menu-droite { background: #e8e8e8; }
+body.mode-bureau[data-theme="noir"] .fenetre > .corps .volet { background: linear-gradient(180deg, #f2f2f2, #fafafa); }

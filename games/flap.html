@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dino Flap</title>
+  <title>Flap</title>
   <link rel="stylesheet" href="jeu.css">
   <style>
     html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <canvas id="jeu" aria-label="Dino Flap"></canvas>
+  <canvas id="jeu" aria-label="Flap"></canvas>
   <script src="arcade.js"></script>
 <script>
 (() => {
@@ -22,7 +22,7 @@
   const ctx = T.ctx;
   const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 
-  const PC = { G: '#22c55e', D: '#15803d', W: '#fff', K: '#111', O: '#f97316', Y: '#fde047' };
+  const PC = { G: '#facc15', D: '#ca8a04', W: '#fff', K: '#111', O: '#f97316', Y: '#fde047' };
   const PTERO = [
     A.sprite(['.....GGGG...', 'GG..GGGWKG..', 'GGGGGGGGGOOO', '.GGGGGGGGOO.', '..GDDDDGG...', '...DDDD.....', '....D.......'], PC, 3),
     A.sprite(['.....GGGG...', '....GGGWKG..', 'GGGGGGGGGOOO', 'GGGGGGGGGOO.', '..GGGGGGG...', '...........', '...........'], PC, 3),
@@ -131,7 +131,7 @@
     ctx.fillStyle = '#65a30d'; ctx.fillRect(0, SOL, W, 14);
     ctx.fillStyle = '#4d7c0f';
     for (let x = -solX; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, SOL + 14); ctx.lineTo(x + 12, SOL); ctx.lineTo(x + 24, SOL + 14); ctx.fill(); }
-    // le ptérodactyle
+    // l'oiseau
     const img = PTERO[etat === 'fin' ? 0 : Math.floor(anim * 10) % 3];
     ctx.save();
     ctx.translate(oiseau.x, oiseau.y);
@@ -158,8 +158,8 @@
     nouvellePartie();
     A.panneau({
       pastille: 'Un seul bouton',
-      titre: 'Dino Flap',
-      texte: 'Fais voler le ptérodactyle entre les tuyaux. Chaque appui le fait remonter. Médailles à 10, 20, 40 et 60 !',
+      titre: 'Flap',
+      texte: 'Fais voler l’oiseau entre les tuyaux. Chaque appui le fait remonter. Médailles à 10, 20, 40 et 60 !',
       lignes: [['Record', String(A.record('flap') || 0)]],
       boutons: [{ texte: 'Jouer', primaire: true, action: lancer }],
       aide: A.TACTILE ? 'Touche l’écran pour battre des ailes.' : 'Espace, ↑ ou clic pour battre des ailes · P pause'

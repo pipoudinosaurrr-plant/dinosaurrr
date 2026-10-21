@@ -216,16 +216,14 @@
       petit: '<svg viewBox="0 0 15 15" width="11" height="11" aria-hidden="true"><path d="M4 4l7 7M11 4l-7 7" stroke="#fff" stroke-width="1.8"/></svg>'
     };
 
-    // fonds d'écran en pixel art (dessinés pour le site, dans assets/fonds/)
+    // fonds d'écran sobres et sombres (comme la version téléphone)
+    const GRILLE = 'linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 40px 40px, linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 40px 40px';
     const FONDS = [
-      { id: 'pixel', nom: 'Colline en pixels', image: 'colline', couleur: '#3d7de6' },
-      { id: 'coucher', nom: 'Coucher de soleil', image: 'coucher', couleur: '#2a1458' },
-      { id: 'nuit', nom: 'Nuit et aurore', image: 'nuit', couleur: '#071433' },
-      { id: 'plage', nom: 'Plage', image: 'plage', couleur: '#4d97ea' },
-      { id: 'volcan', nom: 'Volcan', image: 'volcan', couleur: '#5a1612' },
-      { id: 'hiver', nom: 'Hiver', image: 'hiver', couleur: '#8fb6e2' },
-      { id: 'espace', nom: "Dino dans l'espace", image: 'espace', couleur: '#0d0727' },
-      { id: 'retro', nom: 'Rétro 80', image: 'retro', couleur: '#1d0a45' },
+      { id: 'sombre', nom: 'Sombre (vert)', couleur: `radial-gradient(1100px 520px at 50% -140px, rgba(34,197,94,.22), transparent 70%), ${GRILLE}, #000` },
+      { id: 'nuitbleue', nom: 'Nuit bleue', couleur: `radial-gradient(1100px 560px at 50% -140px, rgba(59,130,246,.25), transparent 70%), ${GRILLE}, #030712` },
+      { id: 'aurore', nom: 'Aurore', couleur: 'radial-gradient(900px 500px at 20% 0%, rgba(20,184,166,.28), transparent 70%), radial-gradient(900px 500px at 85% 10%, rgba(139,92,246,.25), transparent 70%), #05060a' },
+      { id: 'crepuscule', nom: 'Crépuscule', couleur: 'radial-gradient(1200px 600px at 50% 110%, rgba(249,115,22,.28), transparent 65%), linear-gradient(#0b0716, #160a1f)' },
+      { id: 'graphite', nom: 'Graphite', couleur: `${GRILLE}, linear-gradient(160deg, #1c1c22, #0b0b0e)` },
       { id: 'bleu', nom: '(Aucun) Bleu', couleur: '#3a6ea5' },
       { id: 'noir', nom: '(Aucun) Noir', couleur: '#000000' }
     ];
@@ -246,10 +244,10 @@
       corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [720, 400], adresse: '', ouvrir: contenuCorbeille },
       contacts: { titre: 'Contacts en ligne', icone: 'joueurs', taille: [320, 520], adresse: 'contacts', ouvrir: contenuContacts },
       compte: { titre: 'Mon compte', icone: 'session', taille: [470, 640], adresse: 'compte', ouvrir: contenuCompte },
-      halloffame: { titre: 'Hall of Fame', icone: 'trophee', taille: [600, 640], adresse: 'halloffame', ouvrir: (c, e, o) => contenuPage(c, e, o, 'classements.html', 'Hall of Fame') },
-      chat: { titre: 'Chat', icone: 'chat', taille: [420, 580], adresse: 'chat', ouvrir: (c, e, o) => { nonLus = 0; majChat(); contenuPage(c, e, o, 'chat.html', 'Chat'); } },
-      tournois: { titre: 'Tournois', icone: 'tournoi', taille: [720, 640], adresse: 'tournois', ouvrir: (c, e, o) => contenuPage(c, e, o, 'tournoi.html', 'Tournois') },
-      musique: { titre: 'DinoAmp', icone: 'musique', taille: [390, 440], adresse: '', ouvrir: (c) => contenuMusique(c) }
+      halloffame: { titre: 'Hall of Fame', icone: 'trophee', taille: [600, 640], adresse: 'halloffame', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'classements.html', 'Hall of Fame') },
+      chat: { titre: 'Chat', icone: 'chat', taille: [420, 580], adresse: 'chat', sansMenus: true, ouvrir: (c, e, o) => { nonLus = 0; majChat(); contenuPage(c, e, o, 'chat.html', 'Chat'); } },
+      tournois: { titre: 'Tournois', icone: 'tournoi', taille: [720, 640], adresse: 'tournois', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'tournoi.html', 'Tournois') },
+      musique: { titre: 'Lecteur de musique', icone: 'musique', taille: [390, 440], adresse: '', sansMenus: true, ouvrir: (c) => contenuMusique(c) }
     };
 
     JEUX.forEach(jeu => {
@@ -285,7 +283,7 @@
       executer: { nom: 'Exécuter', icone: 'executer' }, dateheure: { nom: 'Date et heure', icone: 'horloge' },
       affichage: { nom: 'Affichage', icone: 'image' },
       contacts: { nom: 'Contacts en ligne', icone: 'joueurs' }, compte: { nom: 'Mon compte', icone: 'session' },
-      halloffame: { nom: 'Hall of Fame', icone: 'trophee' }, chat: { nom: 'Chat', icone: 'chat' }, tournois: { nom: 'Tournois', icone: 'tournoi' }, musique: { nom: 'DinoAmp', icone: 'musique' }
+      halloffame: { nom: 'Hall of Fame', icone: 'trophee' }, chat: { nom: 'Chat', icone: 'chat' }, tournois: { nom: 'Tournois', icone: 'tournoi' }, musique: { nom: 'Musique', icone: 'musique' }
     };
     JEUX.forEach(j => { ICONES_BASE['jeu-' + j.id] = { nom: j.titre, icone: j.icone }; });
     const choixIcones = (Array.isArray(A.iconesBureau) ? A.iconesBureau : []).filter(x => x && ICONES_BASE[x.element] && APPS[x.element]);
@@ -319,7 +317,7 @@
       <div class="menu-demarrer" hidden role="menu" aria-label="Menu démarrer"></div>
       <div class="menu-contextuel" hidden role="menu"></div>
       <footer class="barre-taches">
-        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${A.demarrerImage ? `<img src="${echapper(A.demarrerImage)}" width="22" height="22" alt="" style="object-fit:contain">` : xp('dino', 22)}<span>${echapper(A.demarrerTexte || 'démarrer')}</span></button>
+        <button class="btn-demarrer" aria-haspopup="menu" aria-expanded="false">${A.demarrerImage ? `<img src="${echapper(A.demarrerImage)}" width="22" height="22" alt="" style="object-fit:contain">` : logo(22)}<span>${echapper(A.demarrerTexte || 'démarrer')}</span></button>
         <div class="lancement" aria-label="Lancement rapide">
           ${LANCEMENT.map(l => `<button data-app="${l.app}" title="${echapper(l.nom)}" aria-label="${echapper(l.nom)}">${xp(l.icone, 16)}</button>`).join('')}
         </div>
@@ -901,7 +899,7 @@
       corps.innerHTML = `<iframe src="${echapper(fichier)}" title="${echapper(titre)}"></iframe>`;
     }
 
-    // DinoAmp : le lecteur de musique (assets/musique.js)
+    // le lecteur de musique (assets/musique.js)
     function contenuMusique(corps) {
       corps.classList.add('sans-defilement');
       corps.style.background = '#111';
@@ -930,7 +928,7 @@
         const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
         const sous = horsLigne ? (x.vu ? 'vu ' + ilYa(x.vu) : 'hors ligne') : jeu ? 'joue à ' + jeu.titre : 'sur le site';
         return `<div class="msn-contact${horsLigne ? ' hors-ligne' : ''}" data-cle="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">
-          <span class="msn-bonhomme">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 22) : xp('joueurs', 16)}</span>
+          <span class="msn-bonhomme">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 22, x.nom) : xp('joueurs', 16)}</span>
           <span class="msn-nom"><b>${echapper(x.nom)}${ami ? ' <i title="Ami">★</i>' : ''}</b><small>${echapper(sous)}</small></span>
           ${!horsLigne && CO.connecte ? '<button class="btn msn-inviter" title="Inviter à jouer">Inviter</button>' : ''}
         </div>`;
@@ -1168,7 +1166,7 @@
             ${item('data-app="chat"', 'chat', 'Chat', 24)}
             ${item('data-app="halloffame"', 'trophee', 'Hall of Fame', 24)}
             ${item('data-app="tournois"', 'tournoi', 'Tournois', 24)}
-            ${item('data-app="musique"', 'musique', 'DinoAmp (musique)', 24)}
+            ${item('data-app="musique"', 'musique', 'Lecteur de musique', 24)}
             <hr>
             ${item('data-app="apropos"', 'info', 'À propos', 24)}
             ${item('data-app="contact"', 'mail', 'Contact', 24)}
@@ -1818,7 +1816,7 @@
       $('.m-liste-joueurs', boite).innerHTML = liste.length ? liste.map(x => {
         const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
         return `<div class="m-partie m-joueur">
-          <div class="icone">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 34) : svg('utilisateur', 20)}</div>
+          <div class="icone">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 34, x.nom) : svg('utilisateur', 20)}</div>
           <div class="texte"><b>${echapper(x.nom)}${clesAmis.has(x.cle) ? ' <span class="m-etoile">★</span>' : ''}</b><span>${jeu ? 'joue à ' + echapper(jeu.titre) : 'sur le site'}</span></div>
           ${CO && CO.connecte ? `<button class="btn petit" data-inviter="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">Inviter</button>` : ''}
         </div>`;

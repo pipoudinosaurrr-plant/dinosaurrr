@@ -48,7 +48,7 @@
       <h1>Pendu</h1>
       <div class="stats"><span class="stat">SÉRIE <b id="serie">0</b></span><span class="stat">RECORD <b id="record">0</b></span><span class="stat">GAGNÉS <b id="gagnes">0</b></span></div>
     </div>
-    <canvas id="scene" width="320" height="140" aria-label="Le T-Rex approche à chaque erreur"></canvas>
+    <canvas id="scene" width="320" height="140" aria-label="La potence se dessine à chaque erreur"></canvas>
     <div class="categorie" id="categorie"></div>
     <div class="mot" id="mot" aria-live="polite"></div>
     <div class="message" id="message"></div>
@@ -173,75 +173,31 @@
     }).join('')}</div>`).join('');
   }
 
-  /* ---------- La scène : le T-Rex approche ---------- */
+  /* ---------- La scène : la potence se dessine à chaque erreur ---------- */
   const scene = $('scene'), g = scene.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  const REX = A.sprite([
-    '..........KKKKKKKK..',
-    '.........KKKKKKKKKK.',
-    '.........KKWKKKKKKK.',
-    '.........KKKKKKKKKK.',
-    '.........KKKKKVVVVV.',
-    '.........KKKKKKKK...',
-    '..K.....KKKKK.......',
-    '..K....KKKKKKKKK....',
-    '..KK..KKKKKKKK.K....',
-    '..KKKKKKKKKKKK......',
-    '...KKKKKKKKKKK......',
-    '....KKKKKKKKK.......',
-    '.....KKKKKKK........',
-    '.....KK...KK........',
-    '.....K.....K........',
-    '.....KK....KK.......'], { K: '#a16207', W: '#fef08a', V: '#fff' }, 4);
-  const REX_GUEULE = A.sprite([
-    '..........KKKKKKKK..',
-    '.........KKKKKKKKKK.',
-    '.........KKWKKKKKKK.',
-    '.........KKKKKV.V.V.',
-    '.........KKKK.......',
-    '.........KKKK.V.V...',
-    '..K.....KKKKKKKK....',
-    '..K....KKKKKKKKK....',
-    '..KK..KKKKKKKK.K....',
-    '..KKKKKKKKKKKK......',
-    '...KKKKKKKKKKK......',
-    '....KKKKKKKKK.......',
-    '.....KKKKKKK........',
-    '.....KK...KK........',
-    '.....K.....K........',
-    '.....KK....KK.......'], { K: '#a16207', W: '#fef08a', V: '#fff' }, 4);
-  const PETIT = A.miroir(A.sprite([
-    '....GGGG',
-    '...GGWKG',
-    '...GGGGG',
-    'G..GGG..',
-    'GGGGGGG.',
-    '.GGGGG..',
-    '..G.G...'], { G: '#22c55e', W: '#fff', K: '#111' }, 4));
 
   function dessinerScene(dt) {
     anim += dt;
     const W = scene.width, H = scene.height;
-    g.fillStyle = '#0b1220'; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#1e293b';
-    for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(i * 80 - 20, 110); g.lineTo(i * 80 + 30, 60 + (i % 2) * 15); g.lineTo(i * 80 + 80, 110); g.fill(); }
-    g.fillStyle = '#fde68a'; for (let i = 0; i < 12; i++) g.fillRect((i * 53) % W, (i * 29) % 50 + 6, 2, 2);
-    g.fillStyle = '#3f2a14'; g.fillRect(0, 110, W, H - 110);
-    g.fillStyle = '#4d7c0f'; g.fillRect(0, 108, W, 4);
-    // le petit dino à droite (il tremble quand le T-Rex est proche)
-    const peur = erreurs >= 5 && !fini ? Math.sin(anim * 40) * 1.5 : 0;
-    const sautJoie = joie > 0 ? Math.abs(Math.sin(anim * 8)) * 18 : 0;
-    if (!(croc > 0.35)) g.drawImage(PETIT, 262 + peur, 108 - PETIT.height - sautJoie);
-    // le T-Rex avance d'un pas à chaque erreur
-    const cible = fini && joie > 0 ? -120 : -60 + Math.min(erreurs, MAX) * 36;
-    rexX += (cible - rexX) * Math.min(1, dt * 4);
+    g.fillStyle = '#0b0f19'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#e5e7eb'; g.lineWidth = 4; g.lineCap = 'round'; g.lineJoin = 'round';
+    const e = Math.min(erreurs, MAX);
+    const trait = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+    // la potence (toujours là, en gris) puis le personnage, une partie par erreur
+    g.strokeStyle = '#475569';
+    trait(90, 128, 190, 128); trait(120, 128, 120, 14); trait(120, 14, 180, 14); trait(120, 34, 140, 14);
+    g.strokeStyle = '#e5e7eb';
+    const balance = fini && joie > 0 ? 0 : Math.sin(anim * 2) * (e >= MAX ? 3 : 0);
+    if (e >= 1) trait(180, 14, 180, 32);
+    if (e >= 2) { g.beginPath(); g.arc(180 + balance, 44, 12, 0, Math.PI * 2); g.stroke(); }
+    if (e >= 3) trait(180 + balance, 56, 180 + balance, 92);
+    if (e >= 4) trait(180 + balance, 64, 164 + balance, 80);
+    if (e >= 5) trait(180 + balance, 64, 196 + balance, 80);
+    if (e >= 6) trait(180 + balance, 92, 166 + balance, 116);
+    if (e >= 7) trait(180 + balance, 92, 194 + balance, 116);
     if (croc > 0) croc += dt;
-    const img = (erreurs >= MAX - 2 && Math.floor(anim * 4) % 2) || croc > 0 ? REX_GUEULE : REX;
-    g.drawImage(img, Math.round(rexX), 108 - REX.height + (Math.floor(anim * 6) % 2 && Math.abs(cible - rexX) > 2 ? -2 : 0));
-    if (croc > 0.3 && croc < 1.5) {
-      g.fillStyle = '#ef4444'; g.font = '900 22px monospace'; g.textAlign = 'center';
-      g.fillText('CROC !', 230, 40);
-    }
+    if (croc > 0.3 && croc < 1.8) { g.fillStyle = '#ef4444'; g.font = '900 20px monospace'; g.textAlign = 'center'; g.fillText('PERDU', 260, 60); }
+    if (fini && joie > 0) { g.fillStyle = '#22c55e'; g.font = '900 20px monospace'; g.textAlign = 'center'; g.fillText('SAUVÉ !', 260, 60); }
     // vies
     for (let i = 0; i < MAX; i++) { g.fillStyle = i < MAX - erreurs ? '#22c55e' : '#3f3f46'; g.fillRect(10 + i * 12, 10, 8, 8); }
     requestAnimationFrame(t => { const n = t / 1000; dessinerScene(Math.min(0.05, n - (dessinerScene.d || n))); dessinerScene.d = n; });

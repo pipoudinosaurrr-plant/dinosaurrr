@@ -68,7 +68,7 @@
       zone.innerHTML = messages.length ? messages.map(x => {
         const mention = m && x.de !== m && x.texte.toLowerCase().includes(m.toLowerCase());
         return `<div class="msg ${x.de === m ? 'moi' : ''} ${mention ? 'mention' : ''}">
-          ${AV ? AV.svg(x.avatar || 'vert', 32) : ''}
+          ${AV ? AV.svg(x.avatar || 'vert', 32, x.de) : ''}
           <div class="bulle"><div class="qui"><b class="${x.admin ? 'admin' : ''}">${x.admin ? '⚡ ' : ''}${echapper(x.de)}</b><small>niv. ${x.niveau || 1} · ${heure(x.t)}</small></div><p>${echapper(x.texte)}</p></div>
           ${admin() ? `<button class="suppr" data-suppr="${echapper(x.id)}" title="Supprimer ce message">🗑</button>` : ''}
         </div>`;
