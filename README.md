@@ -14,6 +14,7 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `_data/site.json` | **Tes réglages** : nom du site, pseudo, slogan, présentation, mail, fond d'écran par défaut (Pages CMS « Réglages du site ») |
 | `_data/jeux.json` | La liste des jeux (Pages CMS « Jeux ») |
 | `_data/apparence.json`, `_data/textes.json` | L'apparence et les phrases du site (Pages CMS « Apparence » et « Textes du site ») |
+| `_data/musiques.json` + `media/musiques/` | Les musiques du lecteur (Pages CMS « Musiques du lecteur ») |
 | `_data/commandes.json` | Tes commandes secrètes pour l'Invite de commandes (Pages CMS « Commandes secrètes ») |
 | `assets/config.js`, `assets/jeux.js` | Fabriqués automatiquement à partir des fichiers `_data/` (ne pas les modifier) |
 | `assets/coffre.json`, `outils/coffre.html` | Le coffre secret chiffré, et la page qui le fabrique |
@@ -37,7 +38,7 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 
 **Progression des joueurs** (`assets/progres-defs.js` : niveaux, titres, avatars, succès, défis du jour, classements — ajoute une ligne pour un nouveau succès ou défi) : XP à chaque partie (solo limité à 300 XP par jour), défi du jour, succès, avatars à débloquer, Hall of Fame (`classements.html`). Les jeux envoient leur fin de partie avec `DinoProgres.fin(jeu, { score, gagne })` (`assets/progres.js`).
 
-**Chat** (`chat.html`, compte obligatoire, filtre de mots à compléter dans `MOTS_FILTRES` de `serveur/index.js`), **Tournois** (`tournoi.html`, résultats automatiques), **Lecteur de musique** (`assets/musique.js`, musiques chiptune originales générées en direct), statistiques du site et bannissement dans la console admin.
+**Chat** (`chat.html`, compte obligatoire, filtre de mots à compléter dans `MOTS_FILTRES` de `serveur/index.js`), **Tournois** (`tournoi.html`, résultats automatiques), **Lecteur de musique** (`assets/musique.js` : tes musiques envoyées dans Pages CMS, puis des morceaux chiptune originaux générés en direct), statistiques du site et bannissement dans la console admin.
 
 **Droits admin** (compte `Pipou_Dinosaur` seulement, vérifié par le serveur) : bouton ⚡ Admin en pleine partie dans tous les jeux à plusieurs (`games/multi/admin.js`, et `admin` dans chaque moteur), et onglet ⚡ Admin dans « Mon compte » (comptes, victoires, mots de passe, message à tout le site, fermer une partie). En ligne, les autres joueurs voient les pouvoirs utilisés et la partie ne compte pas dans les victoires.
 
@@ -137,6 +138,7 @@ Tout se fait sur **app.pagescms.org** (marche aussi sur téléphone). Dans le me
 | **Jeux** | Titre, description, icône, ordre (glisser), icône sur le bureau, badge « Nouveau », cacher un jeu |
 | **Questions du quiz** | Ajouter / modifier / supprimer des questions (bonne réponse + 3 mauvaises) |
 | **Mots à dessiner** | La liste des mots de Dessine et devine |
+| **Musiques du lecteur** | **Add an entry** → titre, artiste, puis bouton du fichier → **Upload** ton mp3. Elles passent en premier dans le Lecteur de musique (glisser pour changer l'ordre). mp3 conseillé, moins de 15 Mo par musique, et seulement des musiques que tu as le droit de partager |
 | **Commandes secrètes** | Ce qui s'affiche quand on tape un mot dans l'Invite de commandes (et ce qui s'ouvre ensuite) |
 | **Apparence** | Thème du bureau (bleu, olive, argent, noir), couleur de sélection, photo de profil, bouton démarrer (texte + image), tes propres fonds d'écran, icônes du bureau (lesquelles, ordre, noms), taille du texte, pixelisation, couleurs de la version téléphone, sons et écran de veille par défaut |
 | **Textes du site** | Les phrases des bulles et des messages, l'écran bleu, l'Invite de commandes, le coffre… (`{nom}` = nom du site, `{pseudo}` = ton pseudo) |

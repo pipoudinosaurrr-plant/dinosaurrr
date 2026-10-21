@@ -97,26 +97,6 @@ content:
               label: (Aucun) Bleu
             - name: noir
               label: (Aucun) Noir
-      - name: pixel
-              label: Colline en pixels
-            - name: coucher
-              label: Coucher de soleil
-            - name: nuit
-              label: Nuit et aurore
-            - name: plage
-              label: Plage
-            - name: volcan
-              label: Volcan
-            - name: hiver
-              label: Hiver
-            - name: espace
-              label: Dino dans l'espace
-            - name: retro
-              label: Rétro 80
-            - name: bleu
-              label: Bleu uni
-            - name: noir
-              label: Noir uni
       - name: mailNom
         label: Adresse mail — partie avant le @
         type: string
@@ -222,6 +202,30 @@ content:
         label: Mot
         type: string
         required: true
+
+  # ---------------------------------------------------------------- Musiques
+  - name: musiques
+    label: Musiques du lecteur
+    type: file
+    path: _data/musiques.json
+    format: json
+    list: true
+    fields:
+      - name: titre
+        label: Titre du morceau
+        type: string
+        required: true
+      - name: artiste
+        label: Artiste
+        type: string
+      - name: fichier
+        label: Fichier audio (mp3 conseillé)
+        type: file
+        required: true
+        description: "mp3, ogg, wav ou m4a. Garde-les assez légers (moins de 15 Mo) et mets seulement des musiques que tu as le droit de partager."
+        options:
+          path: media/musiques
+          extensions: [mp3, ogg, oga, wav, m4a, aac, flac, opus, webm]
 
   # ---------------------------------------------------------------- Pendu
   - name: pendu

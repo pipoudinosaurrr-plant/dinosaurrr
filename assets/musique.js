@@ -1,7 +1,9 @@
 /* ==========================================================
    Lecteur de musique façon années 2000
-   Les musiques sont des morceaux chiptune originaux, joués en direct
-   par le navigateur (WebAudio) : aucun fichier, aucun droit d'auteur.
+   1) Les musiques envoyées dans Pages CMS (« Musiques du lecteur »,
+      fichiers dans media/musiques, liste dans _data/musiques.json)
+   2) Puis 6 morceaux chiptune originaux, joués en direct par le
+      navigateur (WebAudio) : aucun fichier, aucun droit d'auteur.
    DinoMusique.lecteur(conteneur) : affiche le lecteur dans une fenêtre
    ========================================================== */
 (function () {
@@ -141,9 +143,54 @@
     };
     programmer();
   }
-  function arreter() { if (enCours) { clearTimeout(enCours.minuterie); enCours = null; } }
+  function arreterChip() { if (enCours) { clearTimeout(enCours.minuterie); enCours = null; } }
+  function arreter() { arreterChip(); if (typeof arreterFichier === 'function') arreterFichier(); }
   const ecouteurs = { fin: null };
   const dureeMorceau = m => composer(m).length * 60 / m.tempo / 4;
+
+  /* ---------- Les musiques envoyées dans Pages CMS ---------- */
+  const lien = f => { const t = String(f || '').trim(); return /^(https?:)?\/\//.test(t) ? t : t.replace(/^\/+/, ''); };
+  const FICHIERS = (Array.isArray(window.SITE_MUSIQUES) ? window.SITE_MUSIQUES : [])
+    .filter(x => x && x.fichier)
+    .map(x => ({ titre: String(x.titre || String(x.fichier).split('/').pop().replace(/\.[a-z0-9]+$/i, '')), auteur: String(x.artiste || ''), fichier: lien(x.fichier), duree: 0 }));
+  // la liste complète : d'abord les fichiers, puis les chiptunes
+  const PISTES = [...FICHIERS.map(f => ({ type: 'fichier', ...f })), ...MORCEAUX.map((m, i) => ({ type: 'chip', i, titre: m.titre, auteur: m.auteur, tempo: m.tempo }))];
+  let elAudio = null, branche = false, gainFichier = null, pisteFichier = null;
+  function lecteurAudio() {
+    if (elAudio) return elAudio;
+    elAudio = new Audio();
+    elAudio.preload = 'auto';
+    elAudio.addEventListener('ended', () => { pisteFichier = null; if (ecouteurs.fin) ecouteurs.fin(); });
+    elAudio.addEventListener('error', () => { if (!pisteFichier) return; pisteFichier = null; if (ecouteurs.erreur) ecouteurs.erreur(); });
+    return elAudio;
+  }
+  function jouerFichier(p, depuis = 0) {
+    arreter();
+    const a = contexte(), el = lecteurAudio();
+    // on passe le son par WebAudio (égaliseur + volume), seulement si le fichier vient du site
+    if (!branche) {
+      try {
+        const memeSite = new URL(p.fichier, location.href).origin === location.origin;
+        if (memeSite) { gainFichier = a.createGain(); gainFichier.gain.value = 2; a.createMediaElementSource(el).connect(gainFichier).connect(sortie); branche = true; }
+      } catch (e) { /* tant pis : le son sort directement */ }
+    }
+    el.volume = branche ? 1 : volume;
+    const url = new URL(p.fichier, location.href).href;
+    if (el.src !== url) el.src = url;
+    pisteFichier = p;
+    const go = () => { try { if (depuis) el.currentTime = depuis; } catch (e) { /* rien */ } el.play().catch(() => {}); };
+    if (el.readyState >= 1) go(); else el.addEventListener('loadedmetadata', go, { once: true });
+    el.addEventListener('loadedmetadata', () => { if (isFinite(el.duration)) p.duree = el.duration; }, { once: true });
+  }
+  function arreterFichier() { if (elAudio) { elAudio.pause(); } pisteFichier = null; }
+  // durée des fichiers : lue en avance (juste l'en-tête du fichier)
+  function chargerDurees(fini) {
+    PISTES.filter(p => p.type === 'fichier' && !p.duree).forEach(p => {
+      const t = new Audio(); t.preload = 'metadata';
+      t.addEventListener('loadedmetadata', () => { if (isFinite(t.duration)) { p.duree = t.duration; fini(); } t.src = ''; }, { once: true });
+      t.src = p.fichier;
+    });
+  }
 
   /* ---------- L'interface ---------- */
   const STYLE = `
@@ -165,6 +212,10 @@
     .dinoamp li { display: flex; justify-content: space-between; padding: 2px 4px; color: #1fd31f; cursor: pointer; }
     .dinoamp li.actif { background: #0b3a0b; color: #fff; }
     .dinoamp li:hover { background: #082808; }
+    .dinoamp li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; margin-right: 8px; }
+    .dinoamp li.chip span:first-child::after { content: ' ♪'; color: #1fa31f; }
+    .dinoamp li.sep { cursor: default; color: #3d5a3d; font-size: 10.5px; padding-top: 6px; }
+    .dinoamp li.sep:hover { background: none; }
     .dinoamp .note { color: #7a8a7a; font-size: 10.5px; text-align: center; }`;
 
   function lecteur(conteneur) {
@@ -179,28 +230,44 @@
           <button data-b="hasard" title="Lecture au hasard">🔀</button><button data-b="boucle" title="Répéter">🔁</button>
         </div>
         <div class="boutons"><span>🔈</span><input type="range" min="0" max="100" value="${Math.round(volume * 100)}" aria-label="Volume"><span>🔊</span></div>
-        <ol>${MORCEAUX.map((m, i) => `<li data-i="${i}"><span>${i + 1}. ${m.titre}</span><span>${fmt(dureeMorceau(m))}</span></li>`).join('')}</ol>
-        <div class="note">Musiques chiptune originales jouées en direct par ton navigateur.</div>
+        <ol></ol>
+        <div class="note">${FICHIERS.length ? `${FICHIERS.length} musique${FICHIERS.length > 1 ? 's' : ''} du site, puis des morceaux chiptune joués en direct (♪).` : 'Musiques chiptune originales jouées en direct par ton navigateur.'}</div>
       </div>`;
     const $ = s => conteneur.querySelector(s);
+    const echapper = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const N = PISTES.length;
     let actuel = 0, pause = 0, hasard = false, boucle = true;
     const toile = $('canvas'), g = toile.getContext('2d');
+    const duree = p => p.type === 'chip' ? dureeMorceau(MORCEAUX[p.i]) : p.duree;
+    const enLecture = () => !!(enCours || (pisteFichier && elAudio && !elAudio.paused));
+    const temps = () => pisteFichier && elAudio ? elAudio.currentTime : (enCours && audio ? Math.max(0, audio.currentTime - enCours.debut) : pause);
+    function dessinerListe() {
+      $('ol').innerHTML = PISTES.map((p, i) => `${p.type === 'chip' && i === FICHIERS.length && FICHIERS.length ? '<li class="sep">— Chiptune —</li>' : ''}<li data-i="${i}" class="${p.type}"><span>${i + 1}. ${echapper(p.auteur ? `${p.auteur} — ${p.titre}` : p.titre)}</span><span>${duree(p) ? fmt(duree(p)) : '--:--'}</span></li>`).join('');
+      majListe();
+    }
     function lancer(i, depuis = 0) {
-      actuel = (i + MORCEAUX.length) % MORCEAUX.length;
+      actuel = (i + N) % N;
       pause = 0;
-      jouer(actuel, depuis);
+      const p = PISTES[actuel];
+      if (p.type === 'chip') jouer(p.i, depuis); else jouerFichier(p, depuis);
       majListe();
     }
     ecouteurs.fin = () => {
       if (!conteneur.isConnected) return;
-      if (hasard) lancer(Math.floor(Math.random() * MORCEAUX.length));
-      else if (boucle || actuel < MORCEAUX.length - 1) lancer(actuel + 1);
+      if (hasard) lancer(Math.floor(Math.random() * N));
+      else if (boucle || actuel < N - 1) lancer(actuel + 1);
       else majListe();
     };
+    let erreurs = 0;
+    ecouteurs.erreur = () => {
+      if (!conteneur.isConnected) return;
+      $('.titre span').textContent = `Impossible de lire « ${PISTES[actuel].titre} » — morceau suivant… *** `;
+      if (++erreurs < N) setTimeout(() => lancer(actuel + 1), 1200);
+    };
     function majListe() {
-      conteneur.querySelectorAll('li').forEach(li => li.classList.toggle('actif', Number(li.dataset.i) === actuel));
-      const m = MORCEAUX[actuel];
-      $('.titre span').textContent = `${actuel + 1}. ${m.auteur} — ${m.titre} (${m.tempo} bpm) *** `;
+      conteneur.querySelectorAll('li[data-i]').forEach(li => li.classList.toggle('actif', Number(li.dataset.i) === actuel));
+      const p = PISTES[actuel];
+      $('.titre span').textContent = `${actuel + 1}. ${p.auteur ? p.auteur + ' — ' : ''}${p.titre}${p.type === 'chip' ? ` (${p.tempo} bpm)` : ''} *** `;
     }
     conteneur.addEventListener('click', e => {
       const li = e.target.closest('li[data-i]');
@@ -208,10 +275,10 @@
       const b = e.target.closest('[data-b]');
       if (!b) return;
       const quoi = b.dataset.b;
-      if (quoi === 'lecture') lancer(actuel, pause);
-      if (quoi === 'pause' && enCours) { pause = audio.currentTime - enCours.debut; arreter(); }
+      if (quoi === 'lecture' && !enLecture()) { erreurs = 0; lancer(actuel, pause); }
+      if (quoi === 'pause' && enLecture()) { pause = temps(); arreter(); }
       if (quoi === 'stop') { arreter(); pause = 0; }
-      if (quoi === 'suiv') lancer(hasard ? Math.floor(Math.random() * MORCEAUX.length) : actuel + 1);
+      if (quoi === 'suiv') lancer(hasard ? Math.floor(Math.random() * N) : actuel + 1);
       if (quoi === 'prec') lancer(actuel - 1);
       if (quoi === 'hasard') { hasard = !hasard; b.classList.toggle('actif', hasard); }
       if (quoi === 'boucle') { boucle = !boucle; b.classList.toggle('actif', boucle); }
@@ -219,26 +286,28 @@
     $('[data-b="boucle"]').classList.add('actif');
     $('.barre').addEventListener('click', e => {
       const r = e.currentTarget.getBoundingClientRect();
-      lancer(actuel, (e.clientX - r.left) / r.width * dureeMorceau(MORCEAUX[actuel]));
+      const d = duree(PISTES[actuel]);
+      if (d) lancer(actuel, (e.clientX - r.left) / r.width * d);
     });
     $('input[type=range]').addEventListener('input', e => {
       volume = Number(e.target.value) / 100;
       try { localStorage.setItem('dinoamp-volume', String(volume)); } catch (err) { /* rien */ }
       if (sortie) sortie.gain.value = volume * 0.5;
+      if (elAudio && !branche) elAudio.volume = volume;
     });
-    majListe();
+    dessinerListe();
+    chargerDurees(() => { if (conteneur.isConnected) dessinerListe(); });
     // l'affichage : temps, barre et égaliseur
     const donnees = new Uint8Array(32);
     (function dessiner() {
       if (!conteneur.isConnected) { arreter(); return; }
       requestAnimationFrame(dessiner);
-      const m = MORCEAUX[actuel];
-      const t = enCours && audio ? Math.max(0, audio.currentTime - enCours.debut) : pause;
+      const t = temps(), d = duree(PISTES[actuel]), joue = enLecture();
       $('.temps').textContent = fmt(t);
-      $('.etat').textContent = enCours ? 'LECTURE ▶' : pause ? 'PAUSE ⏸' : 'ARRÊT';
-      $('.barre i').style.width = Math.min(100, t / dureeMorceau(m) * 100) + '%';
+      $('.etat').textContent = joue ? 'LECTURE ▶' : pause ? 'PAUSE ⏸' : 'ARRÊT';
+      $('.barre i').style.width = (d ? Math.min(100, t / d * 100) : 0) + '%';
       g.clearRect(0, 0, toile.width, toile.height);
-      if (analyse && enCours) analyse.getByteFrequencyData(donnees); else donnees.fill(0);
+      if (analyse && joue && (enCours || branche)) analyse.getByteFrequencyData(donnees); else donnees.fill(0);
       const n = 20, w = toile.width / n;
       for (let i = 0; i < n; i++) {
         const v = donnees[i + 1] / 255;
@@ -251,5 +320,5 @@
     })();
   }
 
-  window.DinoMusique = { lecteur, morceaux: MORCEAUX, arreter };
+  window.DinoMusique = { lecteur, morceaux: MORCEAUX, pistes: PISTES, arreter };
 })();

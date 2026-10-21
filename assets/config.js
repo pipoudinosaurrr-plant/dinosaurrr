@@ -8,8 +8,10 @@ layout: null
      _data/commandes.json  → Pages CMS « Commandes secrètes »
      _data/apparence.json  → Pages CMS « Apparence »
      _data/textes.json     → Pages CMS « Textes du site »
+     _data/musiques.json   → Pages CMS « Musiques du lecteur »
    ========================================================== */
 window.SITE_CONFIG = {{ site.data.site | jsonify }};
 window.SITE_COMMANDES = {{ site.data.commandes | jsonify }};
 window.SITE_APPARENCE = {{ site.data.apparence | jsonify }};
 window.SITE_TEXTES = {{ site.data.textes | jsonify }};
+window.SITE_MUSIQUES = {{ site.data.musiques | jsonify }};
