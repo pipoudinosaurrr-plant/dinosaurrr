@@ -64,30 +64,45 @@
 
   /* ---------- État ---------- */
   let etat = 'menu', dino, obstacles, nuages, bonus, sol, vitesse, distance, score, record, prochain, nuit, nuitT, invincible, finT, flashScore;
-  record = A.record('dinorun') || 0;
+
+  /* ---------- Niveaux de difficulté ----------
+     « moyen » = le jeu d'origine. ecart : écart entre les obstacles (plus petit = plus serrés)
+     minPx : écart minimum en pixels (pour que ça reste toujours sautable à grande vitesse) */
+  const DIFFICULTES = {
+    facile: { nom: 'Facile', sous: 'Lent, obstacles espacés', v0: 290, acc: 5, vmax: 760, ecart: 1.35, minPx: 0, drones: 600, chanceDrone: 0.18, groupes: [400, 99999], etoile: 0.1 },
+    moyen: { nom: 'Moyen', sous: 'Le jeu d’origine', v0: 360, acc: 9, vmax: 1100, ecart: 1, minPx: 0, drones: 300, chanceDrone: 0.28, groupes: [150, 500], etoile: 0.06 },
+    difficile: { nom: 'Difficile', sous: 'Rapide, plus de drones', v0: 440, acc: 13, vmax: 1250, ecart: 0.85, minPx: 640, drones: 150, chanceDrone: 0.34, groupes: [60, 300], etoile: 0.045 },
+    extreme: { nom: 'Extrême', sous: 'Pour les pros', v0: 540, acc: 18, vmax: 1380, ecart: 0.72, minPx: 680, drones: 0, chanceDrone: 0.4, groupes: [0, 120], etoile: 0.03 }
+  };
+  let mode = A.stock.lire('dinorun-mode', 'moyen');
+  if (!DIFFICULTES[mode]) mode = 'moyen';
+  let D = DIFFICULTES[mode];
+  // un record par difficulté (le « moyen » garde l'ancien record)
+  const cleRecord = () => (mode === 'moyen' ? 'dinorun' : 'dinorun-' + mode);
+  record = A.record(cleRecord()) || 0;
 
   function nouvellePartie() {
     dino = { y: SOL, vy: 0, bas: false, anim: 0 };
     obstacles = []; nuages = []; bonus = [];
     for (let i = 0; i < 4; i++) nuages.push({ x: Math.random() * W, y: 40 + Math.random() * 90 });
-    sol = 0; vitesse = 360; distance = 0; score = 0; prochain = 1.2; nuit = 0; nuitT = 0; invincible = 0; flashScore = 0;
+    sol = 0; vitesse = D.v0; distance = 0; score = 0; prochain = 1.2; nuit = 0; nuitT = 0; invincible = 0; flashScore = 0;
   }
 
   function ajouterObstacle() {
     const s = score;
-    if (s > 300 && Math.random() < 0.28) {
+    if (s > D.drones && Math.random() < D.chanceDrone) {
       const hauteurs = [SOL - 22, SOL - 52, SOL - 82];
       obstacles.push({ type: 'ptero', x: W + 20, y: hauteurs[Math.floor(Math.random() * 3)], w: 36, h: 18, anim: 0 });
     } else {
       const grand = Math.random() < 0.45;
-      const n = 1 + Math.floor(Math.random() * (s > 500 ? 3 : s > 150 ? 2 : 1));
+      const n = 1 + Math.floor(Math.random() * (s > D.groupes[1] ? 3 : s > D.groupes[0] ? 2 : 1));
       const img = CACTUS[grand ? 1 : 0];
       for (let i = 0; i < n; i++) obstacles.push({ type: 'cactus', img, x: W + 20 + i * (img.width - 4), y: SOL - img.height, w: img.width - 8, h: img.height - 2 });
     }
     // de temps en temps une étoile = invincible quelques secondes
-    if (s > 200 && Math.random() < 0.06) bonus.push({ x: W + 220, y: SOL - 90 - Math.random() * 40 });
+    if (s > 200 && Math.random() < D.etoile) bonus.push({ x: W + 220, y: SOL - 90 - Math.random() * 40 });
     // écart minimum qui grandit avec la vitesse (toujours sautable)
-    prochain = Math.max(0.55, 0.9 + Math.random() * 1.1 - vitesse / 2000);
+    prochain = Math.max(0.55, D.minPx / vitesse, (0.9 + Math.random() * 1.1 - vitesse / 2000) * D.ecart);
   }
 
   function maj(dt) {
@@ -102,7 +117,7 @@
     if (dino.y >= SOL) dino.vy = 0;
     dino.anim += dt * vitesse / 40;
 
-    vitesse = Math.min(1100, vitesse + dt * 9);
+    vitesse = Math.min(D.vmax, vitesse + dt * D.acc);
     distance += vitesse * dt;
     const avant = Math.floor(score / 100);
     score = Math.floor(distance / 40);
@@ -139,14 +154,15 @@
   function perdre() {
     etat = 'fin';
     A.son('perdu');
-    const r = A.record('dinorun', score);
-    A.finPartie('dinorun', { score: Math.floor(score) });
+    const r = A.record(cleRecord(), score);
+    // le Hall of Fame compte les parties en Moyen, Difficile et Extrême (pas en Facile)
+    A.finPartie('dinorun', mode === 'facile' ? { mode } : { score: Math.floor(score), mode });
     record = r.record;
     finT = 0.5;
     setTimeout(() => A.panneau({
       pastille: 'Game over',
       titre: r.nouveau ? '🏅 Nouveau record !' : 'Aïe, un obstacle !',
-      lignes: [['Score', String(score).padStart(5, '0')], ['Record', String(record).padStart(5, '0')]],
+      lignes: [['Score', String(score).padStart(5, '0')], ['Record (' + D.nom + ')', String(record).padStart(5, '0')]],
       boutons: [{ texte: 'Rejouer', primaire: true, action: lancer }, { texte: 'Menu', action: menu }]
     }), 450);
   }
@@ -204,6 +220,8 @@
     ctx.globalAlpha = 0.6;
     ctx.fillText('HI ' + String(Math.max(record, score)).padStart(5, '0'), droite - 80, 14);
     ctx.globalAlpha = 1;
+    ctx.textAlign = 'right'; ctx.globalAlpha = 0.5; ctx.font = `700 11px ${MONO}`;
+    ctx.fillText(D.nom.toUpperCase(), droite - 200, 17); ctx.globalAlpha = 1; ctx.font = `700 16px ${MONO}`;
     if (invincible > 0) { ctx.textAlign = 'left'; ctx.fillStyle = '#ca8a04'; ctx.fillText('★ ' + Math.ceil(invincible) + ' s', 12, 14); }
   }
 
@@ -217,7 +235,12 @@
       pastille: 'Course sans fin',
       titre: 'Runner',
       texte: 'Saute par-dessus les plots, baisse-toi sous les drones. L’étoile te rend invincible 5 secondes. Ça accélère tout le temps !',
-      lignes: [['Record', String(A.record('dinorun') || 0).padStart(5, '0')]],
+      choix: Object.entries(DIFFICULTES).map(([id, d]) => ({
+        texte: d.nom,
+        sous: `${d.sous} · record ${String(A.record(id === 'moyen' ? 'dinorun' : 'dinorun-' + id) || 0).padStart(5, '0')}`,
+        actif: id === mode,
+        action: () => { mode = id; D = DIFFICULTES[id]; record = A.record(cleRecord()) || 0; A.stock.ecrire('dinorun-mode', id); }
+      })),
       boutons: [{ texte: 'Courir', primaire: true, action: lancer }],
       aide: A.TACTILE ? 'Touche l’écran pour sauter (reste appuyé = plus haut) · bouton ▼ pour te baisser' : 'Espace ou ↑ sauter (reste appuyé = plus haut) · ↓ se baisser · P pause'
     });
@@ -225,7 +248,7 @@
   function pause() {
     if (etat !== 'jeu') return;
     etat = 'pause';
-    A.panneau({ titre: 'Pause', lignes: [['Score', String(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancer }] });
+    A.panneau({ titre: 'Pause', lignes: [['Score', String(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancer }, { texte: 'Changer de difficulté', action: menu }] });
   }
   A.surPerteFocus = () => { if (etat === 'jeu') pause(); };
 
@@ -246,7 +269,7 @@
     if (etat === 'jeu') maj(dt);
     dessiner(t);
   });
-  window.__dinorun = { get etat() { return etat; }, get score() { return score; }, get obstacles() { return obstacles; }, get dino() { return dino; } };
+  window.__dinorun = { get mode() { return mode; }, get vitesse() { return vitesse; }, get etat() { return etat; }, get score() { return score; }, get obstacles() { return obstacles; }, get dino() { return dino; } };
 })();
 </script>
 </body>
