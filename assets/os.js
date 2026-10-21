@@ -1861,7 +1861,10 @@
       <div class="m-fond" aria-hidden="true"></div>
       <header class="m-entete">
         <div class="m-marque">${logo(28)}<span>${echapper(NOM)}</span></div>
-        <button class="btn btn-icone btn-fantome" data-onglet="moi" aria-label="Contact">${svg('mail', 20)}</button>
+        <div class="m-entete-boutons">
+          <button class="btn btn-icone btn-fantome m-btn-chat" data-page="chat" aria-label="Chat du site">${svg('chat', 20)}<em class="m-non-lus" hidden></em></button>
+          <button class="btn btn-icone btn-fantome" data-onglet="moi" aria-label="Contact">${svg('mail', 20)}</button>
+        </div>
       </header>
       <main class="m-vues">
         <section class="m-vue" data-vue="accueil"></section>
@@ -2017,7 +2020,8 @@
     // pages du site en plein écran (Hall of Fame, Chat, Tournois, musique)
     const PAGES_M = { halloffame: ['Hall of Fame', 'classements.html'], chat: ['Chat', 'chat.html'], tournois: ['Tournois', 'tournoi.html'] };
     let nonLusM = 0;
-    function majNonLusM() { const el = $('.m-non-lus', vues.jeux); if (el) { el.hidden = !nonLusM; el.textContent = nonLusM > 9 ? '9+' : nonLusM; } }
+    // la pastille rouge des messages non lus : sur le bouton Chat de l'en-tête et dans l'onglet Jeux
+    function majNonLusM() { document.querySelectorAll('.m-non-lus').forEach(el => { el.hidden = !nonLusM; el.textContent = nonLusM > 9 ? '9+' : nonLusM; }); }
     window.DinoChatLu = () => { nonLusM = 0; majNonLusM(); };
     function ouvrirPage(id, pousser) {
       const p = PAGES_M[id];

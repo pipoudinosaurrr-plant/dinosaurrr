@@ -1677,6 +1677,10 @@ body.mode-mobile { overflow-x: hidden; background: #000; }
 .m-raccourcis button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--bord, rgba(255,255,255,.1)); border-radius: 14px; background: rgba(255, 255, 255, .03); color: #fafafa; font: 600 12.5px inherit; font-family: inherit; }
 .m-raccourcis em { position: absolute; top: 6px; right: 8px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #e11d48; color: #fff; font: 700 11px/18px system-ui; font-style: normal; }
 .m-raccourcis em[hidden] { display: none; }
+.m-entete-boutons { display: flex; align-items: center; gap: 2px; }
+.m-btn-chat { position: relative; }
+.m-btn-chat em { position: absolute; top: 3px; right: 1px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e11d48; color: #fff; font: 700 10.5px/17px system-ui; font-style: normal; box-shadow: 0 0 0 2px #000; }
+.m-btn-chat em[hidden] { display: none; }
 
 /* écran « Fermeture de la session… » */
 .fermeture-xp { position: fixed; inset: 0; z-index: 10001; display: flex; flex-direction: column; background: #5a7edc; color: #fff; font: calc(13px * var(--t, 1)) var(--xp); animation: fondu .3s; }
