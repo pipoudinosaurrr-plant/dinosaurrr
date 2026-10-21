@@ -342,6 +342,20 @@
     return { record: mieux ? valeur : ancien, nouveau: mieux, ancien };
   }
 
+  /* ---------- Fin de partie : XP, succès, défi du jour, Hall of Fame ---------- */
+  let progres = null;
+  function finPartie(jeu, infos) {
+    if (!progres) {
+      progres = window.DinoProgres ? Promise.resolve() : new Promise(res => {
+        const s = document.createElement('script');
+        s.src = new URL('../assets/progres.js', document.currentScript ? document.currentScript.src : location.href).href;
+        s.onload = res; s.onerror = res;
+        document.head.append(s);
+      });
+    }
+    progres.then(() => { if (window.DinoProgres) window.DinoProgres.fin(jeu, infos || {}); });
+  }
+
   /* ---------- Boucle ---------- */
   function boucle(fn) {
     let avant = performance.now();
@@ -425,7 +439,7 @@
     touches,
     vient(nom) { return nouveaux.has(nom); },
     oublier() { nouveaux.clear(); },
-    toile, manette, panneau, fermerPanneau, record, boucle, sprite, miroir, boutonsCoin,
+    toile, manette, panneau, fermerPanneau, record, finPartie, boucle, sprite, miroir, boutonsCoin,
     get panneauOuvert() { return !!(voile && !voile.hidden); },
     stock,
     son(nom) { if (sonActif && SONS[nom]) { try { SONS[nom](); } catch (e) { /* rien */ } } },

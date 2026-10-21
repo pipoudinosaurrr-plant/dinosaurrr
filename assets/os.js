@@ -51,6 +51,10 @@
     const v = Object.assign({ nom: NOM, pseudo: C.pseudo || NOM }, vars);
     return String(brut).replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
   }
+  // le défi du jour (le même pour tout le monde)
+  let defsProgres = null;
+  const chargerDefsProgres = () => defsProgres || (defsProgres = import('./progres-defs.js').catch(() => null));
+  async function defiDuJour() { const d = await chargerDefsProgres(); return d ? d.defiDuJour().texte : ''; }
   // code de partie (4 caractères, comme dans les jeux)
   const nouveauCodePartie = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), x => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x % 32]).join('');
   const photoProfil = (taille = 46) => A.photo ? `<img src="${echapper(A.photo)}" width="${taille}" height="${taille}" alt="" style="object-fit:cover">` : logo(taille);
@@ -241,7 +245,11 @@
       contact: { titre: 'Contact', icone: 'mail', taille: [410, 196], adresse: 'contact', ouvrir: contenuContact, dialogue: true },
       corbeille: { titre: 'Corbeille', icone: 'corbeille', taille: [720, 400], adresse: '', ouvrir: contenuCorbeille },
       contacts: { titre: 'Contacts en ligne', icone: 'joueurs', taille: [320, 520], adresse: 'contacts', ouvrir: contenuContacts },
-      compte: { titre: 'Mon compte', icone: 'session', taille: [470, 640], adresse: 'compte', ouvrir: contenuCompte }
+      compte: { titre: 'Mon compte', icone: 'session', taille: [470, 640], adresse: 'compte', ouvrir: contenuCompte },
+      halloffame: { titre: 'Hall of Fame', icone: 'trophee', taille: [600, 640], adresse: 'halloffame', ouvrir: (c, e, o) => contenuPage(c, e, o, 'classements.html', 'Hall of Fame') },
+      chat: { titre: 'Chat', icone: 'chat', taille: [420, 580], adresse: 'chat', ouvrir: (c, e, o) => { nonLus = 0; majChat(); contenuPage(c, e, o, 'chat.html', 'Chat'); } },
+      tournois: { titre: 'Tournois', icone: 'tournoi', taille: [720, 640], adresse: 'tournois', ouvrir: (c, e, o) => contenuPage(c, e, o, 'tournoi.html', 'Tournois') },
+      musique: { titre: 'DinoAmp', icone: 'musique', taille: [390, 440], adresse: '', ouvrir: (c) => contenuMusique(c) }
     };
 
     JEUX.forEach(jeu => {
@@ -276,7 +284,8 @@
       cmd: { nom: 'Invite de commandes', icone: 'console' }, notepad: { nom: 'Bloc-notes', icone: 'blocnotes' },
       executer: { nom: 'Exécuter', icone: 'executer' }, dateheure: { nom: 'Date et heure', icone: 'horloge' },
       affichage: { nom: 'Affichage', icone: 'image' },
-      contacts: { nom: 'Contacts en ligne', icone: 'joueurs' }, compte: { nom: 'Mon compte', icone: 'session' }
+      contacts: { nom: 'Contacts en ligne', icone: 'joueurs' }, compte: { nom: 'Mon compte', icone: 'session' },
+      halloffame: { nom: 'Hall of Fame', icone: 'trophee' }, chat: { nom: 'Chat', icone: 'chat' }, tournois: { nom: 'Tournois', icone: 'tournoi' }, musique: { nom: 'DinoAmp', icone: 'musique' }
     };
     JEUX.forEach(j => { ICONES_BASE['jeu-' + j.id] = { nom: j.titre, icone: j.icone }; });
     const choixIcones = (Array.isArray(A.iconesBureau) ? A.iconesBureau : []).filter(x => x && ICONES_BASE[x.element] && APPS[x.element]);
@@ -317,6 +326,7 @@
         <div class="taches" role="toolbar" aria-label="Fenêtres ouvertes"></div>
         <div class="zone-notif">
           <button class="notif-contact" title="Contact : ${echapper(adresseMail())}" aria-label="Contact">${xp('mail', 16)}</button>
+          <button class="notif-chat" hidden title="Chat du site" aria-label="Chat du site">${xp('chat', 16)}<span></span></button>
           <button class="notif-enligne" hidden title="Personnes en ligne" aria-label="Personnes en ligne">${xp('joueurs', 16)}<span></span></button>
           <span class="icone-notif" title="Connecté à Internet">${xp('reseau', 16)}</span>
           <span class="icone-notif" title="Volume">${xp('volume', 16)}</span>
@@ -792,7 +802,8 @@
     // Les jeux, présentés comme un dossier en vue « Mosaïques »
     function contenuJeux(corps) {
       corps.classList.add('explorateur-corps');
-      const taches = lienVolet('data-action="hasard"', 'hasard', 'Jouer à un jeu au hasard')
+      const taches = lienVolet('data-app="halloffame"', 'trophee', 'Hall of Fame') + lienVolet('data-app="tournois"', 'tournoi', 'Tournois') + lienVolet('data-app="chat"', 'chat', 'Chat du site')
+        + lienVolet('data-action="hasard"', 'hasard', 'Jouer à un jeu au hasard')
         + (APPS['jeu-cercle'] ? lienVolet('data-app="jeu-cercle"', 'cercle', 'Partie multijoueur') : '');
       corps.innerHTML = `
         <div class="barre-adresse">Adresse<div class="champ">${xp('manette', 16)}<span>${hote()}/jeux/</span></div></div>
@@ -800,6 +811,7 @@
           <aside class="volet">
             ${boiteVolet('Tâches des jeux', taches, true)}
             ${boiteVolet('Autres emplacements', lienVolet('data-app="blog"', 'fichier', 'Blog') + lienVolet('data-app="apropos"', 'info', 'À propos') + lienVolet('data-app="corbeille"', 'corbeille', 'Corbeille'))}
+            ${boiteVolet('Défi du jour', '<span class="defi-volet">…</span>', true)}
             ${boiteVolet('Détails', `<strong>Jeux</strong><span>Dossier de jeux</span><span>${JEUX.length} jeux, dont ${JEUX.filter(j => j.multi).length} à plusieurs en ligne.</span>`)}
           </aside>
           <div class="principal">
@@ -816,6 +828,7 @@
           </div>
         </div>
         <div class="barre-etat"><span>${JEUX.length} objets</span><span>${xp('ordinateur', 16)}Poste de travail</span></div>`;
+      defiDuJour().then(t => { const el = $('.defi-volet', corps); if (el) el.textContent = t; });
       if (window.DinoPresence && window.DinoPresence.actif) {
         const arreter = window.DinoPresence.ecouter(m => {
           if (!corps.isConnected) { arreter(); return; }
@@ -882,6 +895,21 @@
       });
     }
 
+    // une page du site (Hall of Fame, Chat, Tournois) dans une fenêtre
+    function contenuPage(corps, etat, options, fichier, titre) {
+      corps.classList.add('sans-defilement');
+      corps.innerHTML = `<iframe src="${echapper(fichier)}" title="${echapper(titre)}"></iframe>`;
+    }
+
+    // DinoAmp : le lecteur de musique (assets/musique.js)
+    function contenuMusique(corps) {
+      corps.classList.add('sans-defilement');
+      corps.style.background = '#111';
+      const lancer = () => { if (window.DinoMusique) window.DinoMusique.lecteur(corps); else corps.innerHTML = '<p style="padding:12px">Lecteur indisponible.</p>'; };
+      if (window.DinoMusique) return lancer();
+      const sc = document.createElement('script'); sc.src = 'assets/musique.js'; sc.onload = lancer; sc.onerror = lancer; document.head.append(sc);
+    }
+
     // « Mon compte » : la page compte.html dans une fenêtre
     function contenuCompte(corps, etat, options = {}) {
       corps.classList.add('sans-defilement');
@@ -902,7 +930,7 @@
         const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
         const sous = horsLigne ? (x.vu ? 'vu ' + ilYa(x.vu) : 'hors ligne') : jeu ? 'joue à ' + jeu.titre : 'sur le site';
         return `<div class="msn-contact${horsLigne ? ' hors-ligne' : ''}" data-cle="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">
-          <span class="msn-bonhomme">${xp('joueurs', 16)}</span>
+          <span class="msn-bonhomme">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 22) : xp('joueurs', 16)}</span>
           <span class="msn-nom"><b>${echapper(x.nom)}${ami ? ' <i title="Ami">★</i>' : ''}</b><small>${echapper(sous)}</small></span>
           ${!horsLigne && CO.connecte ? '<button class="btn msn-inviter" title="Inviter à jouer">Inviter</button>' : ''}
         </div>`;
@@ -1137,6 +1165,10 @@
           <div class="menu-droite">
             ${item('data-app="compte" data-menu-compte', 'session', 'Mon compte', 24)}
             ${item('data-app="contacts"', 'joueurs', 'Contacts en ligne', 24)}
+            ${item('data-app="chat"', 'chat', 'Chat', 24)}
+            ${item('data-app="halloffame"', 'trophee', 'Hall of Fame', 24)}
+            ${item('data-app="tournois"', 'tournoi', 'Tournois', 24)}
+            ${item('data-app="musique"', 'musique', 'DinoAmp (musique)', 24)}
             <hr>
             ${item('data-app="apropos"', 'info', 'À propos', 24)}
             ${item('data-app="contact"', 'mail', 'Contact', 24)}
@@ -1328,12 +1360,34 @@
     /* ----- Qui est en ligne + « Untel a créé une partie » (assets/presence.js) ----- */
 
     const notifsParties = () => stockage.lire('site-notifs-parties', 'oui') !== 'non';
+    let nonLus = 0;
+    function majChat() {
+      const b = $('.notif-chat');
+      if (!b) return;
+      $('span', b).textContent = nonLus ? (nonLus > 9 ? '9+' : nonLus) : '';
+      b.classList.toggle('a-lire', nonLus > 0);
+      b.title = nonLus ? `Chat : ${nonLus} message${nonLus > 1 ? 's' : ''} non lu${nonLus > 1 ? 's' : ''}` : 'Chat du site';
+    }
     let enLigne = null;
 
     function brancherPresence() {
       const P = window.DinoPresence;
       const icone = $('.notif-enligne');
       if (!P || !P.actif) return;
+      // chat : un compteur de messages non lus dans la barre des tâches
+      const iconeChat = $('.notif-chat');
+      iconeChat.hidden = false;
+      iconeChat.addEventListener('click', () => ouvrirApp('chat'));
+      window.DinoChatLu = () => { nonLus = 0; majChat(); };
+      P.ecouter(m => {
+        if (m.t !== 'chat') return;
+        const moi = window.DinoCompte && window.DinoCompte.compte ? window.DinoCompte.compte.nom : '';
+        const f = fenetres.get('chat');
+        if (m.m.de === moi || (f && !f.el.classList.contains('minimisee'))) return;
+        nonLus++;
+        majChat();
+        if (moi && m.m.texte.toLowerCase().includes(moi.toLowerCase())) bulle(`💬 ${m.m.de} parle de toi`, m.m.texte.slice(0, 90), 8000, { icone: 'chat', boutons: [{ texte: 'Ouvrir le chat', faire: () => ouvrirApp('chat') }] });
+      });
       // ce que je fais : le jeu de la fenêtre du dessus (vu par mes contacts)
       setInterval(() => {
         let jeu = null, z = -1;
@@ -1464,9 +1518,17 @@
     function eteindre() {
       fermerMenus();
       son('arret');
-      const ecran = creer(`<div class="extinction"><div><p>${echapper(txt('extinction', 'Tu peux maintenant fermer cet onglet en toute sécurité.'))}</p><button class="btn">Redémarrer</button></div></div>`);
-      document.body.append(ecran);
-      $('button', ecran).addEventListener('click', () => { session.ecrire('site-demarre', '0'); location.href = location.pathname; });
+      if (window.DinoMusique) window.DinoMusique.arreter();
+      // d'abord « Fermeture de la session… », comme sur le vrai système
+      const fermeture = creer(`<div class="fermeture-xp"><div class="bande haut"></div><div class="milieu"><div class="sablier"></div><p>Fermeture de la session…</p><small>Enregistrement de vos paramètres</small></div><div class="bande bas"></div></div>`);
+      document.body.append(fermeture);
+      setTimeout(() => { const p = $('small', fermeture); if (p) p.textContent = 'Arrêt en cours…'; }, 1100);
+      setTimeout(() => {
+        fermeture.remove();
+        const ecran = creer(`<div class="extinction"><div><p>${echapper(txt('extinction', 'Tu peux maintenant fermer cet onglet en toute sécurité.'))}</p><button class="btn">Redémarrer</button></div></div>`);
+        document.body.append(ecran);
+        $('button', ecran).addEventListener('click', () => { session.ecrire('site-demarre', '0'); location.href = location.pathname; });
+      }, 2200);
     }
 
     function fermerSession() {
@@ -1492,7 +1554,7 @@
     function suivreAdresse() {
       const h = lireHash();
       if (!h) return false;
-      if (['blog', 'jeux', 'apropos', 'contact', 'contacts', 'compte'].includes(h)) ouvrirApp(h);
+      if (['blog', 'jeux', 'apropos', 'contact', 'contacts', 'compte', 'halloffame', 'chat', 'tournois'].includes(h)) ouvrirApp(h);
       else if (h.startsWith('jeu/')) {
         const [id, param] = h.slice(4).split('/');
         ouvrirApp('jeu-' + id, param ? { param } : {});
@@ -1648,6 +1710,12 @@
         <h1 class="m-titre-vue">Jeux</h1>
         <p class="m-sous-titre">${JEUX.length} mini-jeux codés à la main.</p>
         <p class="m-sous-titre" style="margin-top:-6px"><span class="m-enligne" hidden><i></i><span></span></span></p>
+        <div class="m-defi"><span>🎯</span><span><b>Défi du jour</b><small class="m-defi-texte">…</small></span></div>
+        <div class="m-raccourcis">
+          <button data-page="halloffame">${svg('trophee', 20)}<span>Hall of Fame</span></button>
+          <button data-page="chat">${svg('chat', 20)}<span>Chat</span><em class="m-non-lus" hidden></em></button>
+          <button data-page="tournois">${svg('tournoi', 20)}<span>Tournois</span></button>
+        </div>
         <div class="m-joueurs" hidden>
           <div class="m-section-tete"><h2>Joueurs en ligne</h2><span class="m-compte"></span></div>
           <div class="m-liste-joueurs"></div>
@@ -1698,12 +1766,28 @@
       });
     }
 
-    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); majParties(); majJoueurs(); }
+    function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); majParties(); majJoueurs(); majNonLusM(); defiDuJour().then(t => { const el = $('.m-defi-texte', vues.jeux); if (el) el.textContent = t; }); }
 
     /* ----- Compte, joueurs en ligne, invitations ----- */
 
     const CO = window.DinoCompte;
     let contactsM = { liste: [], visiteurs: 0 };
+
+    // pages du site en plein écran (Hall of Fame, Chat, Tournois, musique)
+    const PAGES_M = { halloffame: ['Hall of Fame', 'classements.html'], chat: ['Chat', 'chat.html'], tournois: ['Tournois', 'tournoi.html'] };
+    let nonLusM = 0;
+    function majNonLusM() { const el = $('.m-non-lus', vues.jeux); if (el) { el.hidden = !nonLusM; el.textContent = nonLusM > 9 ? '9+' : nonLusM; } }
+    window.DinoChatLu = () => { nonLusM = 0; majNonLusM(); };
+    function ouvrirPage(id, pousser) {
+      const p = PAGES_M[id];
+      if (!p) return;
+      if (id === 'chat') { nonLusM = 0; majNonLusM(); }
+      ouvrirEcran(p[0], `<iframe src="${p[1]}" title="${echapper(p[0])}"></iframe>`, null, id, true, pousser);
+    }
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-page]');
+      if (b && PAGES_M[b.dataset.page]) { e.stopPropagation(); ouvrirPage(b.dataset.page, true); }
+    });
 
     function ouvrirCompte(param, pousser) {
       ouvrirEcran('Mon compte', `<iframe src="compte.html${param ? '#' + echapper(param) : ''}" title="Mon compte"></iframe>`, null, 'compte', true, pousser);
@@ -1734,7 +1818,7 @@
       $('.m-liste-joueurs', boite).innerHTML = liste.length ? liste.map(x => {
         const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
         return `<div class="m-partie m-joueur">
-          <div class="icone">${svg('utilisateur', 20)}</div>
+          <div class="icone">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 34) : svg('utilisateur', 20)}</div>
           <div class="texte"><b>${echapper(x.nom)}${clesAmis.has(x.cle) ? ' <span class="m-etoile">★</span>' : ''}</b><span>${jeu ? 'joue à ' + echapper(jeu.titre) : 'sur le site'}</span></div>
           ${CO && CO.connecte ? `<button class="btn petit" data-inviter="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">Inviter</button>` : ''}
         </div>`;
@@ -1875,6 +1959,11 @@
         if (m.t === 'contacts') { contactsM = m; majJoueurs(); }
         if (m.t === 'invitation') notifInvitation(m);
         if (m.t === 'annonce-admin') notifAnnonce(m);
+        if (m.t === 'chat') {
+          const moi = CO && CO.compte ? CO.compte.nom : '';
+          const ouvertChat = ecran.classList.contains('ouvert') && lireHash() === 'chat';
+          if (m.m.de !== moi && !ouvertChat) { nonLusM++; majNonLusM(); }
+        }
       });
     }
 
@@ -1957,7 +2046,7 @@
 
     function suivreAdresse(evenement) {
       const h = lireHash();
-      const ecranDemande = h.startsWith('jeu/') || h.startsWith('article/') || h === 'compte';
+      const ecranDemande = h.startsWith('jeu/') || h.startsWith('article/') || h === 'compte' || !!PAGES_M[h];
       // Lien direct vers un jeu ou un article : on glisse d'abord l'accueil
       // dans l'historique, pour que « retour » ramène bien sur le site
       if (ecranDemande && !evenement && !(history.state && history.state.ecran)) {
@@ -1965,6 +2054,7 @@
       }
       if (h.startsWith('jeu/')) { ouvrirJeu(h.slice(4)); return; }
       if (h === 'compte') { ouvrirCompte(''); return; }
+      if (PAGES_M[h]) { ouvrirPage(h); return; }
       if (h.startsWith('article/')) {
         const url = h.slice(8);
         if (articles.length) ouvrirArticle(url);

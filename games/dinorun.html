@@ -137,6 +137,7 @@
     etat = 'fin';
     A.son('perdu');
     const r = A.record('dinorun', score);
+    A.finPartie('dinorun', { score: Math.floor(score) });
     record = r.record;
     finT = 0.5;
     setTimeout(() => A.panneau({

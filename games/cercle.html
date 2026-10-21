@@ -290,6 +290,8 @@
   </section>
 
   <script src="../assets/config.js"></script>
+  <script src="../assets/progres.js"></script>
+  <script src="../assets/avatars.js"></script>
   <script type="module">
     import * as M from './cercle/moteur.js';
     import { obtenirCompte, suivrePresence, annoncerPartie, texteEnLigne, brancherPartiesOuvertes, brancherPseudo, jetonCompte } from './multi/presence.js';
@@ -597,7 +599,8 @@
       $('joueurs').innerHTML = salle.joueurs.map(j => `
         <li>
           <i style="background:${echapper(j.couleur)}"></i>
-          <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}</span>
+          ${j.avatar && window.DinoAvatar ? `<span style="display:inline-flex;flex:none">${window.DinoAvatar.svg(j.avatar, 24)}</span>` : ''}
+          <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}${j.niveau ? ` <span style="color:#737373;font-size:11px">niv. ${j.niveau}</span>` : ''}</span>
           ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
           ${j.hote ? '<span class="tag">HÔTE</span>' : ''}
           ${j.bot ? '<span class="tag">BOT</span>' : ''}
@@ -1115,6 +1118,7 @@
             solo.annonce = true;
             const classement = solo.e.classement;
             setTimeout(() => { if (solo && ecran === 'jeu') afficherFin(classement, false); }, 1100);
+            { const c = classement.find(x => x.id === 'moi'); if (solo && !solo.e.triche && window.DinoProgres) DinoProgres.fin('cercle', { gagne: !!(c && c.place === 1) }); }
           }
         } else if (enLigne) {
           v = vueReseau();

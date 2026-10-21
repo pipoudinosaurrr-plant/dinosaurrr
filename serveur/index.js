@@ -68,6 +68,10 @@ export default {
       }
       const corps = JSON.stringify({ ...d, action: compte[1], jeton, ip: requete.headers.get('CF-Connecting-IP') || '' });
       const rep = await comptes(env).fetch('https://comptes/', { method: 'POST', body: corps });
+      if (compte[1] === 'admin-ban' && rep.ok) {
+        const r = await rep.clone().json();
+        if (r.banni) await env.PRESENCE.get(env.PRESENCE.idFromName('site')).fetch('https://presence/admin-ban', { method: 'POST', body: JSON.stringify({ nom: r.nom }) });
+      }
       return new Response(rep.body, { status: rep.status, headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
     }
 
@@ -134,6 +138,25 @@ function fermerSalle(objet) {
 }
 const estFermeture = requete => requete.method === 'POST' && new URL(requete.url).pathname === '/fermer';
 
+// statistiques du site (visites, heures, parties) — sans attendre la réponse
+function statSite(objet, types) {
+  try { objet.ctx.waitUntil(appelComptes(objet.env, { action: 'stat', types })); } catch (e) { /* rien */ }
+}
+const heureBruxelles = () => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Brussels', hour: '2-digit', hour12: false }).format(new Date()).replace(/\D/g, '');
+
+// une partie de tournoi vient de finir : le gagnant passe au tour suivant
+function signalerTournoi(objet, p) {
+  if (p.triche || !objet.code) return;
+  const comptes = p.comptesJoueurs || {};
+  const humains = p.classement.filter(c => !c.bot && comptes[c.id]);
+  if (humains.length < 2) return;
+  const premier = humains.find(c => c.place === 1);
+  if (!premier || humains.filter(c => c.place === 1).length > 1) return;   // égalité : à rejouer
+  try {
+    objet.ctx.waitUntil(appelComptes(objet.env, { action: 'tournoi-resultat', jeu: objet.jeu, code: objet.code, gagnant: comptes[premier.id], joueurs: humains.map(c => comptes[c.id]) }));
+  } catch (e) { /* rien */ }
+}
+
 /* ---------- Petits outils ---------- */
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -163,7 +186,7 @@ async function appelComptes(env, donnees) {
 async function identifier(env, msg) {
   const voulu = nettoyerNom(msg.nom);
   const r = await appelComptes(env, { action: 'verifier', jeton: typeof msg.jeton === 'string' ? msg.jeton : '', nom: voulu });
-  if (r.compte) return { nom: r.compte.nom, compte: r.compte.cle };
+  if (r.compte) return { nom: r.compte.nom, compte: r.compte.cle, avatar: r.compte.avatar, niveau: r.compte.niveau };
   if (r.reserve) return { nom: 'Invité' + Math.floor(100 + Math.random() * 900), compte: null };
   return { nom: voulu, compte: null };
 }
@@ -271,7 +294,7 @@ export class Salle extends DurableObject {
   diffuserSalle() {
     const hote = this.hote();
     const humains = this.joueursHumains().map(({ info }) => ({
-      id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote, compte: !!info.compte
+      id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote, compte: !!info.compte, avatar: info.avatar || '', niveau: info.niveau || 0
     }));
     const bots = this.bots.map(b => ({ ...b, victoires: this.victoiresBots[b.id] || 0 }));
     this.diffuser({ t: 'salle', phase: this.phase, hote, joueurs: [...humains, ...bots], max: M.MAX_JOUEURS });
@@ -329,6 +352,8 @@ export class Salle extends DurableObject {
         }
         info.nom = nom;
         info.compte = ident.compte;
+        info.avatar = ident.avatar || '';
+        info.niveau = ident.niveau || 0;
         if (!info.couleur) info.couleur = this.couleurLibre(info.id);
         this.ecrireInfo(ws, info);
         // trop de monde avec les bots : on retire des bots
@@ -406,6 +431,7 @@ export class Salle extends DurableObject {
     ];
     this.partie = M.creerPartie(liste);
     this.phase = 'jeu';
+    statSite(this, ['jeu:cercle']);
     this.accumule = 0;
     this.dernier = Date.now();
     this.diffuser({ t: 'debut', equipe: M.equipe(this.partie) });
@@ -530,7 +556,7 @@ export class Table extends DurableObject {
 
   diffuserSalle() {
     const hote = this.hote();
-    const humains = this.joueursHumains().map(({ info }) => ({ id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote, compte: !!info.compte }));
+    const humains = this.joueursHumains().map(({ info }) => ({ id: info.id, nom: info.nom, couleur: info.couleur, victoires: info.victoires || 0, hote: info.id === hote, compte: !!info.compte, avatar: info.avatar || '', niveau: info.niveau || 0 }));
     const bots = this.mod.bots ? this.bots.map(b => ({ ...b, victoires: this.victoiresBots[b.id] || 0 })) : [];
     this.diffuser({ t: 'salle', jeu: this.jeu, phase: this.phase, hote, joueurs: [...humains, ...bots], max: this.mod.max, min: this.mod.min, bots: !!this.mod.bots });
     if (this.code && humains.length) {
@@ -571,6 +597,8 @@ export class Table extends DurableObject {
         if (pris.has(nom)) { let i = 2; while (pris.has(nom.slice(0, 12) + i)) i++; nom = nom.slice(0, 12) + i; }
         info.nom = nom;
         info.compte = ident.compte;
+        info.avatar = ident.avatar || '';
+        info.niveau = ident.niveau || 0;
         if (!info.couleur) info.couleur = this.couleurLibre(info.id);
         this.ecrireInfo(ws, info);
         while (this.bots.length && this.joueursHumains().length + this.bots.length > this.mod.max) this.bots.pop();
@@ -653,6 +681,9 @@ export class Table extends DurableObject {
     const liste = [...humains, ...(this.mod.bots ? this.bots.slice(0, this.mod.max - humains.length) : [])];
     this.partie = this.mod.creer(liste, Date.now());
     this.phase = 'jeu';
+    statSite(this, ['jeu:' + this.jeu]);
+    // les comptes des joueurs, gardés pour la fin de partie (même si quelqu'un est parti entre-temps)
+    this.partie.comptesJoueurs = Object.fromEntries(this.joueursHumains().map(({ info }) => [info.id, info.compte]).filter(x => x[1]));
     this.dernier = Date.now();
     this.diffuser({ t: 'debut', equipe: this.equipe() });
     this.diffuserSalle();
@@ -713,6 +744,7 @@ export class Table extends DurableObject {
       for (const { ws, info } of this.connectes()) if (info.id === c.id) { info.victoires = (info.victoires || 0) + 1; this.ecrireInfo(ws, info); }
     }
     noterResultats(this, this.jeu, p.classement, p.triche);
+    signalerTournoi(this, p);
     this.diffuser({ t: 'fin', classement: p.classement });
     setTimeout(() => {
       this.partie = null;
@@ -733,6 +765,14 @@ export class Table extends DurableObject {
    - quand quelqu'un crée une partie, il prévient tous les autres
    ------------------------------------------------------- */
 
+// filtre du chat : à compléter plus tard (liste de mots donnée par l'admin)
+const MOTS_FILTRES = [];
+function filtrerChat(texte) {
+  let t = texte;
+  for (const mot of MOTS_FILTRES) t = t.replace(new RegExp(mot, 'gi'), m => '*'.repeat(m.length));
+  return t;
+}
+
 const JEUX_ANNONCABLES = new Set(['cercle', ...Object.keys(JEUX)]);
 const ACTIVITES = new Set([...JEUX_ANNONCABLES, 'dinoio']);
 const PAUSE_ANNONCE = 20000;  // une annonce toutes les 20 s maximum par personne
@@ -746,9 +786,11 @@ export class Presence extends DurableObject {
     this.minuterie = null;
     this.minuterieParties = null;
     this.parties = {};
+    this.chat = [];
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
     ctx.blockConcurrencyWhile(async () => {
       this.parties = (await ctx.storage.get('parties')) || {};
+      this.chat = (await ctx.storage.get('chat')) || [];
     });
   }
 
@@ -784,6 +826,16 @@ export class Presence extends DurableObject {
       for (const ws of liste) { try { ws.send(texte); } catch (e) { /* fermée */ } }
       return Response.json({ ok: true, n: liste.length });
     }
+    // un compte vient d'être banni : il ne peut plus écrire dans le chat
+    if (requete.method === 'POST' && new URL(requete.url).pathname === '/admin-ban') {
+      const d = await requete.json();
+      for (const ws of this.ouverts()) {
+        const info = this.lireInfo(ws);
+        if (info.compte && info.compte.nom === d.nom) { info.compte = null; this.ecrireInfo(ws, info); this.envoyer(ws, { t: 'banni' }); }
+      }
+      this.prevoirCompte();
+      return Response.json({ ok: true });
+    }
     if (requete.method === 'POST' && new URL(requete.url).pathname === '/admin-etat') {
       const liste = this.ouverts();
       const tous = liste.map(ws => this.lireInfo(ws)).filter(i => i.compte).map(i => ({ nom: i.compte.nom, invisible: !!i.compte.invisible, jeu: i.activite || null }));
@@ -800,6 +852,7 @@ export class Presence extends DurableObject {
     this.envoyer(serveur, { t: 'parties', liste: this.listeParties() });
     this.envoyer(serveur, this.contacts(this.ouverts()));
     this.prevoirCompte();
+    statSite(this, ['visite', 'heure:' + heureBruxelles()]);
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -856,7 +909,7 @@ export class Presence extends DurableObject {
       const c = info.compte;
       if (!c || c.invisible) { visiteurs++; continue; }
       const deja = parCle.get(c.cle);
-      if (!deja) parCle.set(c.cle, { cle: c.cle, nom: c.nom, jeu: info.activite || null });
+      if (!deja) parCle.set(c.cle, { cle: c.cle, nom: c.nom, avatar: c.avatar || '', jeu: info.activite || null });
       else if (!deja.jeu && info.activite) deja.jeu = info.activite;
     }
     return { t: 'contacts', liste: [...parCle.values()].sort((a, b) => a.nom.localeCompare(b.nom, 'fr')), visiteurs };
@@ -865,11 +918,41 @@ export class Presence extends DurableObject {
   appelComptes(donnees) { return appelComptes(this.env, donnees); }
 
   async webSocketMessage(ws, brut) {
-    if (typeof brut !== 'string' || brut.length > 300) return;
+    if (typeof brut !== 'string' || brut.length > 900) return;
     let msg;
     try { msg = JSON.parse(brut); } catch (e) { return; }
     if (!msg || typeof msg !== 'object') return;
     const info = this.lireInfo(ws);
+
+    /* ----- chat (il faut être connecté à son compte) ----- */
+    if (msg.t === 'chat-ouvrir') { this.envoyer(ws, { t: 'chat-historique', liste: this.chat }); return; }
+    if (msg.t === 'chat') {
+      if (!info.compte) return this.envoyer(ws, { t: 'chat-refuse', raison: 'Connecte-toi à ton compte pour écrire dans le chat.' });
+      const maintenant = Date.now();
+      if (maintenant - (info.dernierChat || 0) < 1200) return this.envoyer(ws, { t: 'chat-refuse', raison: 'Doucement ! Attends un peu entre deux messages.' });
+      let texte = String(msg.texte || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+      texte = filtrerChat(texte);
+      if (!texte) return;
+      info.dernierChat = maintenant;
+      this.ecrireInfo(ws, info);
+      const m = { id: idAleatoire(), de: info.compte.nom, avatar: info.compte.avatar || '', niveau: info.compte.niveau || 1, admin: info.compte.cle === CLE_ADMIN, texte, t: maintenant };
+      this.chat.push(m);
+      if (this.chat.length > 80) this.chat.splice(0, this.chat.length - 80);
+      const t = JSON.stringify({ t: 'chat', m });
+      for (const w of this.ouverts()) { try { w.send(t); } catch (e) { /* fermée */ } }
+      this.ctx.waitUntil(this.ctx.storage.put('chat', this.chat));
+      this.ctx.waitUntil(this.appelComptes({ action: 'chat-message', cle: info.compte.cle }));
+      return;
+    }
+    if (msg.t === 'chat-supprimer' || msg.t === 'chat-vider') {
+      if (!info.compte || info.compte.cle !== CLE_ADMIN) return;
+      if (msg.t === 'chat-vider') this.chat = [];
+      else this.chat = this.chat.filter(m => m.id !== msg.id);
+      const t = JSON.stringify(msg.t === 'chat-vider' ? { t: 'chat-historique', liste: [] } : { t: 'chat-supprime', id: msg.id });
+      for (const w of this.ouverts()) { try { w.send(t); } catch (e) { /* fermée */ } }
+      this.ctx.waitUntil(this.ctx.storage.put('chat', this.chat));
+      return;
+    }
 
     if (msg.t === 'annonce') {
       const jeu = String(msg.jeu || '');
@@ -897,7 +980,7 @@ export class Presence extends DurableObject {
       info2.compte = compte;
       this.ecrireInfo(ws, info2);
       if (avant && avant !== (compte && compte.cle)) this.ctx.waitUntil(this.appelComptes({ action: 'vu', cle: avant }));
-      this.envoyer(ws, { t: 'moi-ok', nom: compte ? compte.nom : null });
+      this.envoyer(ws, { t: 'moi-ok', nom: compte ? compte.nom : null, admin: !!(compte && compte.cle === CLE_ADMIN) });
       this.prevoirCompte();
     }
 
@@ -1038,6 +1121,8 @@ export class Arene extends DurableObject {
         if (pris.has(nom)) { let i = 2; while (pris.has(nom.slice(0, 12) + i)) i++; nom = nom.slice(0, 12) + i; }
         info.nom = nom;
         info.compte = ident.compte;
+        info.avatar = ident.avatar || '';
+        info.niveau = ident.niveau || 0;
         this.ecrireInfo(ws, info);
         const couleur = DIO.COULEURS.includes(msg.couleur) ? msg.couleur : null;
         const j = w.joueurs.get(info.id) || DIO.ajouterJoueur(w, info.id, nom, couleur);

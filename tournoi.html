@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Tournois</title>
+  <link rel="stylesheet" href="games/jeu.css">
+  <style>
+    body { margin: 0; background: radial-gradient(700px 360px at 50% -80px, rgba(59, 130, 246, .1), transparent 70%), #000; }
+    main { max-width: 760px; margin: 0 auto; padding: 18px 14px 40px; }
+    h1 { margin: 6px 0 2px; font-size: 30px; font-weight: 800; letter-spacing: -.05em; }
+    .sous { margin: 0 0 16px; color: var(--doux); font-size: 13.5px; line-height: 1.5; }
+    .carte-t { margin-bottom: 14px; padding: 16px; border: 1px solid var(--bord2); border-radius: 16px; background: rgba(10, 10, 10, .9); }
+    .carte-t h2 { margin: 0 0 4px; font-size: 19px; letter-spacing: -.02em; }
+    .meta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--doux); font-size: 13px; margin-bottom: 10px; }
+    .etat { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 600 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    .etat.inscriptions { background: rgba(34, 197, 94, .15); color: #86efac; }
+    .etat.encours { background: rgba(59, 130, 246, .18); color: #93c5fd; }
+    .etat.fini { background: rgba(250, 204, 21, .15); color: #fde047; }
+    .inscrits { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+    .inscrits span { padding: 3px 9px; border: 1px solid var(--bord); border-radius: 999px; font-size: 12.5px; color: #d4d4d4; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tableau { display: flex; gap: 14px; overflow-x: auto; padding: 6px 2px 10px; }
+    .colonne { flex: none; width: 200px; display: flex; flex-direction: column; justify-content: space-around; gap: 10px; }
+    .colonne > b { color: var(--tres-doux); font: 600 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; text-align: center; }
+    .match { border: 1px solid var(--bord2); border-radius: 12px; background: rgba(255, 255, 255, .03); overflow: hidden; }
+    .match .j { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 10px; font-size: 13.5px; }
+    .match .j + .j { border-top: 1px solid var(--bord); }
+    .match .j.gagne { color: #fde047; font-weight: 700; }
+    .match .j.perd { color: var(--tres-doux); text-decoration: line-through; }
+    .match .j em { color: var(--tres-doux); font-style: normal; }
+    .match .bas { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--bord); background: rgba(255, 255, 255, .02); font: 500 11px var(--mono); color: var(--tres-doux); }
+    .match .moi { outline: 1px solid rgba(34, 197, 94, .5); }
+    .mini { height: 24px; padding: 0 8px; font-size: 11px; }
+    .champion { display: flex; align-items: center; gap: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(250, 204, 21, .5); border-radius: 12px; background: rgba(250, 204, 21, .07); font-size: 15px; }
+    form.creer { display: grid; gap: 8px; }
+    form.creer input, form.creer select { height: 42px; padding: 0 12px; border: 1px solid var(--bord2); border-radius: 10px; background: rgba(255, 255, 255, .03); color: #fafafa; font: 14px inherit; font-family: inherit; }
+    form.creer select option { background: #111; }
+    .ligne2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .message { margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; font-size: 13px; }
+    .message.ko { border: 1px solid rgba(239, 68, 68, .35); background: rgba(239, 68, 68, .08); color: #fca5a5; }
+    .message.ok { border: 1px solid rgba(34, 197, 94, .35); background: rgba(34, 197, 94, .08); color: #86efac; }
+    [hidden] { display: none !important; }
+    .vide { color: var(--tres-doux); font-size: 13.5px; text-align: center; padding: 30px 0; }
+    a.lien { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="pastille"><span class="point-vert"></span>Tournois</span>
+    <h1>🏆 Tournois</h1>
+    <p class="sous">Inscris-toi, puis le jour J chaque match a son code : les deux joueurs rejoignent la partie avec ce code, et le gagnant passe automatiquement au tour suivant. Le champion gagne 200 XP et le succès « Champion de tournoi ».</p>
+    <div class="carte-t" id="admin" hidden>
+      <h2>⚡ Créer un tournoi</h2>
+      <form class="creer" id="form-creer">
+        <input name="nom" maxlength="60" placeholder="Nom (ex : Tournoi d’Air hockey du samedi)" required>
+        <div class="ligne2">
+          <select name="jeu"><option value="hockey">Air hockey</option><option value="pong">Pong</option><option value="echecs">Échecs</option><option value="puissance4">Puissance 4</option><option value="morpion">Morpion géant</option><option value="navale">Bataille navale</option></select>
+          <input name="quand" type="datetime-local" required>
+        </div>
+        <button class="btn primaire" type="submit">Créer le tournoi</button>
+      </form>
+      <p class="message" id="msg-admin" hidden></p>
+    </div>
+    <p class="message" id="msg" hidden></p>
+    <div id="liste"><p class="vide">Chargement…</p></div>
+  </main>
+  <script src="assets/config.js"></script>
+  <script src="assets/jeux.js"></script>
+  <script>
+  (async function () {
+    const $ = id => document.getElementById(id);
+    const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const parent = nom => { try { return window.parent !== window ? window.parent[nom] : null; } catch (e) { return null; } };
+    const charger = src => new Promise(r => { const s = document.createElement('script'); s.src = src; s.onload = r; s.onerror = r; document.head.append(s); });
+    let C = parent('DinoCompte'); if (!C) { await charger('assets/compte.js'); C = window.DinoCompte; }
+    const JEUX = window.JEUX || [];
+    const titreJeu = id => (JEUX.find(j => j.id === id) || {}).titre || id;
+    const dateLongue = t => new Date(t).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    const nomTour = (tour, total) => tour === total ? 'Finale' : tour === total - 1 ? 'Demi-finales' : tour === total - 2 ? 'Quarts de finale' : `Tour ${tour}`;
+    function message(el, texte, ok) { el.textContent = texte || ''; el.className = 'message ' + (ok ? 'ok' : 'ko'); el.hidden = !texte; }
+
+    let tournois = [];
+    const moi = () => (C && C.compte ? C.compte.nom : '');
+    const admin = () => !!(C && C.compte && C.compte.admin);
+
+    function dessiner() {
+      $('admin').hidden = !admin();
+      const m = moi();
+      $('liste').innerHTML = tournois.length ? tournois.map(t => {
+        const inscrit = t.inscrits.includes(m);
+        const tours = t.matchs.length ? Math.max(...t.matchs.map(x => x.tour)) : 0;
+        let tableau = '';
+        if (t.matchs.length) {
+          tableau = '<div class="tableau">';
+          for (let tour = 1; tour <= tours; tour++) {
+            tableau += `<div class="colonne"><b>${nomTour(tour, tours)}</b>${t.matchs.filter(x => x.tour === tour).map(x => {
+              const joue = x.a && x.b && !x.gagnant;
+              const jeSuisDedans = m && (x.a === m || x.b === m);
+              const ligne = n => `<div class="j ${x.gagnant ? (x.gagnant === n ? 'gagne' : 'perd') : ''}">${n ? echapper(n) : '<em>…</em>'}${admin() && joue && n ? `<button class="btn mini" data-gagnant="${echapper(n)}" data-t="${t.id}" data-tour="${x.tour}" data-pos="${x.pos}" title="Désigner le gagnant">✓</button>` : ''}</div>`;
+              return `<div class="match ${jeSuisDedans && joue ? 'moi' : ''}">${ligne(x.a)}${ligne(x.b)}${joue ? `<div class="bas"><span>Code ${echapper(x.code)}</span>${jeSuisDedans || admin() ? `<button class="btn mini primaire" data-jouer="${echapper(t.jeu)}/${echapper(x.code)}">Jouer</button>` : ''}</div>` : ''}</div>`;
+            }).join('')}</div>`;
+          }
+          tableau += '</div>';
+        }
+        return `<div class="carte-t">
+          ${t.etat === 'fini' && t.gagnant ? `<div class="champion">🏆 <span><b>${echapper(t.gagnant)}</b> est le champion !</span></div>` : ''}
+          <h2>${echapper(t.nom)}</h2>
+          <div class="meta"><span class="etat ${t.etat.replace(' ', '')}">${t.etat === 'en cours' ? 'en cours' : t.etat === 'fini' ? 'terminé' : 'inscriptions ouvertes'}</span><span>🎮 ${echapper(titreJeu(t.jeu))}</span><span>📅 ${dateLongue(t.quand)}</span><span>👥 ${t.inscrits.length} inscrit${t.inscrits.length > 1 ? 's' : ''}</span></div>
+          ${t.inscrits.length && t.etat === 'inscriptions' ? `<div class="inscrits">${t.inscrits.map(n => `<span>${echapper(n)}</span>`).join('')}</div>` : ''}
+          ${tableau}
+          <div class="actions">
+            ${t.etat === 'inscriptions' ? (C && C.connecte ? `<button class="btn ${inscrit ? '' : 'primaire'}" data-inscrire="${t.id}" data-retirer="${inscrit ? 1 : 0}">${inscrit ? 'Me désinscrire' : 'M’inscrire'}</button>` : '<a class="lien" href="compte.html#connexion">Connecte-toi pour t’inscrire</a>') : ''}
+            ${admin() && t.etat === 'inscriptions' ? `<button class="btn primaire" data-admin="lancer" data-t="${t.id}">⚡ Lancer le tournoi</button>` : ''}
+            ${admin() ? `<button class="btn rouge" data-admin="supprimer" data-t="${t.id}">Supprimer</button>` : ''}
+          </div>
+        </div>`;
+      }).join('') : '<p class="vide">Aucun tournoi pour l’instant. Reviens bientôt !</p>';
+    }
+
+    async function charger2() {
+      const r = await C.api('tournois');
+      if (r.tournois) { tournois = r.tournois; dessiner(); }
+      else $('liste').innerHTML = '<p class="vide">Le serveur n’est pas joignable pour l’instant.</p>';
+    }
+
+    document.addEventListener('click', async e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.inscrire) {
+        const r = await C.api('tournoi-inscrire', { id: Number(b.dataset.inscrire), retirer: b.dataset.retirer === '1' });
+        if (r.erreur) return message($('msg'), r.erreur);
+        tournois = r.tournois; dessiner();
+        message($('msg'), b.dataset.retirer === '1' ? 'Tu es désinscrit.' : 'Tu es inscrit ! Reviens le jour du tournoi.', true);
+      }
+      if (b.dataset.admin) {
+        if (b.dataset.admin === 'supprimer' && !confirm('Supprimer ce tournoi ?')) return;
+        const r = await C.api('admin-tournoi', { faire: b.dataset.admin, id: Number(b.dataset.t) });
+        if (r.erreur) return message($('msg'), r.erreur);
+        tournois = r.tournois; dessiner();
+      }
+      if (b.dataset.gagnant) {
+        if (!confirm(`${b.dataset.gagnant} a gagné ce match ?`)) return;
+        const r = await C.api('admin-tournoi', { faire: 'gagnant', id: Number(b.dataset.t), tour: Number(b.dataset.tour), pos: Number(b.dataset.pos), gagnant: b.dataset.gagnant });
+        if (r.erreur) return message($('msg'), r.erreur);
+        tournois = r.tournois; dessiner();
+      }
+      if (b.dataset.jouer) {
+        const [jeu, code] = b.dataset.jouer.split('/');
+        // dans le site : on ouvre le jeu et on rejoint directement la partie
+        try { if (window.top !== window) { window.top.location.hash = `jeu/${jeu}/${code}!`; return; } } catch (err) { /* rien */ }
+        location.href = `games/${jeu}.html#${code}!`;
+      }
+    });
+    $('form-creer').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target;
+      const r = await C.api('admin-tournoi', { faire: 'creer', nom: f.nom.value, jeu: f.jeu.value, quand: new Date(f.quand.value).getTime() });
+      if (r.erreur) return message($('msg-admin'), r.erreur);
+      f.reset();
+      tournois = r.tournois; dessiner();
+      message($('msg-admin'), 'Tournoi créé ! Les joueurs peuvent s’inscrire.', true);
+    });
+    if (C) C.ecouter(dessiner);
+    charger2();
+    setInterval(() => { if (!document.hidden) charger2(); }, 20000);
+  })();
+  </script>
+</body>
+</html>

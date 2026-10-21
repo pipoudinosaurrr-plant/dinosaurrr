@@ -489,6 +489,7 @@
   function finir() {
     etat = 'fin';
     const r = A.record('blaster-score', score);
+    A.finPartie('blaster', { score: Math.floor(score) });
     const rv = A.record('blaster-vague', vague);
     record = r.record;
     A.son(r.nouveau ? 'gagne' : 'perdu');

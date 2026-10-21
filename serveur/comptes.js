@@ -8,6 +8,7 @@
    ========================================================== */
 
 import { DurableObject } from 'cloudflare:workers';
+import { XP, niveauDe, xpPourNiveau, titreDe, AVATARS, avatarDe, CLASSEMENTS, JEUX_PROGRES, SUCCES, jourDe, defiDuJour, defiReussi } from '../assets/progres-defs.js';
 
 const TOURS = 100000;                         // maximum autorisé par Cloudflare
 const DUREE_SESSION = 180 * 24 * 3600 * 1000; // 6 mois sans visite = session expirée
@@ -91,7 +92,21 @@ export class Comptes extends DurableObject {
       CREATE TABLE IF NOT EXISTS amis (de TEXT NOT NULL, a TEXT NOT NULL, accepte INTEGER NOT NULL DEFAULT 0, cree INTEGER NOT NULL, PRIMARY KEY (de, a));
       CREATE INDEX IF NOT EXISTS amis_a ON amis(a);
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS succes (cle TEXT NOT NULL, id TEXT NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (cle, id));
+      CREATE TABLE IF NOT EXISTS records (cle TEXT NOT NULL, jeu TEXT NOT NULL, score REAL NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (cle, jeu));
+      CREATE TABLE IF NOT EXISTS joues (cle TEXT NOT NULL, jeu TEXT NOT NULL, parties INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, jeu));
+      CREATE TABLE IF NOT EXISTS defis (cle TEXT NOT NULL, jour TEXT NOT NULL, PRIMARY KEY (cle, jour));
+      CREATE TABLE IF NOT EXISTS xpjour (cle TEXT NOT NULL, jour TEXT NOT NULL, xp INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, jour));
+      CREATE TABLE IF NOT EXISTS stats_site (jour TEXT NOT NULL, type TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (jour, type));
+      CREATE TABLE IF NOT EXISTS tournois (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, jeu TEXT NOT NULL, quand INTEGER NOT NULL, etat TEXT NOT NULL, cree INTEGER NOT NULL, gagnant TEXT);
+      CREATE TABLE IF NOT EXISTS tinscrits (tid INTEGER NOT NULL, cle TEXT NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (tid, cle));
+      CREATE TABLE IF NOT EXISTS tmatchs (tid INTEGER NOT NULL, tour INTEGER NOT NULL, pos INTEGER NOT NULL, a TEXT, b TEXT, gagnant TEXT, code TEXT, PRIMARY KEY (tid, tour, pos));
     `);
+    // colonnes ajoutées après coup (on ignore l'erreur si elles existent déjà)
+    for (const col of ['xp INTEGER NOT NULL DEFAULT 0', "avatar TEXT NOT NULL DEFAULT ''", 'banni INTEGER NOT NULL DEFAULT 0', 'chat INTEGER NOT NULL DEFAULT 0']) {
+      try { this.sql.exec('ALTER TABLE comptes ADD COLUMN ' + col); } catch (e) { /* déjà là */ }
+    }
+    this.derniersProgres = new Map();
     // une seule fois : on supprime les comptes créés avec une forme de « pipou » / « dinosaur »
     if (!this.un("SELECT v FROM meta WHERE k = 'reserve-proprio-1'")) {
       for (const { cle } of this.tous('SELECT cle FROM comptes')) {
@@ -105,7 +120,212 @@ export class Comptes extends DurableObject {
     this.sql.exec('DELETE FROM sessions WHERE cle = ?', cle);
     this.sql.exec('DELETE FROM stats WHERE cle = ?', cle);
     this.sql.exec('DELETE FROM amis WHERE de = ? OR a = ?', cle, cle);
+    for (const table of ['succes', 'records', 'joues', 'defis', 'xpjour', 'tinscrits']) this.sql.exec(`DELETE FROM ${table} WHERE cle = ?`, cle);
     this.sql.exec('DELETE FROM comptes WHERE cle = ?', cle);
+  }
+
+  /* ---------- Progression ---------- */
+
+  ajouterXp(cle, n, solo) {
+    if (n <= 0) return 0;
+    if (solo) {
+      const jour = jourDe();
+      const deja = (this.un('SELECT xp FROM xpjour WHERE cle = ? AND jour = ?', cle, jour) || { xp: 0 }).xp;
+      n = Math.max(0, Math.min(n, XP.maxSoloParJour - deja));
+      if (!n) return 0;
+      this.sql.exec('INSERT INTO xpjour (cle, jour, xp) VALUES (?, ?, ?) ON CONFLICT (cle, jour) DO UPDATE SET xp = xp + excluded.xp', cle, jour, n);
+    }
+    this.sql.exec('UPDATE comptes SET xp = xp + ? WHERE cle = ?', n, cle);
+    return n;
+  }
+
+  // une partie vient de finir (ev), ou quelque chose a changé (ev = null : amis, chat…)
+  evenement(cle, ev) {
+    const c = this.un('SELECT * FROM comptes WHERE cle = ?', cle);
+    if (!c) return {};
+    const niveauAvant = niveauDe(c.xp || 0);
+    let xp = 0;
+    const r = { xp: 0, succes: [], defi: null };
+    if (ev) {
+      this.sql.exec('INSERT INTO joues (cle, jeu, parties) VALUES (?, ?, 1) ON CONFLICT (cle, jeu) DO UPDATE SET parties = parties + 1', cle, ev.jeu);
+      xp += ev.enligne ? this.ajouterXp(cle, XP.partieEnLigne + (ev.gagne ? XP.victoireEnLigne : 0), false)
+        : this.ajouterXp(cle, XP.partie + (ev.gagne ? XP.victoireSolo : 0), true);
+      // record personnel (pour les classements)
+      const def = CLASSEMENTS[ev.jeu];
+      if (def && Number.isFinite(ev.score) && ev.score !== null && (def.sens === '+' ? ev.score > 0 : ev.score > 0)) {
+        const ancien = this.un('SELECT score FROM records WHERE cle = ? AND jeu = ?', cle, ev.jeu);
+        if (!ancien || (def.sens === '+' ? ev.score > ancien.score : ev.score < ancien.score)) {
+          this.sql.exec('INSERT OR REPLACE INTO records (cle, jeu, score, t) VALUES (?, ?, ?, ?)', cle, ev.jeu, ev.score, Date.now());
+          r.record = true;
+        }
+      }
+      // défi du jour
+      const defi = defiDuJour();
+      if (defiReussi(defi, ev) && !this.un('SELECT cle FROM defis WHERE cle = ? AND jour = ?', cle, defi.jour)) {
+        this.sql.exec('INSERT INTO defis (cle, jour) VALUES (?, ?)', cle, defi.jour);
+        xp += this.ajouterXp(cle, XP.defi, false);
+        r.defi = defi.texte;
+      }
+    }
+    // succès (on peut en débloquer plusieurs d'un coup, et le niveau peut en débloquer d'autres)
+    for (let tour = 0; tour < 3; tour++) {
+      const e = this.etatSucces(cle, ev);
+      let nouveau = false;
+      for (const s of SUCCES) {
+        if (r.succes.includes(s.id) || this.un('SELECT id FROM succes WHERE cle = ? AND id = ?', cle, s.id)) continue;
+        let ok = false;
+        try { ok = s.test(e); } catch (err) { ok = false; }
+        if (!ok) continue;
+        this.sql.exec('INSERT OR IGNORE INTO succes (cle, id, t) VALUES (?, ?, ?)', cle, s.id, Date.now());
+        r.succes.push(s.id);
+        xp += this.ajouterXp(cle, XP.succes, false);
+        nouveau = true;
+      }
+      if (!nouveau) break;
+    }
+    const apres = this.un('SELECT xp FROM comptes WHERE cle = ?', cle).xp || 0;
+    r.xp = xp;
+    r.total = apres;
+    r.niveau = niveauDe(apres);
+    if (r.niveau > niveauAvant) r.niveauGagne = r.niveau;
+    return r;
+  }
+
+  etatSucces(cle, ev) {
+    const c = this.un('SELECT xp, chat FROM comptes WHERE cle = ?', cle) || {};
+    return {
+      ev,
+      parties: this.un('SELECT COALESCE(SUM(parties), 0) AS n FROM joues WHERE cle = ?', cle).n,
+      jeux: this.un('SELECT COUNT(*) AS n FROM joues WHERE cle = ?', cle).n,
+      victoires: this.un('SELECT COALESCE(SUM(victoires), 0) AS n FROM stats WHERE cle = ?', cle).n,
+      defis: this.un('SELECT COUNT(*) AS n FROM defis WHERE cle = ?', cle).n,
+      niveau: niveauDe(c.xp || 0),
+      amis: this.un('SELECT COUNT(*) AS n FROM amis WHERE de = ? AND accepte = 1', cle).n,
+      chat: c.chat || 0,
+      tournois: this.un('SELECT COUNT(*) AS n FROM tournois WHERE gagnant = ?', cle).n
+    };
+  }
+
+  etatProgres(cle) {
+    const c = this.un('SELECT * FROM comptes WHERE cle = ?', cle);
+    const xp = c.xp || 0, niveau = niveauDe(xp);
+    const defi = defiDuJour();
+    const jours = this.tous('SELECT jour FROM defis WHERE cle = ? ORDER BY jour DESC LIMIT 60', cle).map(x => x.jour);
+    // série : jours de défi d'affilée (jusqu'à aujourd'hui ou hier)
+    let serie = 0;
+    for (let i = 0; i < 60; i++) {
+      const j = jourDe(Date.now() - i * 86400000);
+      if (jours.includes(j)) serie++;
+      else if (i > 0) break;
+    }
+    return {
+      xp, niveau, titre: titreDe(niveau), debut: xpPourNiveau(niveau), suivant: xpPourNiveau(niveau + 1), avatar: avatarDe(c.avatar).id,
+      succes: this.tous('SELECT id, t FROM succes WHERE cle = ? ORDER BY t', cle),
+      defi: { ...defi, fait: jours.includes(defi.jour) }, serie,
+      records: this.tous('SELECT jeu, score FROM records WHERE cle = ?', cle),
+      xpSoloAujourdhui: (this.un('SELECT xp FROM xpjour WHERE cle = ? AND jour = ?', cle, jourDe()) || { xp: 0 }).xp
+    };
+  }
+
+  /* ---------- Tournois ---------- */
+
+  nomDe(cle) { const c = cle && this.un('SELECT nom FROM comptes WHERE cle = ?', cle); return c ? c.nom : null; }
+
+  listeTournois() {
+    return this.tous('SELECT * FROM tournois ORDER BY CASE etat WHEN \'en cours\' THEN 0 WHEN \'inscriptions\' THEN 1 ELSE 2 END, quand DESC LIMIT 12').map(tr => ({
+      id: tr.id, nom: tr.nom, jeu: tr.jeu, quand: tr.quand, etat: tr.etat, gagnant: this.nomDe(tr.gagnant),
+      inscrits: this.tous('SELECT cle FROM tinscrits WHERE tid = ? ORDER BY t', tr.id).map(x => this.nomDe(x.cle)).filter(Boolean),
+      matchs: this.tous('SELECT * FROM tmatchs WHERE tid = ? ORDER BY tour, pos', tr.id).map(m => ({ tour: m.tour, pos: m.pos, a: this.nomDe(m.a), b: this.nomDe(m.b), gagnant: this.nomDe(m.gagnant), code: m.code }))
+    }));
+  }
+
+  // le gagnant d'un match passe au tour suivant ; le dernier match désigne le champion
+  avancer(tid, tour, pos, gagnant) {
+    this.sql.exec('UPDATE tmatchs SET gagnant = ? WHERE tid = ? AND tour = ? AND pos = ?', gagnant, tid, tour, pos);
+    const suivant = this.un('SELECT * FROM tmatchs WHERE tid = ? AND tour = ? AND pos = ?', tid, tour + 1, Math.floor(pos / 2));
+    if (!suivant) {
+      this.sql.exec("UPDATE tournois SET etat = 'fini', gagnant = ? WHERE id = ?", gagnant, tid);
+      if (gagnant) { this.ajouterXp(gagnant, XP.tournoi, false); this.evenement(gagnant, null); }
+      return;
+    }
+    this.sql.exec(`UPDATE tmatchs SET ${pos % 2 ? 'b' : 'a'} = ? WHERE tid = ? AND tour = ? AND pos = ?`, gagnant, tid, tour + 1, suivant.pos);
+    const m = this.un('SELECT * FROM tmatchs WHERE tid = ? AND tour = ? AND pos = ?', tid, tour + 1, suivant.pos);
+    // un joueur seul (exempté) passe directement quand l'autre côté ne peut plus arriver
+    this.verifierExempt(tid, m);
+  }
+
+  verifierExempt(tid, m) {
+    if (m.gagnant) return;
+    const avant = this.tous('SELECT * FROM tmatchs WHERE tid = ? AND tour = ? AND pos IN (?, ?)', tid, m.tour - 1, m.pos * 2, m.pos * 2 + 1);
+    const fini = side => { const x = avant.find(y => y.pos === m.pos * 2 + side); return !x || x.gagnant || (!x.a && !x.b); };
+    if (m.a && !m.b && fini(1) && !avant.find(y => y.pos === m.pos * 2 + 1 && y.gagnant)) this.avancer(tid, m.tour, m.pos, m.a);
+    else if (m.b && !m.a && fini(0) && !avant.find(y => y.pos === m.pos * 2 && y.gagnant)) this.avancer(tid, m.tour, m.pos, m.b);
+  }
+
+  resultatTournoi(jeu, code, gagnant, joueurs) {
+    const m = this.un(`SELECT m.* FROM tmatchs m JOIN tournois t ON t.id = m.tid
+      WHERE t.etat = 'en cours' AND t.jeu = ? AND m.code = ? AND m.gagnant IS NULL AND m.a IS NOT NULL AND m.b IS NOT NULL`, jeu, code);
+    if (!m) return { ok: false };
+    if (!joueurs.includes(m.a) || !joueurs.includes(m.b) || ![m.a, m.b].includes(gagnant)) return { ok: false };
+    this.avancer(m.tid, m.tour, m.pos, gagnant);
+    return { ok: true };
+  }
+
+  adminTournoi(d, t) {
+    const JEUX_TOURNOI = ['puissance4', 'morpion', 'navale', 'pong', 'echecs', 'hockey'];
+    const LETTRES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), x => LETTRES[x % LETTRES.length]).join('');
+    if (d.faire === 'creer') {
+      const nom = String(d.nom || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 60);
+      if (!nom) return { erreur: 'Donne un nom au tournoi.', statut: 400 };
+      if (!JEUX_TOURNOI.includes(d.jeu)) return { erreur: 'Choisis un jeu à 2 joueurs.', statut: 400 };
+      const quand = Number(d.quand) || t;
+      this.sql.exec("INSERT INTO tournois (nom, jeu, quand, etat, cree) VALUES (?, ?, ?, 'inscriptions', ?)", nom, d.jeu, quand, t);
+      return { tournois: this.listeTournois() };
+    }
+    const tr = this.un('SELECT * FROM tournois WHERE id = ?', Number(d.id) || 0);
+    if (!tr) return { erreur: 'Tournoi introuvable.', statut: 404 };
+    if (d.faire === 'supprimer') {
+      this.sql.exec('DELETE FROM tmatchs WHERE tid = ?', tr.id);
+      this.sql.exec('DELETE FROM tinscrits WHERE tid = ?', tr.id);
+      this.sql.exec('DELETE FROM tournois WHERE id = ?', tr.id);
+      return { tournois: this.listeTournois() };
+    }
+    if (d.faire === 'lancer') {
+      if (tr.etat !== 'inscriptions') return { erreur: 'Ce tournoi est déjà lancé.', statut: 400 };
+      const joueurs = this.tous('SELECT cle FROM tinscrits WHERE tid = ?', tr.id).map(x => x.cle);
+      if (joueurs.length < 2) return { erreur: 'Il faut au moins 2 inscrits.', statut: 400 };
+      for (let i = joueurs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [joueurs[i], joueurs[j]] = [joueurs[j], joueurs[i]]; }
+      let taille = 2;
+      while (taille < joueurs.length) taille *= 2;
+      const tours = Math.log2(taille);
+      // les exemptés sont répartis : un joueur par match d'abord, puis les autres
+      const places = Array(taille).fill(null);
+      for (let i = 0; i < joueurs.length; i++) places[i < taille / 2 ? i * 2 : (i - taille / 2) * 2 + 1] = joueurs[i];
+      for (let tour = 1; tour <= tours; tour++) {
+        const n = taille / Math.pow(2, tour);
+        for (let pos = 0; pos < n; pos++) {
+          const a = tour === 1 ? places[pos * 2] : null, b = tour === 1 ? places[pos * 2 + 1] : null;
+          this.sql.exec('INSERT INTO tmatchs (tid, tour, pos, a, b, gagnant, code) VALUES (?, ?, ?, ?, ?, NULL, ?)', tr.id, tour, pos, a, b, code());
+        }
+      }
+      this.sql.exec("UPDATE tournois SET etat = 'en cours' WHERE id = ?", tr.id);
+      // les joueurs seuls au premier tour passent directement
+      for (const m of this.tous('SELECT * FROM tmatchs WHERE tid = ? AND tour = 1', tr.id)) {
+        if (m.a && !m.b) this.avancer(tr.id, 1, m.pos, m.a);
+        else if (m.b && !m.a) this.avancer(tr.id, 1, m.pos, m.b);
+      }
+      return { tournois: this.listeTournois() };
+    }
+    if (d.faire === 'gagnant') {
+      const m = this.un('SELECT * FROM tmatchs WHERE tid = ? AND tour = ? AND pos = ?', tr.id, Number(d.tour), Number(d.pos));
+      if (!m || m.gagnant || tr.etat !== 'en cours') return { erreur: 'Ce match ne peut pas être modifié.', statut: 400 };
+      const cle = cleCompte(d.gagnant);
+      if (![m.a, m.b].includes(cle)) return { erreur: 'Ce joueur ne joue pas ce match.', statut: 400 };
+      this.avancer(tr.id, m.tour, m.pos, cle);
+      return { tournois: this.listeTournois() };
+    }
+    return { erreur: 'Action inconnue.', statut: 400 };
   }
 
   un(requete, ...args) { const r = this.sql.exec(requete, ...args).toArray(); return r[0] || null; }
@@ -146,7 +366,7 @@ export class Comptes extends DurableObject {
     const t = Date.now();
     if (t - s.vu > DUREE_SESSION) { this.sql.exec('DELETE FROM sessions WHERE jeton = ?', h); return null; }
     const c = this.un('SELECT * FROM comptes WHERE cle = ?', s.cle);
-    if (!c) return null;
+    if (!c || c.banni > t) return null;
     if (t - s.vu > 60000) {
       this.sql.exec('UPDATE sessions SET vu = ? WHERE jeton = ?', t, h);
       this.sql.exec('UPDATE comptes SET vu = ? WHERE cle = ?', t, c.cle);
@@ -155,7 +375,8 @@ export class Comptes extends DurableObject {
   }
 
   publicCompte(c) {
-    return { nom: c.nom, cree: c.cree, invisible: !!c.invisible, invitations: c.invitations, admin: c.cle === PROPRIO.cle };
+    const niveau = niveauDe(c.xp || 0);
+    return { nom: c.nom, cree: c.cree, invisible: !!c.invisible, invitations: c.invitations, admin: c.cle === PROPRIO.cle, avatar: avatarDe(c.avatar).id, xp: c.xp || 0, niveau, titre: titreDe(niveau) };
   }
 
   stats(cle) {
@@ -210,6 +431,7 @@ export class Comptes extends DurableObject {
         const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!c) { this.noterEssai(ip, 'echec'); return { erreur: 'Pseudo ou mot de passe incorrect.', statut: 401 }; }
         if (c.bloque > t) return { erreur: `Trop d’erreurs : compte bloqué encore ${Math.ceil((c.bloque - t) / 60000)} min.`, statut: 429 };
+        if (c.banni > t) return { erreur: c.banni > t + 50 * 365 * 86400000 ? 'Ce compte a été banni par l’admin.' : `Ce compte est banni par l’admin jusqu’au ${new Date(c.banni).toLocaleString('fr-FR', { timeZone: 'Europe/Brussels', dateStyle: 'long', timeStyle: 'short' })}.`, statut: 403 };
         const ok = egal(await empreinte(String(d.mdp || ''), c.sel), c.hash);
         if (!ok) {
           this.noterEssai(ip, 'echec');
@@ -225,7 +447,9 @@ export class Comptes extends DurableObject {
       case 'profil': {
         const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!c) return { erreur: 'Ce joueur n’existe pas.', statut: 404 };
-        return { profil: { nom: c.nom, cree: c.cree }, stats: this.stats(c.cle) };
+        const niveau = niveauDe(c.xp || 0);
+        return { profil: { nom: c.nom, cree: c.cree, avatar: avatarDe(c.avatar).id, xp: c.xp || 0, niveau, titre: titreDe(niveau) }, stats: this.stats(c.cle),
+          succes: this.tous('SELECT id, t FROM succes WHERE cle = ? ORDER BY t', c.cle), records: this.tous('SELECT jeu, score FROM records WHERE cle = ?', c.cle) };
       }
 
       case 'existe': {
@@ -257,7 +481,7 @@ export class Comptes extends DurableObject {
       /* ===== verifier : utilisé par les salles de jeu et la présence (interne) ===== */
       case 'verifier': {
         const s = d.jeton ? await this.session(d.jeton) : null;
-        if (s) return { compte: { cle: s.cle, nom: s.nom, invisible: !!s.invisible, invitations: s.invitations } };
+        if (s) return { compte: { cle: s.cle, nom: s.nom, invisible: !!s.invisible, invitations: s.invitations, avatar: avatarDe(s.avatar).id, niveau: niveauDe(s.xp || 0) } };
         const cle = cleCompte(d.nom);
         return { reserve: !!(cle && (formeProprio(d.nom) || this.un('SELECT cle FROM comptes WHERE cle = ?', cle) || MOTS_INTERDITS.has(cle))) };
       }
@@ -267,9 +491,46 @@ export class Comptes extends DurableObject {
           if (!j || !this.un('SELECT cle FROM comptes WHERE cle = ?', j.cle)) continue;
           this.sql.exec(`INSERT INTO stats (cle, jeu, parties, victoires) VALUES (?, ?, 1, ?)
             ON CONFLICT (cle, jeu) DO UPDATE SET parties = parties + 1, victoires = victoires + excluded.victoires`, j.cle, jeu, j.gagne ? 1 : 0);
+          this.evenement(j.cle, { jeu, gagne: !!j.gagne, enligne: true });
         }
         return { ok: true };
       }
+      // les classements de tous les temps (visibles par tout le monde)
+      case 'classements': {
+        const r = {};
+        for (const [jeu, def] of Object.entries(CLASSEMENTS)) {
+          r[jeu] = this.tous(`SELECT c.nom, c.avatar, c.xp, r.score, r.t FROM records r JOIN comptes c ON c.cle = r.cle
+            WHERE r.jeu = ? AND c.banni <= ? ORDER BY r.score ${def.sens === '-' ? 'ASC' : 'DESC'}, r.t ASC LIMIT 10`, jeu, t)
+            .map(x => ({ nom: x.nom, avatar: avatarDe(x.avatar).id, niveau: niveauDe(x.xp || 0), score: x.score }));
+        }
+        const xp = this.tous('SELECT nom, avatar, xp FROM comptes WHERE banni <= ? ORDER BY xp DESC, cree ASC LIMIT 10', t)
+          .map(x => ({ nom: x.nom, avatar: avatarDe(x.avatar).id, niveau: niveauDe(x.xp || 0), score: x.xp || 0 }));
+        return { classements: r, xp };
+      }
+      // statistiques du site (appelé par le serveur : visites, heures, parties)
+      case 'stat': {
+        const types = Array.isArray(d.types) ? d.types.slice(0, 4) : [];
+        const jour = jourDe(t);
+        for (const type of types) {
+          if (typeof type !== 'string' || !/^[a-z0-9:-]{1,30}$/.test(type)) continue;
+          this.sql.exec('INSERT INTO stats_site (jour, type, n) VALUES (?, ?, 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1', jour, type);
+        }
+        return { ok: true };
+      }
+      // un message envoyé dans le chat (pour le succès « Bavard »)
+      case 'chat-message': {
+        const c = this.un('SELECT cle FROM comptes WHERE cle = ?', String(d.cle || ''));
+        if (!c) return { ok: false };
+        this.sql.exec('UPDATE comptes SET chat = chat + 1 WHERE cle = ?', c.cle);
+        this.evenement(c.cle, null);
+        return { ok: true };
+      }
+      // fin d'un match de tournoi (appelé par une table de jeu)
+      case 'tournoi-resultat':
+        return this.resultatTournoi(String(d.jeu || ''), String(d.code || ''), String(d.gagnant || ''), Array.isArray(d.joueurs) ? d.joueurs.map(String) : []);
+      case 'tournois':
+        return { tournois: this.listeTournois() };
+
       case 'vu': {
         this.sql.exec('UPDATE comptes SET vu = ? WHERE cle = ?', t, String(d.cle || ''));
         return { ok: true };
@@ -336,6 +597,7 @@ export class Comptes extends DurableObject {
         } else {
           this.sql.exec('INSERT OR IGNORE INTO amis (de, a, accepte, cree) VALUES (?, ?, 0, ?)', moi.cle, autre.cle, t);
         }
+        this.evenement(moi.cle, null); this.evenement(autre.cle, null);
         return { amis: this.listeAmis(moi.cle) };
       }
 
@@ -344,16 +606,49 @@ export class Comptes extends DurableObject {
         if (!this.un('SELECT de FROM amis WHERE de = ? AND a = ?', cle, moi.cle)) return { erreur: 'Pas de demande de ce joueur.', statut: 404 };
         this.sql.exec('UPDATE amis SET accepte = 1 WHERE de = ? AND a = ?', cle, moi.cle);
         this.sql.exec('INSERT OR REPLACE INTO amis (de, a, accepte, cree) VALUES (?, ?, 1, ?)', moi.cle, cle, t);
+        this.evenement(moi.cle, null); this.evenement(cle, null);
         return { amis: this.listeAmis(moi.cle) };
+      }
+
+      /* ===== progression : XP, niveaux, succès, défi du jour ===== */
+      case 'progres': {
+        // fin d'une partie d'un jeu (solo ou contre l'ordinateur), envoyée par le site
+        const jeu = String(d.jeu || '');
+        if (!JEUX_PROGRES.has(jeu)) return { erreur: 'Jeu inconnu.', statut: 400 };
+        const k = moi.cle + ':' + jeu;
+        if (t - (this.derniersProgres.get(k) || 0) < 3000) return { ignore: true };
+        this.derniersProgres.set(k, t);
+        if (this.derniersProgres.size > 5000) this.derniersProgres.clear();
+        const sc = Number(d.score);
+        const ev = { jeu, score: Number.isFinite(sc) ? Math.max(-1e9, Math.min(1e9, sc)) : null, gagne: !!d.gagne, enligne: false };
+        this.sql.exec("INSERT INTO stats_site (jour, type, n) VALUES (?, ?, 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1", jourDe(t), 'jeu:' + jeu);
+        return this.evenement(moi.cle, ev);
+      }
+      case 'progres-etat':
+        return this.etatProgres(moi.cle);
+      case 'avatar': {
+        const a = AVATARS.find(x => x.id === d.avatar);
+        if (!a) return { erreur: 'Avatar inconnu.', statut: 400 };
+        if (niveauDe(moi.xp || 0) < a.niveau) return { erreur: `Cet avatar se débloque au niveau ${a.niveau}.`, statut: 403 };
+        this.sql.exec('UPDATE comptes SET avatar = ? WHERE cle = ?', a.id, moi.cle);
+        return { compte: this.publicCompte({ ...moi, avatar: a.id }) };
+      }
+      case 'tournoi-inscrire': {
+        const tr = this.un('SELECT * FROM tournois WHERE id = ?', Number(d.id) || 0);
+        if (!tr) return { erreur: 'Tournoi introuvable.', statut: 404 };
+        if (tr.etat !== 'inscriptions') return { erreur: 'Les inscriptions sont fermées.', statut: 400 };
+        if (d.retirer) this.sql.exec('DELETE FROM tinscrits WHERE tid = ? AND cle = ?', tr.id, moi.cle);
+        else this.sql.exec('INSERT OR IGNORE INTO tinscrits (tid, cle, t) VALUES (?, ?, ?)', tr.id, moi.cle, t);
+        return { tournois: this.listeTournois() };
       }
 
       /* ===== console admin : seulement le compte du propriétaire ===== */
       case 'admin-liste': {
         if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
-        const comptes = this.tous(`SELECT c.cle, c.nom, c.cree, c.vu, c.bloque,
+        const comptes = this.tous(`SELECT c.cle, c.nom, c.cree, c.vu, c.bloque, c.banni, c.xp,
             COALESCE(SUM(s.parties), 0) AS parties, COALESCE(SUM(s.victoires), 0) AS victoires
           FROM comptes c LEFT JOIN stats s ON s.cle = c.cle GROUP BY c.cle ORDER BY c.vu DESC`);
-        return { comptes: comptes.map(c => ({ ...c, bloque: c.bloque > t })) };
+        return { comptes: comptes.map(c => ({ ...c, bloque: c.bloque > t, banni: c.banni > t ? c.banni : 0, niveau: niveauDe(c.xp || 0) })) };
       }
       case 'admin-compte': {
         if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
@@ -394,6 +689,39 @@ export class Comptes extends DurableObject {
         return { stats: this.stats(c.cle) };
       }
 
+      case 'admin-ban': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const c = this.un('SELECT cle, nom FROM comptes WHERE cle = ?', cleCompte(d.nom));
+        if (!c) return { erreur: 'Ce compte n’existe pas.', statut: 404 };
+        if (c.cle === PROPRIO.cle) return { erreur: 'Tu ne peux pas te bannir toi-même.', statut: 400 };
+        const h = Number(d.heures);
+        const jusqua = h < 0 ? t + 100 * 365 * 86400000 : h > 0 ? t + Math.min(h, 24 * 365) * 3600000 : 0;
+        this.sql.exec('UPDATE comptes SET banni = ? WHERE cle = ?', jusqua, c.cle);
+        if (jusqua) this.sql.exec('DELETE FROM sessions WHERE cle = ?', c.cle);
+        return { ok: true, nom: c.nom, banni: jusqua };
+      }
+      case 'admin-stats': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        const depuis = jourDe(t - 29 * 86400000);
+        const lignes = this.tous('SELECT jour, type, n FROM stats_site WHERE jour >= ? ORDER BY jour', depuis);
+        const jours = {};
+        for (let i = 13; i >= 0; i--) jours[jourDe(t - i * 86400000)] = { visites: 0, parties: 0 };
+        const jeux = {}, heures = Array(24).fill(0);
+        for (const l of lignes) {
+          if (l.type === 'visite' && jours[l.jour]) jours[l.jour].visites += l.n;
+          if (l.type.startsWith('jeu:')) { jeux[l.type.slice(4)] = (jeux[l.type.slice(4)] || 0) + l.n; if (jours[l.jour]) jours[l.jour].parties += l.n; }
+          if (l.type.startsWith('heure:')) heures[Number(l.type.slice(6)) % 24] += l.n;
+        }
+        const nb = this.un('SELECT COUNT(*) AS n FROM comptes').n;
+        const nouveaux = this.un('SELECT COUNT(*) AS n FROM comptes WHERE cree > ?', t - 7 * 86400000).n;
+        const actifs = this.un('SELECT COUNT(*) AS n FROM comptes WHERE vu > ?', t - 7 * 86400000).n;
+        return { jours, jeux: Object.entries(jeux).sort((a, b) => b[1] - a[1]), heures, comptes: nb, nouveaux, actifs };
+      }
+      case 'admin-tournoi': {
+        if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
+        return this.adminTournoi(d, t);
+      }
+
       case 'ami-retirer': {
         const cle = cleCompte(d.nom);
         this.sql.exec('DELETE FROM amis WHERE (de = ? AND a = ?) OR (de = ? AND a = ?)', moi.cle, cle, cle, moi.cle);
@@ -405,4 +733,5 @@ export class Comptes extends DurableObject {
 }
 
 // actions que le site a le droit d'appeler (les autres sont réservées au serveur)
-export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires']);
+export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires',
+  'classements', 'tournois', 'progres', 'progres-etat', 'avatar', 'tournoi-inscrire', 'admin-ban', 'admin-stats', 'admin-tournoi']);

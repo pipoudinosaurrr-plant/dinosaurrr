@@ -66,6 +66,7 @@
   <div class="records" id="records"></div>
   <div class="toast" id="toast" hidden></div>
 
+<script src="../assets/progres.js"></script>
 <script>
 (() => {
   'use strict';
@@ -268,6 +269,7 @@
   }
 
   function perdre() {
+    if (window.DinoProgres) DinoProgres.fin('demineur', { gagne: false });
     etat = 'perdu';
     clearInterval(minuterie);
     dessiner();
@@ -277,6 +279,7 @@
     if (revelees === N.c * N.l - N.m) {
       etat = 'gagne';
       clearInterval(minuterie);
+      if (window.DinoProgres) DinoProgres.fin('demineur', { gagne: true });
       cases.forEach(k => { if (k.mine) k.drapeau = true; });
       drapeaux = N.m;
       const records = lire('demineur-records', {});

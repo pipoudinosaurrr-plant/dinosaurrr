@@ -103,6 +103,13 @@
         ecouteurs.add(fn);
       });
     },
+    // chat (il faut un compte) : envoyer un message brut au serveur de présence
+    envoyer(msg) {
+      if (!ws || ws.readyState !== 1) return false;
+      ws.send(JSON.stringify(msg));
+      return true;
+    },
+    get connecte() { return !!(ws && ws.readyState === 1); },
     get actif() { return !!SERVEUR; },
     ecouter(fn) {
       ecouteurs.add(fn);

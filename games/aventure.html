@@ -553,6 +553,7 @@
   function gagner() {
     etat = 'gagne';
     A.son('gagne');
+    A.finPartie('aventure', { gagne: true });
     manette.montrer(false);
     const nv = NIVEAUX[niveau];
     const toutes = piecesPrises >= piecesTotal;

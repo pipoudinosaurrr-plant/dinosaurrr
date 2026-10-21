@@ -170,6 +170,7 @@
     A.son('perdu');
     manette.montrer(false);
     const r = A.record('blocs-score', score);
+    A.finPartie('blocs', { score: Math.floor(score) });
     const rl = A.record('blocs-lignes', lignes);
     setTimeout(() => A.panneau({
       pastille: 'Partie terminée',

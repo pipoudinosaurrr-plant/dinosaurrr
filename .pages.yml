@@ -140,7 +140,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -387,6 +387,14 @@ content:
                   label: "Contacts en ligne"
                 - name: compte
                   label: "Mon compte"
+                - name: halloffame
+                  label: "Hall of Fame"
+                - name: chat
+                  label: "Chat"
+                - name: tournois
+                  label: "Tournois"
+                - name: musique
+                  label: "DinoAmp (musique)"
                 - name: jeu-cercle
                   label: "Jeu : Le Cercle"
                 - name: jeu-dinoio
@@ -514,6 +522,8 @@ content:
         type: select
         options:
           values:
+            - name: volants
+              label: "Dinos volants"
             - name: dino
               label: "Dino rebondissant"
             - name: etoiles

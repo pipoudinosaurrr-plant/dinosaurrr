@@ -51,7 +51,7 @@
     .chiffre { padding: 12px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); }
     .chiffre b { display: block; font-size: 24px; letter-spacing: -.03em; }
     .chiffre span { color: var(--tres-doux); font: 500 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-    .lignes { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .lignes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 0; padding: 0; list-style: none; }
     .lignes li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 12px; border: 1px solid var(--bord); border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 14px; }
     .lignes .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lignes .nom small { display: block; color: var(--tres-doux); font-size: 12px; }
@@ -67,6 +67,33 @@
     .interrupteur input { flex: none; width: 20px; height: 20px; accent-color: #22c55e; }
     .danger { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--bord); }
     a.lien { color: var(--accent); }
+    .onglets button { font-size: 12.5px; padding: 0 2px; }
+    .ligne-entete { display: flex; align-items: center; gap: 12px; margin: 10px 0 8px; }
+    .ligne-entete h1 { margin: 0 0 2px; }
+    .ligne-entete .avatar-dino { flex: none; }
+    .niveau { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--doux); }
+    .niveau b { color: #fde047; }
+    .niveau .xp { font: 500 11.5px var(--mono); color: var(--tres-doux); white-space: nowrap; }
+    .barre-xp { height: 8px; margin: 6px 0 16px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+    .barre-xp i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #22c55e, #fde047); }
+    .defi-carte { display: flex; gap: 10px; align-items: center; padding: 12px; margin-bottom: 14px; border: 1px solid rgba(34, 197, 94, .4); border-radius: 12px; background: rgba(34, 197, 94, .07); font-size: 13.5px; }
+    .defi-carte.fait { border-color: rgba(250, 204, 21, .5); background: rgba(250, 204, 21, .06); }
+    .defi-carte .ico { font-size: 26px; }
+    .defi-carte b { display: block; font-size: 11px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--tres-doux); }
+    .defi-carte small { display: block; color: var(--tres-doux); font-size: 12px; margin-top: 2px; }
+    .grille-succes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    .succes { padding: 10px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); opacity: .5; }
+    .succes.ok { opacity: 1; border-color: rgba(250, 204, 21, .4); background: rgba(250, 204, 21, .05); }
+    .succes .ico { font-size: 24px; display: block; }
+    .succes b { display: block; font-size: 13px; margin: 4px 0 2px; }
+    .succes small { color: var(--tres-doux); font-size: 11.5px; line-height: 1.35; }
+    .grille-avatars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 8px; }
+    .choix-avatar { position: relative; display: grid; place-items: center; padding: 4px; border: 2px solid transparent; border-radius: 12px; background: rgba(255, 255, 255, .03); cursor: pointer; }
+    .choix-avatar svg { width: 100%; height: auto; max-width: 52px; }
+    .choix-avatar.actif { border-color: #fde047; }
+    .choix-avatar.bloque { filter: grayscale(1); opacity: .45; }
+    .choix-avatar span { position: absolute; bottom: 2px; left: 0; right: 0; font: 600 9.5px var(--mono); color: #fff; text-shadow: 0 1px 2px #000; }
+    .petits-succes { display: flex; flex-wrap: wrap; gap: 6px; font-size: 22px; }
     .onglet-admin { color: #fde047 !important; }
     .onglets .onglet-admin.actif { background: #fde047; color: #000 !important; }
     .bloc-admin { margin-bottom: 8px; }
@@ -79,6 +106,14 @@
     .actions-admin .ligne > select { flex: 1.4; min-width: 0; }
     .actions-admin .ligne > .btn { height: 36px; }
     .actions-admin a.btn { justify-self: start; text-decoration: none; }
+    .titre-graphe { margin: 14px 0 6px; color: var(--tres-doux); font: 600 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .barres { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding-bottom: 16px; }
+    .barre { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; }
+    .barre i { display: block; width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(#fde047, #22c55e); }
+    .barre span { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); color: var(--tres-doux); font: 500 9px var(--mono); white-space: nowrap; }
+    .jauge { display: block; height: 4px; margin-top: 4px; border-radius: 3px; background: rgba(255, 255, 255, .06); }
+    .jauge i { display: block; height: 100%; border-radius: 3px; background: #22c55e; }
+    .compte-admin summary .avatar-dino { flex: none; }
     .badge-rouge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(239, 68, 68, .2); color: #fca5a5; font: 600 10px var(--mono); vertical-align: middle; }
     button.lien { padding: 0; border: 0; background: none; color: var(--doux); font: inherit; text-decoration: underline; cursor: pointer; }
   </style>
@@ -113,17 +148,22 @@
       return new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = res; document.head.append(s); });
     }
 
-    let C = null, P = null;
+    let C = null, P = null, D = null, AV = null;
     let onglet = 'connexion';
     let ongletCompte = 'profil';
     let enLigne = new Set();
 
+    const arrets = [];
     async function demarrer() {
       C = parent('DinoCompte');
       if (!C) { await chargerScript('assets/compte.js'); C = window.DinoCompte; }
       P = parent('DinoPresence');
+      AV = parent('DinoAvatar');
+      if (!AV) { await chargerScript('assets/avatars.js'); AV = window.DinoAvatar; }
+      try { D = await import('./assets/progres-defs.js'); } catch (e) { D = null; }
+      const PR = parent('DinoProgres');
+      if (PR) arrets.push(PR.ecouter(() => { if (C.connecte && !lireProfil()) { C.moi(); if (['profil', 'succes'].includes(ongletCompte)) afficherCompte(); } }));
       if (!C) { carte.innerHTML = '<p class="sous">Impossible de charger les comptes.</p>'; return; }
-      const arrets = [];
       window.addEventListener('pagehide', () => arrets.forEach(f => f()), { once: true });
       if (P) arrets.push(P.ecouter(m => {
         if (m.t !== 'contacts') return;
@@ -132,11 +172,12 @@
       }));
       let dernier = undefined;
       arrets.push(C.ecouter(c => {
-        const etat = c ? c.nom + (c.admin ? '*' : '') + '|' + c.invisible + '|' + c.invitations : null;
+        const etat = c ? c.nom + (c.admin ? '*' : '') + '|' + c.invisible + '|' + c.invitations + '|' + c.avatar + '|' + c.niveau : null;
         if (etat === dernier) { if (c && ongletCompte === 'amis' && !lireProfil()) afficherAmis(); return; }
         const changementPersonne = (dernier ? dernier.split('|')[0] : null) !== (c ? c.nom : null);
         dernier = etat;
         if (changementPersonne || !c) afficher();
+        else if (!lireProfil()) majEntete();
       }));
       window.addEventListener('hashchange', afficher);
     }
@@ -239,20 +280,38 @@
       const recues = C.amis.filter(a => a.statut === 'recue').length;
       carte.innerHTML = `
         <span class="pastille"><span class="point-vert"></span>${c.invisible ? 'Invisible' : 'En ligne'}</span>
-        <h1>${echapper(c.nom)}</h1>
-        <p class="sous">Membre depuis le ${date(c.cree)}</p>
+        <div class="entete-compte" id="entete"></div>
         <div class="onglets" role="tablist">
-          <button data-o="profil" class="${ongletCompte === 'profil' ? 'actif' : ''}">Victoires</button>
+          <button data-o="profil" class="${ongletCompte === 'profil' ? 'actif' : ''}">Profil</button>
+          <button data-o="succes" class="${ongletCompte === 'succes' ? 'actif' : ''}">Succès</button>
           <button data-o="amis" class="${ongletCompte === 'amis' ? 'actif' : ''}">Amis${recues ? `<span class="pastille-n">${recues}</span>` : ''}</button>
           <button data-o="reglages" class="${ongletCompte === 'reglages' ? 'actif' : ''}">Réglages</button>
           ${c.admin ? `<button data-o="admin" class="onglet-admin ${ongletCompte === 'admin' ? 'actif' : ''}">⚡ Admin</button>` : ''}
         </div>
         <div id="contenu"></div>`;
       carte.querySelectorAll('[data-o]').forEach(b => b.addEventListener('click', () => { ongletCompte = b.dataset.o; afficherCompte(); }));
+      majEntete();
       if (ongletCompte === 'profil') afficherStats();
+      else if (ongletCompte === 'succes') afficherSucces();
       else if (ongletCompte === 'amis') { afficherAmis(); C.chargerAmis(); }
       else if (ongletCompte === 'admin' && c.admin) afficherAdmin();
       else afficherReglages();
+    }
+
+    // avatar, pseudo, niveau et barre d'XP
+    function htmlNiveau(c) {
+      if (!D) return '';
+      const n = c.niveau || D.niveauDe(c.xp || 0);
+      const debut = D.xpPourNiveau(n), fin = D.xpPourNiveau(n + 1);
+      const pct = Math.max(0, Math.min(100, ((c.xp || 0) - debut) / (fin - debut) * 100));
+      return `<div class="niveau"><span><b>Niveau ${n}</b> · ${echapper(D.titreDe(n))}</span><span class="xp">${(c.xp || 0).toLocaleString('fr-FR')} / ${fin.toLocaleString('fr-FR')} XP</span></div>
+        <div class="barre-xp"><i style="width:${pct.toFixed(1)}%"></i></div>`;
+    }
+    function majEntete() {
+      const el = $('#entete');
+      const c = C.compte;
+      if (!el || !c) return;
+      el.innerHTML = `<div class="ligne-entete">${AV ? AV.svg(c.avatar, 64) : ''}<div style="min-width:0;flex:1"><h1>${echapper(c.nom)}</h1><p class="sous" style="margin:0">Membre depuis le ${date(c.cree)}</p></div></div>${htmlNiveau(c)}`;
     }
 
     function htmlStats(stats) {
@@ -273,10 +332,27 @@
     async function afficherStats() {
       const zone = $('#contenu');
       zone.innerHTML = '<p class="sous">Chargement…</p>';
-      const d = await C.moi();
+      const [d, e] = await Promise.all([C.moi(), C.api('progres-etat')]);
       if (!$('#contenu') || ongletCompte !== 'profil') return;
       if (!d || d.erreur) { zone.innerHTML = `<p class="message ko">${echapper((d && d.erreur) || 'Erreur')}</p>`; return; }
-      zone.innerHTML = htmlStats(d.stats || []) + '<p class="aide" style="margin-top:12px">Seules les parties en ligne avec au moins 2 vrais joueurs comptent (pas contre les bots tout seul).</p>';
+      majEntete();
+      let defi = '';
+      if (e && e.defi) defi = `<div class="defi-carte ${e.defi.fait ? 'fait' : ''}"><span class="ico">${e.defi.fait ? '✅' : '🎯'}</span><span><b>Défi du jour</b>${echapper(e.defi.texte)}<small>${e.defi.fait ? 'Réussi ! Reviens demain.' : `+${D ? D.XP.defi : 100} XP si tu le réussis aujourd’hui`}${e.serie > 1 ? ` · série de ${e.serie} jours 🔥` : ''}</small></span></div>`;
+      const recs = (e && e.records || []).filter(r => D && D.CLASSEMENTS[r.jeu]);
+      zone.innerHTML = defi + htmlStats(d.stats || [])
+        + '<p class="aide" style="margin-top:8px">Victoires : seules les parties en ligne avec au moins 2 vrais joueurs comptent.</p>'
+        + `<h2>Mes records</h2><ul class="lignes">${recs.length ? recs.map(r => `<li><span class="nom">${echapper(D.CLASSEMENTS[r.jeu].nom)}</span><span class="chiffres-jeu">${Number(r.score).toLocaleString('fr-FR')}</span></li>`).join('') : '<li class="vide">Joue aux jeux solo pour avoir des records (et entrer dans le Hall of Fame).</li>'}</ul>`
+        + (e ? `<p class="aide" style="margin-top:10px">XP des jeux solo aujourd’hui : ${e.xpSoloAujourdhui} / ${D ? D.XP.maxSoloParJour : 300}. Les défis, succès et parties en ligne n’ont pas de limite.</p>` : '');
+    }
+
+    async function afficherSucces() {
+      const zone = $('#contenu');
+      zone.innerHTML = '<p class="sous">Chargement…</p>';
+      const e = await C.api('progres-etat');
+      if (!$('#contenu') || ongletCompte !== 'succes' || !D) return;
+      const faits = new Map((e.succes || []).map(x => [x.id, x.t]));
+      zone.innerHTML = `<p class="sous" style="margin-bottom:10px">${faits.size} / ${D.SUCCES.length} succès débloqués · +${D.XP.succes} XP chacun</p>
+        <div class="grille-succes">${D.SUCCES.map(x => `<div class="succes ${faits.has(x.id) ? 'ok' : ''}" title="${echapper(x.desc)}"><span class="ico">${faits.has(x.id) ? x.icone : '🔒'}</span><b>${echapper(x.nom)}</b><small>${echapper(x.desc)}</small></div>`).join('')}</div>`;
     }
 
     function afficherAmis() {
@@ -331,7 +407,9 @@
     function afficherReglages() {
       const c = C.compte;
       const zone = $('#contenu');
+      const niv = c.niveau || 1;
       zone.innerHTML = `
+        ${D && AV ? `<h2 style="margin-top:0">Mon avatar</h2><div class="grille-avatars">${D.AVATARS.map(a => `<button type="button" class="choix-avatar ${a.id === c.avatar ? 'actif' : ''} ${niv < a.niveau ? 'bloque' : ''}" data-avatar="${a.id}" title="${echapper(a.nom)}${niv < a.niveau ? ' (niveau ' + a.niveau + ')' : ''}">${AV.svg(a.id, 46)}${niv < a.niveau ? `<span>niv. ${a.niveau}</span>` : ''}</button>`).join('')}</div><p class="message" id="msg-avatar" hidden></p>` : ''}
         <div class="interrupteur"><span>Mode invisible<small>Tu n’apparais pas dans la liste des joueurs en ligne.</small></span><input type="checkbox" id="invisible" ${c.invisible ? 'checked' : ''}></div>
         <label for="invitations">Qui peut m’inviter à jouer</label>
         <select id="invitations">
@@ -375,6 +453,13 @@
         setTimeout(() => { const m = $('#msg-reglages'); if (m) m.hidden = true; }, 1500);
       };
       $('#invisible').addEventListener('change', e => reglage({ invisible: e.target.checked }));
+      zone.querySelectorAll('[data-avatar]').forEach(b => b.addEventListener('click', async () => {
+        const d = await C.api('avatar', { avatar: b.dataset.avatar });
+        if (d.erreur) return message($('#msg-avatar'), d.erreur);
+        await C.moi();
+        if (P && P.rafraichir) P.rafraichir();
+        afficherCompte();
+      }));
       $('#invitations').addEventListener('change', e => reglage({ invitations: e.target.value }));
 
       $('#form-mdp').addEventListener('submit', async e => {
@@ -420,6 +505,15 @@
           <div id="admin-site"><p class="sous">Chargement…</p></div>
         </div>
         <div class="bloc-admin">
+          <h2>📊 Statistiques du site</h2>
+          <div id="admin-stats"><p class="sous">Chargement…</p></div>
+        </div>
+        <div class="bloc-admin">
+          <h2>🏆 Tournois</h2>
+          <p class="aide">Crée, lance et arbitre les tournois depuis la page Tournois (les boutons admin y apparaissent pour toi).</p>
+          <a class="btn petit" href="tournoi.html" style="text-decoration:none;display:inline-flex;margin-top:6px">Ouvrir les tournois</a>
+        </div>
+        <div class="bloc-admin">
           <h2 id="titre-comptes">👥 Comptes</h2>
           <input type="text" id="filtre-comptes" placeholder="Chercher un pseudo" autocomplete="off" spellcheck="false">
           <p class="message" id="msg-comptes" hidden></p>
@@ -443,6 +537,32 @@
       $('#filtre-comptes').addEventListener('input', dessinerComptes);
       chargerSite();
       chargerComptes();
+      chargerStats();
+    }
+
+    async function chargerStats() {
+      const d = await C.api('admin-stats');
+      const boite = $('#admin-stats');
+      if (!boite) return;
+      if (d.erreur) { boite.innerHTML = `<p class="message ko">${echapper(d.erreur)}</p>`; return; }
+      const jours = Object.entries(d.jours);
+      const maxV = Math.max(1, ...jours.map(([, v]) => v.visites));
+      const maxH = Math.max(1, ...d.heures);
+      const maxJ = Math.max(1, ...d.jeux.map(x => x[1]));
+      const barres = (liste, max, etiquette, valeur) => `<div class="barres">${liste.map((x, i) => `<div class="barre" title="${etiquette(x, i)} : ${valeur(x)}"><i style="height:${Math.round(valeur(x) / max * 100)}%"></i><span>${etiquette(x, i, true)}</span></div>`).join('')}</div>`;
+      boite.innerHTML = `
+        <div class="chiffres">
+          <div class="chiffre"><b>${d.comptes}</b><span>Comptes</span></div>
+          <div class="chiffre"><b>${d.actifs}</b><span>Actifs 7 j</span></div>
+          <div class="chiffre"><b>${d.nouveaux}</b><span>Nouveaux 7 j</span></div>
+        </div>
+        <h3 class="titre-graphe">Visites par jour (14 derniers jours)</h3>
+        ${barres(jours, maxV, ([j], i, court) => court ? j.slice(8) : j, ([, v]) => v.visites)}
+        <h3 class="titre-graphe">Heures de pointe (30 jours)</h3>
+        ${barres(d.heures, maxH, (x, i, court) => court ? (i % 3 === 0 ? i + 'h' : '') : i + ' h', x => x)}
+        <h3 class="titre-graphe">Jeux les plus joués (30 jours)</h3>
+        <ul class="lignes">${d.jeux.length ? d.jeux.slice(0, 12).map(([j, n]) => `<li><span class="nom">${echapper(j === 'cercle' ? 'Le Cercle' : titreJeu(j))}<span class="jauge"><i style="width:${Math.round(n / maxJ * 100)}%"></i></span></span><span class="chiffres-jeu">${n}</span></li>`).join('') : '<li class="vide">Pas encore de parties enregistrées.</li>'}</ul>
+        <p class="aide">Une « visite » = une page du site ouverte. Les parties comptent le solo des joueurs connectés et toutes les parties en ligne.</p>`;
     }
 
     async function chargerSite() {
@@ -492,7 +612,7 @@
       ul.innerHTML = liste.length ? liste.map(c => `
         <li class="compte-admin">
           <details>
-            <summary><span class="nom">${echapper(c.nom)}${c.bloque ? ' <span class="badge-rouge">bloqué</span>' : ''}<small>vu ${ilYa(c.vu)} · créé le ${date(c.cree)} · ${c.victoires} V / ${c.parties} parties</small></span></summary>
+            <summary>${AV ? AV.svg(c.avatar || 'vert', 30) : ''}<span class="nom" style="margin-left:8px">${echapper(c.nom)}${c.bloque ? ' <span class="badge-rouge">bloqué</span>' : ''}${c.banni ? ` <span class="badge-rouge">banni${c.banni > Date.now() + 50 * 365 * 86400000 ? '' : ' jusqu’au ' + new Date(c.banni).toLocaleDateString('fr-FR')}</span>` : ''}<small>niv. ${c.niveau} · vu ${ilYa(c.vu)} · créé le ${date(c.cree)} · ${c.victoires} V / ${c.parties} parties</small></span></summary>
             <div class="actions-admin" data-nom="${echapper(c.nom)}">
               <a class="btn petit" href="#profil/${encodeURIComponent(c.nom)}">Voir le profil</a>
               <form class="ligne" data-form="victoires">
@@ -505,6 +625,10 @@
                 <input type="text" name="nouveau" placeholder="Nouveau mot de passe" autocomplete="off" aria-label="Nouveau mot de passe">
                 <button class="btn petit" type="submit">Changer</button>
               </form>
+              <div class="ligne">
+                <select data-duree aria-label="Durée du bannissement"><option value="1">1 heure</option><option value="24">1 jour</option><option value="168">1 semaine</option><option value="720">1 mois</option><option value="-1">Pour toujours</option></select>
+                ${c.banni ? '<button class="btn petit" data-ban="0">Débannir</button>' : '<button class="btn petit rouge" data-ban="1">Bannir</button>'}
+              </div>
               <button class="btn petit rouge" data-supprimer>Supprimer ce compte</button>` : ''}
             </div>
           </details>
@@ -526,6 +650,16 @@
         if (r.erreur) return message($('#msg-comptes'), r.erreur);
         f.reset();
         message($('#msg-comptes'), `Mot de passe de ${nom} changé (et compte débloqué). Il/elle a été déconnecté(e) partout.`, true);
+        chargerComptes();
+      }));
+      ul.querySelectorAll('[data-ban]').forEach(b => b.addEventListener('click', async () => {
+        const boite = b.closest('[data-nom]');
+        const nom = boite.dataset.nom;
+        const heures = b.dataset.ban === '0' ? 0 : Number(boite.querySelector('[data-duree]').value);
+        if (heures && !confirm(`Bannir ${nom} ? Il/elle sera déconnecté(e) partout et ne pourra plus se connecter ni écrire dans le chat.`)) return;
+        const r = await C.api('admin-ban', { nom, heures });
+        if (r.erreur) return message($('#msg-comptes'), r.erreur);
+        message($('#msg-comptes'), heures ? `${nom} est banni(e).` : `${nom} n’est plus banni(e).`, true);
         chargerComptes();
       }));
       ul.querySelectorAll('[data-supprimer]').forEach(b => b.addEventListener('click', async () => {
@@ -551,9 +685,10 @@
         const moi = C.connecte && C.compte.nom.toLowerCase() === d.profil.nom.toLowerCase();
         carte.innerHTML = `
           <span class="pastille">Profil joueur</span>
-          <h1>${echapper(d.profil.nom)}</h1>
-          <p class="sous">Membre depuis le ${date(d.profil.cree)}</p>
+          <div class="ligne-entete">${AV ? AV.svg(d.profil.avatar, 64) : ''}<div style="min-width:0;flex:1"><h1>${echapper(d.profil.nom)}</h1><p class="sous" style="margin:0">Membre depuis le ${date(d.profil.cree)}</p></div></div>
+          ${htmlNiveau(d.profil)}
           ${htmlStats(d.stats || [])}
+          ${D && d.succes && d.succes.length ? `<h2>Succès (${d.succes.length})</h2><div class="petits-succes">${d.succes.map(x => { const s = D.SUCCES.find(y => y.id === x.id); return s ? `<span title="${echapper(s.nom + ' : ' + s.desc)}">${s.icone}</span>` : ''; }).join('')}</div>` : ''}
           ${C.connecte && !moi ? (ami ? `<p class="aide" style="margin-top:14px">${ami.statut === 'ami' ? '✓ Vous êtes amis' : ami.statut === 'envoyee' ? 'Demande d’ami envoyée' : 'Il/elle veut être ton ami (va dans Amis)'}</p>`
             : '<button class="btn primaire grand" id="ajouter">Ajouter en ami</button><p class="message" id="msg-profil" hidden></p>') : ''}
           <button class="btn grand" id="retour">← Mon compte</button>`;
@@ -571,8 +706,8 @@
     function lireAncre() {
       const h = location.hash.slice(1);
       if (h === 'creer' || h === 'connexion') onglet = h;
-      if (h === 'amis' || h === 'reglages' || h === 'admin') ongletCompte = h;
-      if (['creer', 'connexion', 'amis', 'reglages', 'admin'].includes(h)) history.replaceState(null, '', location.pathname + location.search);
+      if (['amis', 'reglages', 'admin', 'succes', 'profil'].includes(h)) ongletCompte = h;
+      if (['creer', 'connexion', 'amis', 'reglages', 'admin', 'succes', 'profil'].includes(h)) history.replaceState(null, '', location.pathname + location.search);
     }
     lireAncre();
     window.addEventListener('hashchange', () => { lireAncre(); });

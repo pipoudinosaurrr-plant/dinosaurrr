@@ -163,6 +163,35 @@
     <circle cx="18" cy="13.5" r="1.9" fill="#fff"/><circle cx="18.6" cy="13.3" r=".9" fill="#111"/><circle cx="20.5" cy="17" r="1.9" fill="#fff"/><circle cx="21.1" cy="16.9" r=".9" fill="#111"/>
     <circle cx="25.5" cy="20.5" r="3" fill="#f97316" stroke="#7c2d12" stroke-width=".7"/><circle cx="26.3" cy="19.8" r=".7" fill="#fff"/></svg>`;
 
+  // Hall of Fame : une coupe dorée
+  D.trophee = `<svg viewBox="0 0 32 32"><defs>${lin('trc', '#fde68a', '#d97706')}${lin('trp', '#78350f', '#451a03')}</defs>
+    <path d="M9 5h14v6a7 7 0 0 1-14 0z" fill="url(#trc)" stroke="#92400e"/>
+    <path d="M9 7H5c0 4 2 7 5 7M23 7h4c0 4-2 7-5 7" fill="none" stroke="#b45309" stroke-width="1.6"/>
+    <path d="M14 17h4v4h-4z" fill="#d97706" stroke="#92400e" stroke-width=".8"/>
+    <rect x="10" y="21" width="12" height="3" rx="1" fill="#f59e0b" stroke="#92400e" stroke-width=".8"/>
+    <rect x="8" y="24" width="16" height="4" rx="1" fill="url(#trp)" stroke="#000" stroke-width=".8"/>
+    <path d="M12 7v4a4 4 0 0 0 2 3" stroke="#fff" stroke-opacity=".6" stroke-width="1.3" fill="none"/>
+    <path d="M16 7.5l.9 1.8 2 .3-1.4 1.4.3 2-1.8-.9-1.8.9.3-2-1.4-1.4 2-.3z" fill="#fff7d6"/></svg>`;
+  // Chat : deux bulles
+  D.chat = `<svg viewBox="0 0 32 32"><defs>${lin('chb', '#7dd3fc', '#0284c7')}${lin('chv', '#86efac', '#16a34a')}</defs>
+    <path d="M4 6h17a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H11l-5 4v-4H4a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3z" fill="url(#chb)" stroke="#075985"/>
+    <path d="M12 14h15a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-1v4l-5-4h-9a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3z" fill="url(#chv)" stroke="#14532d"/>
+    <circle cx="16" cy="20" r="1.3" fill="#fff"/><circle cx="20" cy="20" r="1.3" fill="#fff"/><circle cx="24" cy="20" r="1.3" fill="#fff"/>
+    <path d="M5 10h12M5 13.5h8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  // Tournois : un tableau à élimination et une petite coupe
+  D.tournoi = `<svg viewBox="0 0 32 32"><defs>${lin('toc', '#1e3a8a', '#0f172a', 1, 1)}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="url(#toc)" stroke="#020617"/>
+    <g fill="#e5e7eb"><rect x="4.5" y="6" width="6" height="3" rx="1"/><rect x="4.5" y="11" width="6" height="3" rx="1"/><rect x="4.5" y="18" width="6" height="3" rx="1"/><rect x="4.5" y="23" width="6" height="3" rx="1"/></g>
+    <path d="M10.5 7.5h2v5h-2M10.5 19.5h2v5h-2M12.5 10h2.5M12.5 22h2.5M15 10v12M15 16h2.5" fill="none" stroke="#93c5fd" stroke-width="1.2"/>
+    <path d="M19 12h8v3a4 4 0 0 1-8 0z" fill="#facc15" stroke="#a16207" stroke-width=".8"/><rect x="21.6" y="18.5" width="2.8" height="2.5" fill="#eab308"/><rect x="20" y="21" width="6" height="2" rx=".6" fill="#a16207"/></svg>`;
+  // Lecteur de musique : un petit lecteur avec égaliseur
+  D.musique = `<svg viewBox="0 0 32 32"><defs>${lin('muc', '#3f3f46', '#09090b')}${lin('mue', '#4ade80', '#facc15', 0, 1)}</defs>
+    <rect x="2.5" y="5.5" width="27" height="21" rx="3" fill="url(#muc)" stroke="#000"/>
+    <rect x="5" y="8" width="13" height="9" rx="1" fill="#022c22"/>
+    <g fill="url(#mue)"><rect x="6.5" y="12" width="1.6" height="4"/><rect x="9" y="10" width="1.6" height="6"/><rect x="11.5" y="13" width="1.6" height="3"/><rect x="14" y="9.5" width="1.6" height="6.5"/></g>
+    <path d="M23 9v8.5" stroke="#e5e5e5" stroke-width="1.6"/><path d="M23 9l4 1.5v2.5l-4-1.5" fill="#e5e5e5"/><circle cx="21.5" cy="17.5" r="2" fill="#e5e5e5"/>
+    <g fill="#a1a1aa"><path d="M6 21h3l-1.5 2z"/><rect x="11" y="20.5" width="3" height="3"/><path d="M16 20.5l3 1.5-3 1.5z"/></g><rect x="21" y="21.3" width="6" height="1.4" rx=".7" fill="#22c55e"/></svg>`;
+
   // Data Clicker : une puce
   D.processeur = `<svg viewBox="0 0 32 32"><defs>${lin('k', '#555', '#141414')}${lin('v', '#7af08f', '#15803d')}</defs>
     <g stroke="#d4a82a" stroke-width="1.7"><path d="M11 3v5M16 3v5M21 3v5M11 24v5M16 24v5M21 24v5M3 11h5M3 16h5M3 21h5M24 11h5M24 16h5M24 21h5"/></g>

@@ -87,6 +87,7 @@
     A.son('touche');
     setTimeout(() => A.son('perdu'), 250);
     const r = A.record('flap', score);
+    A.finPartie('flap', { score: Math.floor(score) });
     record = r.record;
     const m = medaille(score);
     setTimeout(() => A.panneau({

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Hall of Fame</title>
+  <link rel="stylesheet" href="games/jeu.css">
+  <style>
+    body { margin: 0; background: radial-gradient(700px 360px at 50% -80px, rgba(250, 204, 21, .08), transparent 70%), #000; }
+    main { max-width: 640px; margin: 0 auto; padding: 18px 14px 40px; }
+    h1 { margin: 6px 0 2px; font-size: 30px; font-weight: 800; letter-spacing: -.05em; }
+    .sous { margin: 0 0 16px; color: var(--doux); font-size: 13.5px; }
+    .defi { display: flex; gap: 12px; align-items: center; padding: 14px; border: 1px solid rgba(34, 197, 94, .4); border-radius: 14px; background: rgba(34, 197, 94, .07); margin-bottom: 18px; }
+    .defi .ico { font-size: 30px; }
+    .defi b { display: block; font-size: 15px; }
+    .defi small { color: var(--doux); font-size: 12.5px; }
+    .defi.fait { border-color: rgba(250, 204, 21, .5); background: rgba(250, 204, 21, .07); }
+    .onglets { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px; scrollbar-width: thin; }
+    .onglets button { flex: none; height: 32px; padding: 0 12px; border: 1px solid var(--bord2); border-radius: 999px; background: transparent; color: var(--doux); font: 600 12.5px inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+    .onglets button.actif { background: #fde047; border-color: #fde047; color: #000; }
+    ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+    li { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 6px 12px 6px 8px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); }
+    li .place { width: 30px; text-align: center; font: 800 16px var(--mono); color: var(--tres-doux); }
+    li:nth-child(1) .place { color: #fde047; } li:nth-child(2) .place { color: #d4d4d8; } li:nth-child(3) .place { color: #f59e0b; }
+    li .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; }
+    li .nom small { display: block; color: var(--tres-doux); font-size: 11.5px; }
+    li .score { font: 700 15px var(--mono); }
+    li.moi { border-color: rgba(250, 204, 21, .5); }
+    li .avatar-dino { flex: none; }
+    .vide { justify-content: center; color: var(--tres-doux); font-size: 13px; }
+    .note { margin-top: 14px; color: var(--tres-doux); font-size: 12px; line-height: 1.5; }
+    a.lien { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="pastille"><span class="point-vert"></span>Hall of Fame</span>
+    <h1>🏆 Les meilleurs du site</h1>
+    <p class="sous">Les records de tous les temps, mis à jour à chaque partie.</p>
+    <div class="defi" id="defi" hidden></div>
+    <div class="onglets" id="onglets"></div>
+    <ol id="liste"><li class="vide">Chargement…</li></ol>
+    <p class="note" id="note"></p>
+  </main>
+  <script src="assets/config.js"></script>
+  <script>
+  (async function () {
+    const $ = id => document.getElementById(id);
+    const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const parent = nom => { try { return window.parent !== window ? window.parent[nom] : null; } catch (e) { return null; } };
+    const charger = src => new Promise(r => { const s = document.createElement('script'); s.src = src; s.onload = r; s.onerror = r; document.head.append(s); });
+    let C = parent('DinoCompte'); if (!C) { await charger('assets/compte.js'); C = window.DinoCompte; }
+    let AV = parent('DinoAvatar'); if (!AV) { await charger('assets/avatars.js'); AV = window.DinoAvatar; }
+    const D = await import('./assets/progres-defs.js');
+
+    // défi du jour (le même pour tout le monde)
+    async function majDefi() {
+      const defi = D.defiDuJour();
+      let fait = false, serie = 0;
+      if (C && C.connecte) { const e = await C.api('progres-etat'); if (e && e.defi) { fait = e.defi.fait; serie = e.serie; } }
+      const el = $('defi');
+      el.hidden = false;
+      el.className = 'defi' + (fait ? ' fait' : '');
+      el.innerHTML = `<span class="ico">${fait ? '✅' : '🎯'}</span><span><b>Défi du jour : ${echapper(defi.texte)}</b><small>${fait ? `Réussi ! Reviens demain pour le prochain.${serie > 1 ? ` Série : ${serie} jours d’affilée 🔥` : ''}` : (C && C.connecte ? `+${D.XP.defi} XP si tu le réussis aujourd’hui.` : 'Connecte-toi à ton compte pour gagner de l’XP avec les défis.')}</small></span>`;
+    }
+
+    let donnees = null, choix = 'xp';
+    const ordre = ['xp', ...Object.keys(D.CLASSEMENTS)];
+    function onglets() {
+      $('onglets').innerHTML = ordre.map(k => `<button data-k="${k}" class="${k === choix ? 'actif' : ''}">${k === 'xp' ? '⭐ Niveaux' : echapper(D.CLASSEMENTS[k].nom)}</button>`).join('');
+    }
+    $('onglets').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; choix = b.dataset.k; onglets(); liste(); });
+    const format = (k, v) => k === 'xp' ? `${Number(v).toLocaleString('fr-FR')} XP` : k === 'reflexes' ? `${v} ms` : Number(v).toLocaleString('fr-FR');
+    function liste() {
+      if (!donnees) return;
+      const l = choix === 'xp' ? donnees.xp : (donnees.classements[choix] || []);
+      const moi = C && C.compte ? C.compte.nom : '';
+      $('liste').innerHTML = l.length ? l.map((x, i) => `
+        <li class="${x.nom === moi ? 'moi' : ''}"><span class="place">${i + 1}</span>${AV ? AV.svg(x.avatar, 36) : ''}
+          <span class="nom">${echapper(x.nom)}<small>niveau ${x.niveau} · ${echapper(D.titreDe(x.niveau))}</small></span>
+          <span class="score">${format(choix, x.score)}</span></li>`).join('')
+        : '<li class="vide">Personne pour l’instant. Sois le premier !</li>';
+    }
+    onglets();
+    majDefi();
+    const r = C ? await C.api('classements') : null;
+    if (r && r.classements) { donnees = r; liste(); }
+    else $('liste').innerHTML = '<li class="vide">Le serveur n’est pas joignable pour l’instant.</li>';
+    $('note').innerHTML = C && C.connecte ? 'Tes records sont envoyés automatiquement à la fin de chaque partie.' : 'Pour apparaître ici, <a class="lien" href="compte.html#creer">crée un compte</a> : tes records seront envoyés à la fin de chaque partie.';
+    const PR = parent('DinoProgres');
+    if (PR) PR.ecouter(() => { C.api('classements').then(x => { if (x.classements) { donnees = x; liste(); } }); majDefi(); });
+  })();
+  </script>
+</body>
+</html>

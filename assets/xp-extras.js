@@ -45,8 +45,18 @@ window.XP_EXTRAS = function (api) {
     if (!a || a.state !== 'running') return;
     if (nom === 'ding') { note(a, 1318.5, 0, .35, { volume: .12 }); note(a, 987.8, .09, .5, { volume: .1 }); }
     if (nom === 'erreur') { note(a, 220, 0, .45, { type: 'triangle', volume: .2 }); note(a, 329.6, 0, .45, { type: 'triangle', volume: .12 }); }
-    if (nom === 'demarrage') [523.3, 392, 659.3, 784].forEach((f, i) => note(a, f, i * .16, 1.3 - i * .1, { type: 'triangle', volume: .1, attaque: .06 }));
-    if (nom === 'arret') [784, 659.3, 523.3, 392].forEach((f, i) => note(a, f, i * .18, .9, { type: 'triangle', volume: .1, attaque: .04 }));
+    if (nom === 'demarrage') {
+      // un accord qui monte doucement, puis une petite mélodie (composition originale)
+      [261.6, 329.6, 392, 523.3].forEach(f => note(a, f, 0, 2.6, { type: 'sine', volume: .045, attaque: .5 }));
+      [130.8].forEach(f => note(a, f, 0, 2.8, { type: 'triangle', volume: .08, attaque: .4 }));
+      [[784, .35], [659.3, .6], [880, .85], [1046.5, 1.15]].forEach(([f, t], i) => note(a, f, t, 1.6 - i * .15, { type: 'triangle', volume: .07, attaque: .03 }));
+      [349.2, 440, 523.3, 698.5].forEach(f => note(a, f, 1.15, 2, { type: 'sine', volume: .035, attaque: .3 }));
+    }
+    if (nom === 'arret') {
+      [[1046.5, 0], [880, .2], [698.5, .4], [523.3, .62]].forEach(([f, t]) => note(a, f, t, 1, { type: 'triangle', volume: .07, attaque: .03 }));
+      [349.2, 440, 523.3].forEach(f => note(a, f, .6, 1.8, { type: 'sine', volume: .04, attaque: .2 }));
+      note(a, 174.6, .6, 2, { type: 'triangle', volume: .07, attaque: .2 });
+    }
     if (nom === 'clic') note(a, 1800, 0, .04, { type: 'square', volume: .03 });
     if (nom === 'corbeille') {
       const n = a.sampleRate * .35, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
@@ -685,6 +695,7 @@ window.XP_EXTRAS = function (api) {
   /* ================= Écrans de veille ================= */
 
   const VEILLES = [
+    { id: 'volants', nom: 'Dinos volants' },
     { id: 'dino', nom: 'Dino rebondissant' },
     { id: 'etoiles', nom: 'Voyage dans les étoiles' },
     { id: 'tuyaux', nom: 'Tuyaux en pixels' },
@@ -716,12 +727,51 @@ window.XP_EXTRAS = function (api) {
     }));
   }
 
+  // ptérodactyle en pixels, ailes en haut (0) ou en bas (1)
+  const PTERO = [
+    ['....kk..............', '...kwwk.............', '...kwwwk......kkk...', '....kwwwk...kkwwwk..', '.....kwwwkkkwwwwwk..', '..kkkkwwwwwwwwwwkk..', '.kwowwwwwwwwwwkk....', 'kkwwwwwwkkkkkk......', '..kkkkkk............'],
+    ['....................', '....................', '.............kkk....', '...kkkkk...kkwwwk...', '..kwowwwkkkwwwwwwk..', 'kkwwwwwwwwwwwwwkk...', '..kkkkwwwwwwwkk.....', '.....kwwwkkk........', '....kwwk............', '....kkk.............']
+  ];
+  function dessinerPtero(g, x, y, couleur, e, image) {
+    PTERO[image].forEach((ligne, j) => [...ligne].forEach((ch, i) => {
+      if (ch === '.') return;
+      g.fillStyle = ch === 'w' ? couleur : '#000';
+      g.fillRect(x + i * e, y + j * e, e, e);
+    }));
+  }
+
   // fait tourner un écran de veille dans une toile ; renvoie une fonction pour l'arrêter
   function animerVeille(type, toile) {
     const g = toile.getContext('2d');
     const W = toile.width, H = toile.height;
     let fini = false, raf = 0;
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    if (type === 'volants') {
+      // des ptérodactyles traversent l'écran en diagonale (comme les fameux grille-pain volants)
+      const couleurs = ['#3fae4f', '#f2b81e', '#ff4fa8', '#3fb7f2', '#ff7a2e', '#b06aff', '#e5e5e5'];
+      const base = Math.max(2, Math.round(W / 300));
+      const nouveau = (partout) => {
+        const e = base * (Math.random() < 0.3 ? 2 : 1);
+        return { x: partout ? Math.random() * W * 1.2 : W + Math.random() * W * 0.5, y: partout ? Math.random() * H - H * 0.2 : -Math.random() * H * 0.6 - 40, e, v: (0.6 + Math.random() * 0.8) * (W / 900) * (e > base ? 1.4 : 1), c: couleurs[Math.floor(Math.random() * couleurs.length)], phase: Math.random() * 10 };
+      };
+      const dinos = Array.from({ length: Math.max(8, Math.round(W * H / 90000)) }, () => nouveau(true));
+      const etoiles = Array.from({ length: 90 }, () => [Math.random() * W, Math.random() * H, Math.random()]);
+      let t = 0;
+      const tour = () => {
+        if (fini) return;
+        t++;
+        g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+        etoiles.forEach(s => { g.fillStyle = s[2] > .85 ? '#fff' : '#3a3a3a'; g.fillRect(Math.round(s[0]), Math.round(s[1]), 1, 1); });
+        dinos.sort((a, b) => a.e - b.e);
+        for (const d of dinos) {
+          d.x -= d.v * 2; d.y += d.v;
+          if (d.x < -25 * d.e || d.y > H + 20) Object.assign(d, nouveau(false));
+          dessinerPtero(g, Math.round(d.x), Math.round(d.y), d.c, d.e, Math.floor((t + d.phase * 10) / 14) % 2);
+        }
+        raf = requestAnimationFrame(tour);
+      };
+      tour();
+    }
     if (type === 'dino') {
       const couleurs = ['#3fae4f', '#f2b81e', '#ff4fa8', '#3fb7f2', '#ff7a2e', '#b06aff', '#ffffff'];
       const e = Math.max(1, Math.round(W / 220));

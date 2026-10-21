@@ -214,6 +214,7 @@
     st.gagnees++; st.meilleurScore = Math.max(st.meilleurScore, score);
     if (st.meilleurTemps === null || temps < st.meilleurTemps) st.meilleurTemps = temps;
     A.stock.ecrire('solitaire-stats', st);
+    A.finPartie('solitaire', { score, gagne: true });
     A.son('gagne');
     // les cartes rebondissent, comme dans Windows
     cascade = { pile: 3, cartes: [], fini: false, t: 0, bonus };

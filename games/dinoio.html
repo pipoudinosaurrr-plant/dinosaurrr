@@ -82,6 +82,7 @@
   </div>
 
   <script src="../assets/config.js"></script>
+  <script src="../assets/progres.js"></script>
   <script type="module">
     import * as M from './dinoio/moteur.js';
     import { obtenirCompte, brancherPseudo, jetonCompte, suivrePresence, texteEnLigne } from './multi/presence.js';
@@ -270,6 +271,7 @@
       vivant = false;
       const record = Math.max(Number(stock.lire('dinoio-record', 0)) || 0, meilleur);
       stock.ecrire('dinoio-record', record);
+      if (window.DinoProgres) DinoProgres.fin('dinoio', { score: meilleur });
       $('mort-titre').textContent = par ? `Mangé par ${par} !` : 'Tu t’es fait manger !';
       $('mort-texte').textContent = `Ta plus grosse taille : ${meilleur}. Ton record : ${record}.`;
       $('mort').hidden = false;

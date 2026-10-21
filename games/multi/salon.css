@@ -192,3 +192,7 @@ input.pseudo-compte { border-color: rgba(34, 197, 94, .45); color: var(--accent-
 .panneau-admin button:hover { border-color: rgba(250, 204, 21, .6); background: #1c1a10; }
 .panneau-admin button span { width: 20px; text-align: center; }
 .note-admin { margin: 4px 2px 0; color: var(--tres-doux); font-size: 11px; line-height: 1.4; }
+
+.avatar-salon { display: inline-flex; flex: none; }
+.avatar-salon svg { display: block; }
+.niveau-salon { color: var(--tres-doux); font: 500 10.5px var(--mono); }

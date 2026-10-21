@@ -153,6 +153,7 @@
       const s = stats();
       if (gagne) { s.serie++; s.gagnes++; s.record = Math.max(s.record, s.serie); } else s.serie = 0;
       A.stock.ecrire('pendu-stats', s);
+      A.finPartie('pendu', { gagne });
       majStats();
     }
     $('message').className = 'message ' + (gagne ? 'gagne' : 'perdu');

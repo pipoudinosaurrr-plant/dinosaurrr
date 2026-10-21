@@ -22,6 +22,22 @@ const stock = {
   ecrire(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* rien */ } }
 };
 
+  // fin d'une partie contre l'ordinateur : XP, succès, défi du jour
+  function progresFin(jeu, infos) {
+    const go = () => { if (window.DinoProgres) window.DinoProgres.fin(jeu, infos); };
+    if (window.DinoProgres) return go();
+    const s = document.createElement('script');
+    s.src = '../assets/progres.js';
+    s.onload = go;
+    document.head.append(s);
+  }
+
+// avatars des joueurs (dans le salon)
+if (!window.DinoAvatar) {
+  try { if (window.parent !== window && window.parent.DinoAvatar) window.DinoAvatar = window.parent.DinoAvatar; } catch (e) { /* rien */ }
+  if (!window.DinoAvatar) { const s = document.createElement('script'); s.src = '../assets/avatars.js'; document.head.append(s); }
+}
+
 export function demarrerJeu(cfg) {
   const { id, moteur } = cfg;
   const zone = cfg.zone;
@@ -270,6 +286,7 @@ export function demarrerJeu(cfg) {
       local.annonce = true;
       clearInterval(local.boucle);
       const classement = e.classement;
+      if (!local.deux && !e.triche) { const c = classement.find(x => x.id === 'moi'); progresFin(cfg.idSite || id, { gagne: !!(c && c.place === 1 && classement.filter(x => x.place === 1).length === 1) }); }
       setTimeout(() => { if (local && ecran === 'jeu') afficherFin(classement, false); }, 1300);
     }
   }
@@ -396,8 +413,8 @@ export function demarrerJeu(cfg) {
     const suisHote = salle.hote === moi;
     $('.joueurs').innerHTML = salle.joueurs.map(j => `
       <li>
-        <i style="background:${echapper(j.couleur)}"></i>
-        <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}</span>
+        ${j.avatar && window.DinoAvatar ? `<span class="avatar-salon">${window.DinoAvatar.svg(j.avatar, 26)}</span>` : `<i style="background:${echapper(j.couleur)}"></i>`}
+        <span class="nom">${echapper(j.nom)}${j.compte ? ' <span class="verifie" title="Compte vérifié">✓</span>' : ''}${j.niveau ? ` <span class="niveau-salon">niv. ${j.niveau}</span>` : ''}</span>
         ${j.id === moi ? '<span class="tag vert">TOI</span>' : ''}
         ${j.hote ? '<span class="tag">HÔTE</span>' : ''}
         ${j.bot ? '<span class="tag">BOT</span>' : ''}

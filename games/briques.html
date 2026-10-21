@@ -221,6 +221,7 @@
     etat = 'fin';
     manette.montrer(false);
     const r = A.record('briques-score', score);
+    A.finPartie('briques', { score: Math.floor(score) });
     const rn = A.record('briques-niveau', niveau + 1);
     setTimeout(() => A.panneau({
       pastille: 'Partie terminée',

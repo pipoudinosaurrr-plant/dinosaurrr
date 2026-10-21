@@ -1206,6 +1206,12 @@ body.mode-bureau .squelette { border-radius: 0; background: linear-gradient(90de
 .bulle-lien { padding: 0; border: 0; background: none; color: #0033cc; font: inherit; text-decoration: underline; cursor: pointer; }
 .bulle-lien:hover { color: #3366ff; }
 .zone-notif .notif-enligne { position: relative; display: flex; align-items: center; gap: 2px; }
+.zone-notif .notif-chat { position: relative; display: flex; align-items: center; gap: 2px; }
+.zone-notif .notif-chat[hidden] { display: none; }
+.zone-notif .notif-chat span { color: #fff; font: bold calc(10px * var(--t, 1)) var(--xp); text-shadow: 1px 1px #0a3b80; }
+.zone-notif .notif-chat:not(.a-lire) img, .zone-notif .notif-chat:not(.a-lire) svg { filter: grayscale(.8); opacity: .85; }
+.zone-notif .notif-chat.a-lire span { display: inline-grid; place-items: center; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: #e11d48; text-shadow: none; }
+.defi-volet { display: block; line-height: 1.35; }
 .zone-notif .notif-enligne[hidden] { display: none; }
 .zone-notif .notif-enligne span { color: #fff; font: bold calc(10px * var(--t, 1)) var(--xp); text-shadow: 1px 1px #0a3b80; }
 .zone-notif .notif-enligne.seul img, .zone-notif .notif-enligne.seul svg { filter: grayscale(1) brightness(1.15); opacity: .8; }
@@ -1661,3 +1667,24 @@ body.mode-mobile { overflow-x: hidden; background: #000; }
 .m-feuille-boite > .btn { width: 100%; }
 @keyframes m-fondu { from { opacity: 0; } }
 @keyframes m-monte { from { transform: translateY(40px); opacity: 0; } }
+
+/* téléphone : défi du jour et raccourcis Hall of Fame / Chat / Tournois */
+.m-defi { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 12px 14px; border: 1px solid rgba(34, 197, 94, .4); border-radius: 14px; background: rgba(34, 197, 94, .07); }
+.m-defi > span:first-child { font-size: 24px; }
+.m-defi b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--tres-doux, #8a8a8a); }
+.m-defi small { display: block; font-size: 14px; color: #fafafa; line-height: 1.35; }
+.m-raccourcis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 20px; }
+.m-raccourcis button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--bord, rgba(255,255,255,.1)); border-radius: 14px; background: rgba(255, 255, 255, .03); color: #fafafa; font: 600 12.5px inherit; font-family: inherit; }
+.m-raccourcis em { position: absolute; top: 6px; right: 8px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #e11d48; color: #fff; font: 700 11px/18px system-ui; font-style: normal; }
+.m-raccourcis em[hidden] { display: none; }
+
+/* écran « Fermeture de la session… » */
+.fermeture-xp { position: fixed; inset: 0; z-index: 10001; display: flex; flex-direction: column; background: #5a7edc; color: #fff; font: calc(13px * var(--t, 1)) var(--xp); animation: fondu .3s; }
+.fermeture-xp .bande { height: 14%; background: #003399; }
+.fermeture-xp .bande.haut { border-bottom: 2px solid #f5a623; }
+.fermeture-xp .bande.bas { border-top: 2px solid #6d8fe0; }
+.fermeture-xp .milieu { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: radial-gradient(circle at 30% 20%, #8aa8ec, #5a7edc 60%); }
+.fermeture-xp p { margin: 0; font-size: calc(20px * var(--t, 1)); font-weight: bold; text-shadow: 1px 1px 2px rgba(0, 0, 0, .4); }
+.fermeture-xp small { opacity: .85; }
+.fermeture-xp .sablier { width: 28px; height: 28px; border: 4px solid rgba(255, 255, 255, .35); border-top-color: #fff; border-radius: 50%; animation: tourne-xp 0.9s linear infinite; }
+@keyframes tourne-xp { to { transform: rotate(360deg); } }

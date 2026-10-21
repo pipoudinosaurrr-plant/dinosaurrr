@@ -129,6 +129,7 @@
     etat = 'fin';
     A.son('perdu');
     const r = A.record('2048', score);
+    A.finPartie('2048', { score: Math.floor(score) });
     record = r.record;
     const max = Math.max(...tuiles.map(t => t.v));
     const rm = A.record('2048-tuile', max);

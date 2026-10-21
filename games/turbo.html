@@ -540,6 +540,7 @@
     classementFinal = rang;
     const temps = tempsCourse;
     const rTemps = A.record('turbo-' + circuit.id + '-temps', temps, false);
+    A.finPartie('turbo', { gagne: rang === 1 });
     const rTour = A.record('turbo-' + circuit.id + '-tour', meilleurTour, false);
     if (rang === 1) {
       const v = A.stock.lire('arcade-turbo-victoires', 0) + 1;

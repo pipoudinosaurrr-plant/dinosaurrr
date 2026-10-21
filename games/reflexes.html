@@ -55,6 +55,7 @@
 <body>
   <div id="zone" data-etat="accueil" role="button" tabindex="0" aria-live="polite"></div>
 
+<script src="../assets/progres.js"></script>
 <script>
 (() => {
   'use strict';
@@ -135,6 +136,7 @@
   function fin() {
     etat = 'fin';
     const moyenne = Math.round(resultats.reduce((a, b) => a + b, 0) / resultats.length);
+    if (window.DinoProgres) DinoProgres.fin('reflexes', { score: moyenne });
     const [, nom, phrase] = RANGS.find(r => moyenne < r[0]);
     let nouveau = false;
     if (!record || moyenne < record) {

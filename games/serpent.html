@@ -96,6 +96,7 @@
 
   function finir() {
     const r = A.record('serpent-' + mode.id, score);
+    A.finPartie('serpent', { score: Math.floor(score) });
     A.panneau({
       pastille: mode.nom,
       titre: r.nouveau ? '🏅 Nouveau record !' : 'Perdu !',
