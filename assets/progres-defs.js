@@ -66,13 +66,14 @@ export const CLASSEMENTS = {
   reflexes: { nom: 'Test de réflexes (ms)', sens: '-' },
   flipper: { nom: 'Flipper', sens: '+' },
   route: { nom: 'Traverse la route', sens: '+' },
-  tuyaux: { nom: 'Tuyaux', sens: '+' }
+  tuyaux: { nom: 'Tuyaux', sens: '+' },
+  defense: { nom: 'Tower defense', sens: '+' }
 };
 
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
   'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
-  'flipper', 'route', 'tuyaux', 'uno', 'bomberman']);
+  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }
@@ -113,7 +114,9 @@ export const SUCCES = [
   { id: 'route50', nom: 'Traverseur', desc: 'Avancer de 50 rangées à Traverse la route.', icone: '🚸', test: score('route', 50) },
   { id: 'tuyaux', nom: 'Plombier', desc: 'Faire 5 000 points à Tuyaux.', icone: '🔧', test: score('tuyaux', 5000) },
   { id: 'uno', nom: 'UNO !', desc: 'Gagner une partie de Uno.', icone: '🃏', test: gagne('uno') },
-  { id: 'bomberman', nom: 'Artificier', desc: 'Gagner une partie de Bomberman.', icone: '💣', test: gagne('bomberman') }
+  { id: 'bomberman', nom: 'Artificier', desc: 'Gagner une partie de Bomberman.', icone: '💣', test: gagne('bomberman') },
+  { id: 'loupgarou', nom: 'Flair infaillible', desc: 'Gagner une partie de Loup-garou.', icone: '🐺', test: gagne('loupgarou') },
+  { id: 'defense', nom: 'Stratège', desc: 'Défendre une carte jusqu’au bout au Tower defense.', icone: '🏰', test: gagne('defense') }
 ];
 
 /* ---------- Défi du jour ----------
@@ -142,7 +145,9 @@ export const DEFIS = [
   { texte: 'Avance de 30 rangées à Traverse la route.', jeu: 'route', score: 30 },
   { texte: 'Fais 2 500 points à Tuyaux.', jeu: 'tuyaux', score: 2500 },
   { texte: 'Gagne une partie de Uno.', jeu: 'uno', gagne: true },
-  { texte: 'Gagne une partie de Bomberman.', jeu: 'bomberman', gagne: true }
+  { texte: 'Gagne une partie de Bomberman.', jeu: 'bomberman', gagne: true },
+  { texte: 'Gagne une partie de Loup-garou.', jeu: 'loupgarou', gagne: true },
+  { texte: 'Fais 20 000 points au Tower defense.', jeu: 'defense', score: 20000 }
 ];
 
 // le jour (à Bruxelles) sous la forme 2026-10-21

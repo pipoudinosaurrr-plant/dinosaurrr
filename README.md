@@ -46,6 +46,12 @@ Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (
 
 **Bomberman** (2 à 4 joueurs, moteur dans `games/multi/jeux/bomberman.js`, bots qui esquivent les explosions).
 
+**Loup-garou** (4 à 12 joueurs, moteur dans `games/multi/jeux/loupgarou.js` : loups, voyante, sorcière, chasseur, villageois ; nuits et jours chronométrés, chat du village et chat secret des loups passés au filtre, bots qui discutent et votent).
+
+**Tower defense** (`games/defense.html` : 3 cartes, 5 tours à 3 niveaux, 30 vagues). **Éditeur de niveaux** dans Aventure (« Créer un niveau » : brouillon et 20 niveaux gardés dans le navigateur, code ou lien `#jeu/aventure/AV1…` pour partager).
+
+**Chat** : un salon par jeu à plusieurs et des messages privés entre amis (`chat.html#mp/Pseudo`, gardés par l'objet `Presence` du serveur). **Statistiques admin** (Mon compte → ⚡ Admin) : visites, visiteurs uniques, parties par jeu, heures, téléphone/ordi, comptes actifs, sur 7, 30 ou 90 jours. **Flipper** : 2 tables, Nova et Volcan (orbite, kickback, éruption).
+
 **Appli à installer** : `manifest.webmanifest`, `sw.js` (hors ligne, toujours la dernière version quand on est connecté), `assets/appli.js` (bouton « Installer » dans Moi sur téléphone et dans le menu démarrer), icônes dans `assets/appli/`.
 
 **Profils publics** : `profil.html?nom=Pseudo` (aussi `#profil/Pseudo`), ouverts en cliquant sur un pseudo (Hall of Fame, chat, contacts). Le Hall of Fame a un classement **de la semaine** (remis à zéro le lundi) et affiche le champion de la semaine d'avant.

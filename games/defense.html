@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Défense de la base</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; background: #000; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="jeu" aria-label="Défense de la base"></canvas>
+  <script src="arcade.js"></script>
+<script>
+(() => {
+  'use strict';
+  const A = window.Arcade;
+  const TS = 48, COLS = 16, ROWS = 10;          // cases de 48 px
+  const MX = 0, MY = 44;                        // coin de la carte
+  const PX = COLS * TS;                         // début du panneau de droite
+  const W = PX + 200, H = MY + ROWS * TS + 8;
+  const T = A.toile(document.getElementById('jeu'), { largeur: W, hauteur: H });
+  const ctx = T.ctx;
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const POLICE = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+  A.conseillerPaysage();
+
+  /* ---------- Les cartes (chemins en cases) ---------- */
+  const CARTES = [
+    { id: 'prairie', nom: 'Prairie', sous: 'Un seul chemin, idéal pour commencer', sol: ['#4f8f3a', '#4a8836'], chemin: '#c9a46a', bord: '#a8854f',
+      chemins: [[[-1, 2], [3, 2], [3, 7], [7, 7], [7, 2], [11, 2], [11, 7], [16, 7]]] },
+    { id: 'canyon', nom: 'Canyon', sous: 'Un long serpentin dans la roche', sol: ['#a0613b', '#985a36'], chemin: '#e2c08d', bord: '#b78f5a',
+      chemins: [[[-1, 1], [13, 1], [13, 4], [2, 4], [2, 8], [14, 8], [14, 5], [16, 5]]] },
+    { id: 'glacier', nom: 'Glacier', sous: 'Deux entrées en même temps', sol: ['#cfe3ee', '#c5dbe8'], chemin: '#8fb3c9', bord: '#6f97b0',
+      chemins: [[[-1, 1], [5, 1], [5, 5], [16, 5]], [[-1, 8], [9, 8], [9, 5], [16, 5]]] }
+  ];
+
+  /* ---------- Les tours ---------- */
+  const TOURS = {
+    canon: { nom: 'Canon', prix: 50, portee: 2.6, degats: 5, cadence: 1.1, couleur: '#94a3b8', desc: 'Polyvalent' },
+    mitrailleuse: { nom: 'Mitrailleuse', prix: 75, portee: 2.2, degats: 1.4, cadence: 7, couleur: '#facc15', desc: 'Très rapide, idéale contre les rapides' },
+    glace: { nom: 'Glace', prix: 90, portee: 2.1, degats: 0.6, cadence: 1.4, ralenti: 0.45, couleur: '#7dd3fc', desc: 'Ralentit les ennemis' },
+    mortier: { nom: 'Mortier', prix: 130, portee: 3.8, degats: 9, cadence: 0.45, zone: 1.15, couleur: '#f97316', desc: 'Dégâts de zone, pas contre les volants' },
+    laser: { nom: 'Laser', prix: 220, portee: 3.1, degats: 9, cadence: 0, couleur: '#e879f9', desc: 'Rayon continu qui chauffe, traverse les blindages' }
+  };
+  const ORDRE_TOURS = ['canon', 'mitrailleuse', 'glace', 'mortier', 'laser'];
+  const NIVEAU_MAX = 3;
+  const coutAmelioration = t => Math.round(TOURS[t.type].prix * (0.75 + t.niveau * 0.35));
+  const stat = (t, k) => {
+    const b = TOURS[t.type][k];
+    if (k === 'degats') return b * (1 + (t.niveau - 1) * 0.75);
+    if (k === 'portee') return b * (1 + (t.niveau - 1) * 0.12);
+    if (k === 'cadence') return b * (1 + (t.niveau - 1) * 0.2);
+    if (k === 'ralenti') return Math.min(0.7, b + (t.niveau - 1) * 0.1);
+    return b;
+  };
+
+  /* ---------- Les ennemis ---------- */
+  const ENNEMIS = {
+    normal: { pv: 12, vitesse: 1.35, argent: 6, couleur: '#ef4444', taille: 0.28 },
+    rapide: { pv: 7, vitesse: 2.5, argent: 6, couleur: '#facc15', taille: 0.22 },
+    tank: { pv: 45, vitesse: 0.75, argent: 14, couleur: '#64748b', taille: 0.36, armure: 2.5 },
+    volant: { pv: 14, vitesse: 1.6, argent: 9, couleur: '#a855f7', taille: 0.26, vole: true },
+    boss: { pv: 380, vitesse: 0.6, argent: 120, couleur: '#be123c', taille: 0.46, armure: 4 }
+  };
+  function composerVague(n) {
+    // n commence à 1
+    const groupes = [];
+    const nb = 6 + Math.floor(n * 1.3);
+    const types = ['normal'];
+    if (n >= 3) types.push('rapide');
+    if (n >= 5) types.push('tank');
+    if (n >= 7) types.push('volant');
+    for (let i = 0; i < nb; i++) {
+      const t = n % 5 === 0 && i < nb / 2 ? (n >= 10 && n % 10 === 0 ? 'tank' : 'rapide') : types[Math.floor(Math.random() * types.length)];
+      groupes.push({ type: t, delai: t === 'rapide' ? 0.45 : t === 'tank' ? 1.1 : 0.75 });
+    }
+    if (n % 10 === 0) groupes.push({ type: 'boss', delai: 1.5 });
+    return groupes;
+  }
+  const facteurPv = n => Math.pow(1.115, n - 1) * (1 + n * 0.02);
+  const VAGUES = 30;
+
+  /* ---------- État ---------- */
+  let carte, chemins, grilleChemin, tours, ennemis, tirs, effets, argent, vies, vague, file, prochainEnnemi, enVague, choix, selection, vitesse, etat = 'menu', curseur = null, score, attenteAuto, tuer;
+  let carteChoisie = Number(A.stock.lire('defense-carte', 0)) || 0;
+
+  function preparerChemins() {
+    chemins = carte.chemins.map(pts => {
+      // liste de points au centre des cases, et longueur totale
+      const p = pts.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5 }));
+      let long = 0;
+      const segs = [];
+      for (let i = 0; i < p.length - 1; i++) { const l = Math.hypot(p[i + 1].x - p[i].x, p[i + 1].y - p[i].y); segs.push({ a: p[i], b: p[i + 1], l, debut: long }); long += l; }
+      return { segs, long };
+    });
+    grilleChemin = new Set();
+    for (const c of carte.chemins) for (let i = 0; i < c.length - 1; i++) {
+      const [x1, y1] = c[i], [x2, y2] = c[i + 1];
+      const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+      for (let k = 0; k <= n; k++) grilleChemin.add(Math.round(x1 + (x2 - x1) * k / n) + ',' + Math.round(y1 + (y2 - y1) * k / n));
+    }
+  }
+  function positionSur(chemin, d) {
+    for (const s of chemin.segs) if (d <= s.debut + s.l) { const k = (d - s.debut) / s.l; return { x: s.a.x + (s.b.x - s.a.x) * k, y: s.a.y + (s.b.y - s.a.y) * k }; }
+    const s = chemin.segs[chemin.segs.length - 1];
+    return { x: s.b.x, y: s.b.y };
+  }
+
+  function lancerPartie() {
+    A.fermerPanneau();
+    carte = CARTES[carteChoisie];
+    preparerChemins();
+    tours = []; ennemis = []; tirs = []; effets = [];
+    argent = 160; vies = 20; vague = 0; file = []; prochainEnnemi = 0; enVague = false; choix = null; selection = null; vitesse = 1; score = 0; attenteAuto = 0; tuer = 0;
+    etat = 'jeu';
+  }
+
+  function vagueSuivante() {
+    if (vague >= VAGUES || etat !== 'jeu') return;
+    // lancer plus tôt rapporte un petit bonus
+    if (enVague && file.length) return;
+    if (enVague && ennemis.length) { const bonus = 5 + vague; argent += bonus; effets.push({ type: 'texte', x: PX / TS / 2, y: 1, t: 1.2, texte: `+${bonus} (en avance)`, couleur: '#facc15' }); }
+    vague++;
+    enVague = true;
+    const fp = facteurPv(vague);
+    file = composerVague(vague).map((g, i) => ({ ...g, chemin: i % chemins.length, fp }));
+    prochainEnnemi = 0.3;
+    A.son('decompte');
+  }
+
+  /* ---------- Mise à jour ---------- */
+  function avancer(dt) {
+    // apparition
+    if (file.length) {
+      prochainEnnemi -= dt;
+      if (prochainEnnemi <= 0) {
+        const g = file.shift();
+        const def = ENNEMIS[g.type];
+        ennemis.push({ type: g.type, pv: def.pv * g.fp, pvMax: def.pv * g.fp, d: 0, chemin: g.chemin, lent: 0, ralenti: 0, x: -1, y: 0 });
+        prochainEnnemi = g.delai;
+      }
+    }
+    // déplacement
+    for (const e of ennemis) {
+      const def = ENNEMIS[e.type];
+      if (e.lent > 0) e.lent -= dt; else e.ralenti = 0;
+      e.d += def.vitesse * (1 - e.ralenti) * dt;
+      const c = chemins[e.chemin];
+      if (def.vole) {
+        // les volants coupent un peu les virages (ils suivent le chemin, mais en ligne plus directe)
+        const p = positionSur(c, e.d + 0.6);
+        e.x = e.x < -0.5 ? p.x : e.x + (p.x - e.x) * Math.min(1, dt * 3);
+        e.y = e.y === 0 && e.x < 0 ? p.y : e.y + (p.y - e.y) * Math.min(1, dt * 3);
+      } else { const p = positionSur(c, e.d); e.x = p.x; e.y = p.y; }
+      if (e.d >= c.long) { e.arrive = true; vies -= e.type === 'boss' ? 10 : 1; A.son('touche'); effets.push({ type: 'flash', t: 0.3 }); }
+    }
+    ennemis = ennemis.filter(e => !e.arrive && e.pv > 0);
+    if (vies <= 0) { vies = 0; return perdu(); }
+    // tours
+    for (const t of tours) tirer(t, dt);
+    // projectiles
+    for (const p of tirs) {
+      p.t += dt;
+      if (p.type === 'obus') {
+        const k = Math.min(1, p.t / p.duree);
+        p.x = p.x0 + (p.cx - p.x0) * k; p.y = p.y0 + (p.cy - p.y0) * k;
+        if (k >= 1) { p.fini = true; explosion(p); }
+      } else {
+        const e = p.cible;
+        if (!e || e.pv <= 0 || !ennemis.includes(e)) { p.fini = true; continue; }
+        const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy);
+        const v = p.vitesse * dt;
+        if (d <= v + 0.1) { p.fini = true; toucher(e, p.degats, p.tour); if (p.ralenti) { e.ralenti = Math.max(e.ralenti, p.ralenti); e.lent = 1.6; } }
+        else { p.x += dx / d * v; p.y += dy / d * v; }
+      }
+    }
+    tirs = tirs.filter(p => !p.fini);
+    effets = effets.filter(f => (f.t -= dt) > 0);
+    // fin de vague
+    if (enVague && !file.length && !ennemis.length) {
+      enVague = false;
+      const bonus = 20 + vague * 3;
+      argent += bonus;
+      effets.push({ type: 'texte', x: PX / TS / 2, y: ROWS / 2, t: 1.6, texte: `Vague ${vague} terminée ! +${bonus}`, couleur: '#4ade80' });
+      A.son('bonus');
+      if (vague >= VAGUES) return gagne();
+      attenteAuto = 6;
+    }
+    if (!enVague && vague > 0 && vague < VAGUES && attenteAuto > 0) { attenteAuto -= dt; if (attenteAuto <= 0) vagueSuivante(); }
+  }
+
+  function cibleDe(t) {
+    const r = stat(t, 'portee');
+    const dans = ennemis.filter(e => e.pv > 0 && Math.hypot(e.x - t.x - 0.5, e.y - t.y - 0.5) <= r && !(t.type === 'mortier' && (ENNEMIS[e.type].vole || Math.hypot(e.x - t.x - 0.5, e.y - t.y - 0.5) < 1)));
+    if (!dans.length) return null;
+    if (t.mode === 'fort') return dans.reduce((a, b) => (b.pv > a.pv ? b : a));
+    if (t.mode === 'proche') return dans.reduce((a, b) => (Math.hypot(b.x - t.x - .5, b.y - t.y - .5) < Math.hypot(a.x - t.x - .5, a.y - t.y - .5) ? b : a));
+    return dans.reduce((a, b) => (b.d > a.d ? b : a));   // le plus avancé
+  }
+  function tirer(t, dt) {
+    const e = cibleDe(t);
+    if (t.type === 'laser') {
+      if (!e) { t.chauffe = 0; t.cible = null; return; }
+      if (t.cible !== e) { t.cible = e; t.chauffe = 0; }
+      t.chauffe = Math.min(3, t.chauffe + dt * 0.8);
+      t.angle = Math.atan2(e.y - t.y - 0.5, e.x - t.x - 0.5);
+      toucher(e, stat(t, 'degats') * (1 + t.chauffe) * dt, t, true);
+      return;
+    }
+    t.recharge -= dt;
+    if (!e) return;
+    t.angle = Math.atan2(e.y - t.y - 0.5, e.x - t.x - 0.5);
+    if (t.recharge > 0) return;
+    t.recharge = 1 / stat(t, 'cadence');
+    const x = t.x + 0.5, y = t.y + 0.5;
+    if (t.type === 'mortier') {
+      tirs.push({ type: 'obus', x0: x, y0: y, x, y, cx: e.x, cy: e.y, t: 0, duree: 0.7, degats: stat(t, 'degats'), zone: TOURS.mortier.zone, tour: t });
+      A.son('tir');
+    } else {
+      tirs.push({ type: t.type, x, y, cible: e, vitesse: t.type === 'mitrailleuse' ? 16 : 11, degats: stat(t, 'degats'), ralenti: t.type === 'glace' ? stat(t, 'ralenti') : 0, tour: t, t: 0 });
+      if (t.type !== 'mitrailleuse' || Math.random() < 0.25) A.son(t.type === 'glace' ? 'petite' : 'tir');
+    }
+  }
+  function explosion(p) {
+    effets.push({ type: 'boum', x: p.cx, y: p.cy, r: p.zone, t: 0.35 });
+    A.son('explosion');
+    for (const e of ennemis) if (!ENNEMIS[e.type].vole && Math.hypot(e.x - p.cx, e.y - p.cy) <= p.zone) toucher(e, p.degats, p.tour);
+  }
+  function toucher(e, degats, tour, perceArmure) {
+    if (e.pv <= 0) return;
+    const armure = perceArmure ? 0 : (ENNEMIS[e.type].armure || 0);
+    const d = Math.max(degats * 0.2, degats - armure * (degats < 1 ? degats : 1));
+    e.pv -= d;
+    if (tour) tour.degatsTotal = (tour.degatsTotal || 0) + d;
+    if (e.pv <= 0) {
+      const gain = ENNEMIS[e.type].argent + Math.floor(vague / 4);
+      argent += gain;
+      tuer++;
+      score += Math.round(ENNEMIS[e.type].argent * 10 * facteurPv(vague));
+      effets.push({ type: 'texte', x: e.x, y: e.y - 0.3, t: 0.7, texte: '+' + gain, couleur: '#facc15' });
+      effets.push({ type: 'mort', x: e.x, y: e.y, couleur: ENNEMIS[e.type].couleur, t: 0.4 });
+      if (e.type === 'boss') A.son('explosion'); else if (Math.random() < 0.5) A.son('petite');
+    }
+  }
+
+  /* ---------- Construire, améliorer, vendre ---------- */
+  const caseLibre = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS && !grilleChemin.has(x + ',' + y) && !tours.some(t => t.x === x && t.y === y) && !(carte.rochers || []).some(([rx, ry]) => rx === x && ry === y);
+  function construire(x, y) {
+    if (!choix || !caseLibre(x, y)) return false;
+    const def = TOURS[choix];
+    if (argent < def.prix) { A.son('touche'); return false; }
+    argent -= def.prix;
+    const t = { type: choix, x, y, niveau: 1, recharge: 0, angle: -Math.PI / 2, mode: 'premier', paye: def.prix, chauffe: 0 };
+    tours.push(t);
+    A.son('pose');
+    selection = t;
+    if (argent < def.prix) choix = null;
+    return true;
+  }
+  function ameliorer(t) {
+    if (t.niveau >= NIVEAU_MAX) return;
+    const c = coutAmelioration(t);
+    if (argent < c) { A.son('touche'); return; }
+    argent -= c; t.paye += c; t.niveau++;
+    A.son('bonus');
+    effets.push({ type: 'texte', x: t.x + 0.5, y: t.y, t: 0.8, texte: 'Niveau ' + t.niveau, couleur: '#4ade80' });
+  }
+  function vendre(t) {
+    const rend = Math.round(t.paye * 0.7);
+    argent += rend;
+    tours = tours.filter(x => x !== t);
+    selection = null;
+    A.son('piece');
+    effets.push({ type: 'texte', x: t.x + 0.5, y: t.y + 0.3, t: 0.8, texte: '+' + rend, couleur: '#facc15' });
+  }
+
+  /* ---------- Fin ---------- */
+  function sauverProgres(reussi) {
+    const meilleur = A.stock.lire('defense-' + carte.id, 0);
+    if (vague > meilleur) A.stock.ecrire('defense-' + carte.id, vague);
+    if (reussi) A.stock.ecrire('defense-debloque', Math.max(A.stock.lire('defense-debloque', 0), Math.min(CARTES.length - 1, carteChoisie + 1)));
+  }
+  function gagne() {
+    etat = 'fin';
+    score += vies * 500 + argent;
+    sauverProgres(true);
+    const etoiles = vies >= 18 ? 3 : vies >= 10 ? 2 : 1;
+    A.stock.ecrire('defense-etoiles-' + carte.id, Math.max(A.stock.lire('defense-etoiles-' + carte.id, 0), etoiles));
+    const r = A.record('defense', score);
+    A.finPartie('defense', { score, gagne: true });
+    A.son('gagne');
+    A.panneau({
+      pastille: carte.nom, titre: 'Base défendue ! ' + '★'.repeat(etoiles) + '☆'.repeat(3 - etoiles),
+      texte: carteChoisie + 1 < CARTES.length ? `La carte « ${CARTES[carteChoisie + 1].nom} » est débloquée.` : 'Tu as défendu toutes les cartes, bravo !',
+      lignes: [['Score', A.format(score)], ['Vies restantes', vies + ' / 20'], ['Ennemis éliminés', String(tuer)], ['Record', A.format(r.record)]],
+      boutons: [{ texte: 'Carte suivante', primaire: true, action: () => { carteChoisie = Math.min(CARTES.length - 1, carteChoisie + 1); A.stock.ecrire('defense-carte', carteChoisie); lancerPartie(); } }, { texte: 'Menu', action: menu }]
+    });
+  }
+  function perdu() {
+    etat = 'fin';
+    sauverProgres(false);
+    const r = A.record('defense', score);
+    A.finPartie('defense', { score, gagne: false });
+    A.son('perdu');
+    A.panneau({
+      pastille: carte.nom, titre: 'La base est tombée…',
+      texte: `Tu as tenu jusqu’à la vague ${vague} sur ${VAGUES}.`,
+      lignes: [['Score', A.format(score)], ['Ennemis éliminés', String(tuer)], ['Record', A.format(r.record)]],
+      boutons: [{ texte: 'Rejouer', primaire: true, action: lancerPartie }, { texte: 'Menu', action: menu }]
+    });
+  }
+
+  /* ---------- Dessin ---------- */
+  const px = x => MX + x * TS, py = y => MY + y * TS;
+  function dessinerCarte() {
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      ctx.fillStyle = carte.sol[(x + y) % 2]; ctx.fillRect(px(x), py(y), TS, TS);
+    }
+    // décor : quelques touffes (toujours les mêmes)
+    let s = 3 + carteChoisie * 17; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 40; i++) {
+      const x = Math.floor(r() * COLS), y = Math.floor(r() * ROWS);
+      if (grilleChemin.has(x + ',' + y)) continue;
+      ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.arc(px(x) + r() * TS, py(y) + r() * TS, 3 + r() * 4, 0, Math.PI * 2); ctx.fill();
+    }
+    // chemins
+    for (const c of carte.chemins) {
+      ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+      for (const [l, coul] of [[TS * 0.92, carte.bord], [TS * 0.74, carte.chemin]]) {
+        ctx.strokeStyle = coul; ctx.lineWidth = l; ctx.beginPath();
+        c.forEach(([x, y], i) => { const X = px(Math.max(-0.5, Math.min(COLS - 0.5, x)) + 0.5), Y = py(y + 0.5); if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+        ctx.stroke();
+      }
+    }
+    // la base (sortie)
+    for (const c of carte.chemins) {
+      const [x, y] = c[c.length - 1];
+      if (x >= COLS) { ctx.fillStyle = '#1e293b'; ctx.fillRect(px(COLS) - 14, py(y) - 6, 14, TS + 12); ctx.fillStyle = '#38bdf8'; ctx.fillRect(px(COLS) - 10, py(y) + 4, 6, TS - 8); }
+    }
+  }
+  function dessinerTour(t, alpha = 1) {
+    const x = px(t.x) + TS / 2, y = py(t.y) + TS / 2, def = TOURS[t.type];
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 14, 17, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#334155'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 18, y - 18, 36, 36, 8) : ctx.rect(x - 18, y - 18, 36, 36); ctx.fill();
+    ctx.fillStyle = '#475569'; ctx.fillRect(x - 15, y - 15, 30, 4);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t.angle);
+    ctx.fillStyle = def.couleur;
+    if (t.type === 'canon') { ctx.fillRect(0, -4, 20, 8); ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.fill(); }
+    if (t.type === 'mitrailleuse') { ctx.fillRect(0, -6, 19, 4); ctx.fillRect(0, 2, 19, 4); ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); }
+    if (t.type === 'glace') { for (let i = 0; i < 6; i++) { ctx.rotate(Math.PI / 3); ctx.fillRect(0, -2, 13, 4); } ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fillStyle = '#e0f2fe'; ctx.fill(); }
+    if (t.type === 'mortier') { ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(4, 0, 7, 0, Math.PI * 2); ctx.fill(); }
+    if (t.type === 'laser') { ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-9, -10); ctx.lineTo(-9, 10); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(10, 0, 3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    // niveau
+    for (let i = 0; i < t.niveau; i++) { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(x - 10 + i * 10, y + 22, 3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  function dessinerEnnemi(e) {
+    const def = ENNEMIS[e.type];
+    const x = px(e.x), y = py(e.y), r = def.taille * TS;
+    if (def.vole) { ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + 16, r * .8, r * .3, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = e.ralenti ? '#7dd3fc' : def.couleur;
+    if (def.vole) {
+      const bat = Math.sin(performance.now() / 70) * 6;
+      ctx.beginPath(); ctx.moveTo(x - r - 6, y - bat); ctx.lineTo(x, y + 2); ctx.lineTo(x + r + 6, y - bat); ctx.lineTo(x, y - 4); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, r * .6, 0, Math.PI * 2); ctx.fill();
+    } else if (e.type === 'tank' || e.type === 'boss') {
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - r, y - r, r * 2, r * 2, 6) : ctx.rect(x - r, y - r, r * 2, r * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x - r, y - r * .2, r * 2, r * .4);
+      if (e.type === 'boss') { ctx.fillStyle = '#fde047'; ctx.font = `800 ${Math.round(r)}px ${POLICE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('☠', x, y + 1); ctx.textBaseline = 'alphabetic'; }
+    } else {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + r * .3, y - r * .2, r * .28, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x + r * .38, y - r * .2, r * .13, 0, Math.PI * 2); ctx.fill();
+    }
+    // barre de vie
+    if (e.pv < e.pvMax) {
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(x - 15, y - r - 9, 30, 4);
+      ctx.fillStyle = e.pv / e.pvMax > 0.5 ? '#4ade80' : e.pv / e.pvMax > 0.25 ? '#facc15' : '#ef4444';
+      ctx.fillRect(x - 15, y - r - 9, 30 * Math.max(0, e.pv / e.pvMax), 4);
+    }
+  }
+  function bouton(x, y, w, h, texte, actif = true, survol = false, couleur = '#1e293b') {
+    ctx.fillStyle = actif ? (survol ? '#334155' : couleur) : '#0f172a';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+    ctx.strokeStyle = actif ? '#475569' : '#1e293b'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = actif ? '#f1f5f9' : '#475569'; ctx.font = `700 12px ${POLICE}`; ctx.textAlign = 'center'; ctx.fillText(texte, x + w / 2, y + h / 2 + 4);
+  }
+  let zones = [];   // zones cliquables du panneau
+  function dessinerPanneau() {
+    zones = [];
+    ctx.fillStyle = '#0b1220'; ctx.fillRect(PX, 0, W - PX, H);
+    ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, PX, MY);
+    // barre du haut
+    ctx.textAlign = 'left'; ctx.font = `800 17px ${MONO}`;
+    ctx.fillStyle = '#facc15'; ctx.fillText('● ' + argent, 12, 28);
+    ctx.fillStyle = '#f87171'; ctx.fillText('♥ ' + vies, 120, 28);
+    ctx.fillStyle = '#e2e8f0'; ctx.fillText(`Vague ${vague}/${VAGUES}`, 210, 28);
+    ctx.fillStyle = '#94a3b8'; ctx.font = `700 13px ${MONO}`; ctx.fillText('Score ' + A.format(score), 380, 28);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#64748b'; ctx.fillText(carte.nom, PX - 12, 28);
+    // tours à construire
+    ctx.textAlign = 'left'; ctx.fillStyle = '#94a3b8'; ctx.font = `700 11px ${MONO}`; ctx.fillText('TOURS', PX + 14, 60);
+    ORDRE_TOURS.forEach((id, i) => {
+      const d = TOURS[id], x = PX + 10, y = 68 + i * 45, w = 180, h = 40;
+      const ok = argent >= d.prix;
+      ctx.fillStyle = choix === id ? '#1d4ed8' : '#111c2e'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 9) : ctx.rect(x, y, w, h); ctx.fill();
+      ctx.strokeStyle = choix === id ? '#93c5fd' : '#1e293b'; ctx.stroke();
+      dessinerTour({ type: id, x: (x + 24 - MX - TS / 2) / TS, y: (y + 20 - MY - TS / 2) / TS, niveau: 0, angle: -0.6 }, ok ? 1 : 0.35);
+      ctx.fillStyle = ok ? '#f1f5f9' : '#64748b'; ctx.font = `700 13px ${POLICE}`; ctx.textAlign = 'left'; ctx.fillText(d.nom, x + 50, y + 17);
+      ctx.fillStyle = ok ? '#facc15' : '#64748b'; ctx.font = `700 12px ${MONO}`; ctx.fillText('● ' + d.prix, x + 50, y + 33);
+      zones.push({ x, y, w, h, faire: () => { choix = choix === id ? null : id; selection = null; } });
+    });
+    // tour sélectionnée
+    let y0 = 306;
+    if (selection) {
+      const t = selection, d = TOURS[t.type];
+      ctx.fillStyle = '#e2e8f0'; ctx.font = `800 14px ${POLICE}`; ctx.fillText(`${d.nom} · niveau ${t.niveau}`, PX + 14, y0);
+      ctx.fillStyle = '#94a3b8'; ctx.font = `500 11.5px ${POLICE}`;
+      ctx.fillText(`Dégâts ${stat(t, 'degats').toFixed(1)}${t.type === 'laser' ? '/s' : ''} · portée ${stat(t, 'portee').toFixed(1)}`, PX + 14, y0 + 18);
+      ctx.fillText(`Total infligé : ${Math.round(t.degatsTotal || 0)}`, PX + 14, y0 + 34);
+      const peut = t.niveau < NIVEAU_MAX;
+      bouton(PX + 10, y0 + 40, 180, 32, peut ? `Améliorer (● ${coutAmelioration(t)})` : 'Niveau maximum', peut && argent >= coutAmelioration(t), false, '#14532d');
+      zones.push({ x: PX + 10, y: y0 + 40, w: 180, h: 32, faire: () => ameliorer(t) });
+      const modes = { premier: 'Cible : la plus avancée', fort: 'Cible : la plus forte', proche: 'Cible : la plus proche' };
+      if (t.type !== 'glace') {
+        bouton(PX + 10, y0 + 76, 180, 27, modes[t.mode]);
+        zones.push({ x: PX + 10, y: y0 + 76, w: 180, h: 27, faire: () => { t.mode = t.mode === 'premier' ? 'fort' : t.mode === 'fort' ? 'proche' : 'premier'; } });
+      }
+      bouton(PX + 10, y0 + 107, 180, 27, `Vendre (● ${Math.round(t.paye * 0.7)})`, true, false, '#7f1d1d');
+      zones.push({ x: PX + 10, y: y0 + 107, w: 180, h: 27, faire: () => vendre(t) });
+    } else if (choix) {
+      ctx.fillStyle = '#94a3b8'; ctx.font = `500 12px ${POLICE}`;
+      ctx.fillText(TOURS[choix].desc, PX + 14, y0, 176);
+      ctx.fillText(A.TACTILE ? 'Touche une case libre.' : 'Clique sur une case libre.', PX + 14, y0 + 18);
+    } else {
+      ctx.fillStyle = '#64748b'; ctx.font = `500 12px ${POLICE}`;
+      ctx.fillText('Choisis une tour, puis', PX + 14, y0); ctx.fillText('une case libre de la carte.', PX + 14, y0 + 16);
+    }
+    // vague, vitesse
+    const yb = H - 92;
+    const texteVague = vague >= VAGUES ? 'Dernière vague' : !enVague ? (vague === 0 ? '▶ Lancer la 1re vague' : `▶ Vague suivante (${Math.ceil(attenteAuto)} s)`) : file.length ? 'Vague en cours…' : '▶▶ Vague suivante (+bonus)';
+    bouton(PX + 10, yb, 180, 38, texteVague, vague < VAGUES && !(enVague && file.length), false, '#1d4ed8');
+    zones.push({ x: PX + 10, y: yb, w: 180, h: 38, faire: vagueSuivante });
+    bouton(PX + 10, yb + 44, 88, 34, `Vitesse ×${vitesse}`);
+    zones.push({ x: PX + 10, y: yb + 44, w: 88, h: 34, faire: () => { vitesse = vitesse === 1 ? 2 : vitesse === 2 ? 3 : 1; } });
+    bouton(PX + 102, yb + 44, 88, 34, 'Pause');
+    zones.push({ x: PX + 102, y: yb + 44, w: 88, h: 34, faire: pause });
+  }
+
+  function dessiner() {
+    T.effacer('#000');
+    if (!carte) return;
+    dessinerCarte();
+    // portée de la tour sélectionnée / survolée
+    const montrer = selection || (choix && curseur && caseLibre(curseur.x, curseur.y) ? { type: choix, x: curseur.x, y: curseur.y, niveau: 1 } : null);
+    if (montrer) {
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px(montrer.x) + TS / 2, py(montrer.y) + TS / 2, stat(montrer, 'portee') * TS, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    if (choix && curseur && curseur.x < COLS) {
+      ctx.fillStyle = caseLibre(curseur.x, curseur.y) ? 'rgba(74,222,128,.25)' : 'rgba(239,68,68,.25)';
+      ctx.fillRect(px(curseur.x), py(curseur.y), TS, TS);
+      if (caseLibre(curseur.x, curseur.y)) dessinerTour({ type: choix, x: curseur.x, y: curseur.y, niveau: 1, angle: -Math.PI / 2 }, 0.5);
+    }
+    for (const t of tours) {
+      dessinerTour(t);
+      if (t === selection) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(px(t.x) + 2, py(t.y) + 2, TS - 4, TS - 4); }
+    }
+    // rayons laser
+    for (const t of tours) if (t.type === 'laser' && t.cible && t.cible.pv > 0) {
+      ctx.save(); ctx.shadowColor = '#e879f9'; ctx.shadowBlur = 10;
+      ctx.strokeStyle = `rgba(240,171,252,${0.6 + t.chauffe * 0.13})`; ctx.lineWidth = 2 + t.chauffe * 1.5;
+      ctx.beginPath(); ctx.moveTo(px(t.x) + TS / 2, py(t.y) + TS / 2); ctx.lineTo(px(t.cible.x), py(t.cible.y)); ctx.stroke(); ctx.restore();
+    }
+    for (const e of ennemis) if (!ENNEMIS[e.type].vole) dessinerEnnemi(e);
+    for (const e of ennemis) if (ENNEMIS[e.type].vole) dessinerEnnemi(e);
+    for (const p of tirs) {
+      if (p.type === 'obus') {
+        const haut = Math.sin(Math.min(1, p.t / p.duree) * Math.PI) * 30;
+        ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(px(p.x), py(p.y) - haut, 6, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = p.type === 'glace' ? '#bae6fd' : p.type === 'mitrailleuse' ? '#fde047' : '#e2e8f0';
+        ctx.beginPath(); ctx.arc(px(p.x), py(p.y), p.type === 'mitrailleuse' ? 2.5 : 4, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    for (const f of effets) {
+      if (f.type === 'boum') { ctx.fillStyle = `rgba(251,146,60,${f.t / 0.35 * 0.6})`; ctx.beginPath(); ctx.arc(px(f.x), py(f.y), f.r * TS * (1.2 - f.t), 0, Math.PI * 2); ctx.fill(); }
+      if (f.type === 'mort') { ctx.strokeStyle = f.couleur; ctx.globalAlpha = f.t / 0.4; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px(f.x), py(f.y), 18 * (1.4 - f.t), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+      if (f.type === 'texte') { ctx.fillStyle = f.couleur; ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = `800 14px ${MONO}`; ctx.textAlign = 'center'; ctx.fillText(f.texte, px(f.x), py(f.y) - (1 - f.t) * 16); ctx.globalAlpha = 1; }
+      if (f.type === 'flash') { ctx.fillStyle = `rgba(239,68,68,${f.t})`; ctx.fillRect(MX, MY, PX, ROWS * TS); }
+    }
+    dessinerPanneau();
+  }
+
+  /* ---------- Commandes ---------- */
+  T.canvas.addEventListener('pointermove', e => {
+    const p = T.point(e);
+    curseur = p.x < PX && p.y > MY ? { x: Math.floor((p.x - MX) / TS), y: Math.floor((p.y - MY) / TS) } : null;
+  });
+  T.canvas.addEventListener('pointerdown', e => {
+    if (etat !== 'jeu') return;
+    const p = T.point(e);
+    const z = zones.find(z => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h);
+    if (z) { A.son('clic'); z.faire(); return; }
+    if (p.x >= PX || p.y < MY) return;
+    const x = Math.floor((p.x - MX) / TS), y = Math.floor((p.y - MY) / TS);
+    curseur = { x, y };
+    const t = tours.find(t => t.x === x && t.y === y);
+    if (t) { selection = t; choix = null; return; }
+    if (choix && construire(x, y)) return;
+    selection = null;
+  });
+  addEventListener('keydown', e => {
+    if (etat !== 'jeu' || A.panneauOuvert) return;
+    const k = { Digit1: 'canon', Digit2: 'mitrailleuse', Digit3: 'glace', Digit4: 'mortier', Digit5: 'laser' }[e.code];
+    if (k) { choix = choix === k ? null : k; selection = null; }
+    if (e.code === 'Space') { e.preventDefault(); vagueSuivante(); }
+    if (e.code === 'KeyU' && selection) ameliorer(selection);
+    if ((e.code === 'Delete' || e.code === 'Backspace') && selection) vendre(selection);
+    if (e.code === 'KeyV') vitesse = vitesse === 1 ? 2 : vitesse === 2 ? 3 : 1;
+    if (e.code === 'Escape') { if (choix || selection) { choix = null; selection = null; } else pause(); }
+    if (e.code === 'KeyP') pause();
+  });
+
+  function pause() {
+    if (etat !== 'jeu') return;
+    etat = 'pause';
+    A.panneau({ titre: 'Pause', lignes: [['Vague', `${vague} / ${VAGUES}`], ['Vies', String(vies)], ['Score', A.format(score)]], boutons: [{ texte: 'Reprendre', primaire: true, action: () => { A.fermerPanneau(); etat = 'jeu'; } }, { texte: 'Recommencer', action: lancerPartie }, { texte: 'Menu', action: menu }] });
+  }
+  A.surPerteFocus = pause;
+
+  function menu() {
+    etat = 'menu';
+    const debloque = A.stock.lire('defense-debloque', 0);
+    if (carteChoisie > debloque) carteChoisie = 0;
+    carte = CARTES[carteChoisie]; preparerChemins(); tours = []; ennemis = []; tirs = []; effets = []; argent = 160; vies = 20; vague = 0; score = 0; file = [];
+    A.panneau({
+      pastille: 'Tower defense', titre: 'Défense de la base',
+      texte: 'Des vagues d’ennemis suivent le chemin vers ta base. Construis des tours pour les arrêter : 30 vagues à tenir !',
+      titreChoix: 'Carte',
+      choix: CARTES.map((c, i) => {
+        const et = A.stock.lire('defense-etoiles-' + c.id, 0), best = A.stock.lire('defense-' + c.id, 0);
+        return { texte: c.nom + (et ? ' ' + '★'.repeat(et) : ''), sous: i > debloque ? '🔒 Gagne la carte d’avant' : best ? `Meilleure vague : ${best}` : c.sous, actif: i === carteChoisie, bloque: i > debloque,
+          action: () => { carteChoisie = i; A.stock.ecrire('defense-carte', i); carte = CARTES[i]; preparerChemins(); } };
+      }),
+      lignes: A.TACTILE ? [['Construire', 'Touche une tour, puis une case'], ['Améliorer / vendre', 'Touche une tour posée']] : [['Construire', 'Clic sur une tour (ou 1 à 5), puis une case'], ['Améliorer / vendre', 'Clic sur une tour posée (U / Suppr)'], ['Vague suivante', 'Espace (en avance = bonus)'], ['Record', A.format(A.record('defense') || 0)]],
+      aide: 'Canon : polyvalent · Mitrailleuse : contre les rapides · Glace : ralentit · Mortier : zone (pas les volants) · Laser : chauffe et perce les blindés.',
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancerPartie }]
+    });
+  }
+
+  A.boutonsCoin(pause);
+  menu();
+  A.boucle(dt => {
+    if (etat === 'jeu') { const n = vitesse; for (let i = 0; i < n; i++) avancer(dt); }
+    dessiner();
+  });
+  window.__defense = { get etat() { return etat; }, get vague() { return vague; }, get vies() { return vies; }, get argent() { return argent; }, get tours() { return tours; }, construireA: (type, x, y) => { choix = type; return construire(x, y); }, ameliorerA: t => ameliorer(t), get chemin() { return [...grilleChemin]; }, vagueSuivante: () => vagueSuivante(), set vitesse(v) { vitesse = v; } };
+})();
+</script>
+</body>
+</html>

@@ -286,7 +286,7 @@ export function demarrerJeu(cfg) {
       local.annonce = true;
       clearInterval(local.boucle);
       const classement = e.classement;
-      if (!local.deux && !e.triche) { const c = classement.find(x => x.id === 'moi'); progresFin(cfg.idSite || id, { gagne: !!(c && c.place === 1 && classement.filter(x => x.place === 1).length === 1) }); }
+      if (!local.deux && !e.triche) { const c = classement.find(x => x.id === 'moi'); progresFin(cfg.idSite || id, { gagne: !!(c && c.place === 1 && classement.some(x => x.place !== 1)) }); }
       setTimeout(() => { if (local && ecran === 'jeu') afficherFin(classement, false); }, 1300);
     }
   }
@@ -456,7 +456,8 @@ export function demarrerJeu(cfg) {
     const c = classement.find(x => x.id === moi);
     const n = classement.length;
     const premiers = classement.filter(x => x.place === 1);
-    $('.fin-titre').textContent = !c ? 'Partie terminée' : c.place === 1 ? (premiers.length > 1 ? 'Égalité.' : 'Victoire.') : `${c.place}e sur ${n}`;
+    const enEquipe = cfg.equipes && premiers.length < n;   // jeux en équipes (Loup-garou) : tout le camp gagnant est 1er
+    $('.fin-titre').textContent = !c ? 'Partie terminée' : enEquipe ? (c.place === 1 ? 'Victoire de ton camp !' : 'Défaite de ton camp.') : c.place === 1 ? (premiers.length > 1 ? 'Égalité.' : 'Victoire.') : `${c.place}e sur ${n}`;
     $('.fin-sous').textContent = c ? c.score : `Gagnant : ${premiers.map(p => p.nom).join(', ')}`;
     $('.classement').innerHTML = classement.map(x => `
       <li class="${x.id === moi ? 'moi' : ''}">

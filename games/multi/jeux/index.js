@@ -11,5 +11,6 @@ import echecs from './echecs.js';
 import hockey from './hockey.js';
 import uno from './uno.js';
 import bomberman from './bomberman.js';
+import loupgarou from './loupgarou.js';
 
-export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno, bomberman };
+export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno, bomberman, loupgarou };

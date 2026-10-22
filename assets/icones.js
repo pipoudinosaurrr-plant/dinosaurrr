@@ -70,6 +70,8 @@ window.ICONES = {
   route: '<path d="M3 6h18M3 18h18"/><path d="M5 12h2.5M10.75 12h2.5M16.5 12H19"/><rect x="9" y="1.5" width="6" height="3" rx="1"/><circle cx="12" cy="21" r="0"/>',
   tuyaux: '<path d="M3 8h7a3 3 0 0 1 3 3v10"/><path d="M3 4v8M21 15h-8"/><path d="M17 12v6"/>',
   bomberman: '<circle cx="11" cy="14" r="6.5"/><path d="M15.5 9.5l2-2"/><path d="M18.5 6.5l1-1M20 9h1.5M17 4V2.5"/><path d="M8.5 12a2.5 2.5 0 0 1 2.5-2"/>',
+  loupgarou: '<circle cx="17" cy="7" r="4"/><path d="M4 21l2-6 2-2 1-4 2-2 1 3 3 1-1 2h-3l1 3 2 5"/>',
+  defense: '<path d="M7 21V10h10v11"/><path d="M6 10V5h3v2h2V5h2v2h2V5h3v5"/><path d="M11 21v-4h2v4"/><path d="M3 21h18"/>',
   telecharger: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
   volume: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',

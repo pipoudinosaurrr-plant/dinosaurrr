@@ -524,7 +524,7 @@ export class Comptes extends DurableObject {
 
       /* ===== verifier : utilisé par les salles de jeu et la présence (interne) ===== */
       // messages privés : les deux joueurs sont-ils amis ? (appelé par le serveur)
-      case 'sont-amis': {
+      case 'ami-mp': {
         const autre = this.un('SELECT cle, nom FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!autre || autre.cle === d.cle) return { ok: false };
         const ami = this.un('SELECT accepte FROM amis WHERE de = ? AND a = ? AND accepte = 1', String(d.cle || ''), autre.cle);

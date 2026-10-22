@@ -647,6 +647,8 @@ export class Table extends DurableObject {
       case 'jeu': {
         if (!this.partie || this.phase !== 'jeu' || !msg.d || typeof msg.d !== 'object') return;
         if (!this.partie.joueurs.some(j => j.id === info.id)) return;
+        // les textes écrits pendant une partie (discussion du Loup-garou, propositions…) passent par le filtre
+        if (typeof msg.d.texte === 'string') msg.d.texte = filtrerChat(msg.d.texte.slice(0, 200));
         const change = this.mod.action(this.partie, info.id, msg.d, Date.now());
         this.publier(change && !this.mod.tempsReel);
         break;
@@ -979,7 +981,7 @@ export class Presence extends DurableObject {
         return this.envoyer(ws, { t: 'mp-liste', liste });
       }
       // l'autre joueur (et vérifier qu'on est bien amis)
-      const v = await this.appelComptes({ action: 'sont-amis', cle: moi.cle, nom: String(msg.avec || '').slice(0, 20) });
+      const v = await this.appelComptes({ action: 'ami-mp', cle: moi.cle, nom: String(msg.avec || '').slice(0, 20) });
       if (!v || !v.ok) return this.envoyer(ws, { t: 'mp-refuse', raison: 'Tu ne peux écrire qu’à tes amis.' });
       const cleConv = 'mpc:' + [moi.cle, v.cle].sort().join('|');
       const conv = (await this.ctx.storage.get(cleConv)) || [];

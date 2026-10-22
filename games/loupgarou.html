@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Loup-garou</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { --ciel: #070b1f; --halo: rgba(129, 140, 248, .16); --or: #c7d2fe; position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 54px 12px max(12px, env(safe-area-inset-bottom)); background: radial-gradient(900px 520px at 50% -10%, var(--halo), transparent 70%), var(--ciel); transition: background .8s; overflow: hidden; }
+    #jeu[hidden] { display: none; }
+    #jeu.jour { --ciel: #1a1206; --halo: rgba(251, 191, 36, .2); --or: #fde68a; }
+    #jeu.fin-loups { --ciel: #1a0606; --halo: rgba(239, 68, 68, .22); }
+
+    .bandeau { grid-column: 1 / -1; display: grid; gap: 6px; text-align: center; }
+    .bandeau h2 { margin: 0; font-size: clamp(17px, 3.4vw, 22px); letter-spacing: -.02em; }
+    .bandeau h2 small { color: var(--doux); font: 600 12px var(--mono); margin-left: 6px; }
+    .consigne { min-height: 20px; color: var(--or); font-size: 14px; }
+    .chrono { justify-self: center; width: min(520px, 92%); height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+    .chrono i { display: block; height: 100%; width: 0; background: var(--or); transition: width .25s linear; }
+    .chrono.urgent i { background: #ef4444; }
+
+    .gauche { min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-bottom: 6px; }
+    .village { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+    .perso { position: relative; display: grid; justify-items: center; gap: 4px; padding: 12px 6px 9px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 14px; background: rgba(0, 0, 0, .35); font: inherit; color: inherit; text-align: center; transition: transform .15s, border-color .15s, box-shadow .15s, opacity .3s; }
+    .perso .tete { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; font-size: 22px; font-weight: 800; color: #fff; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .25); }
+    .perso .nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+    .perso .role { min-height: 15px; color: var(--doux); font-size: 11px; }
+    .perso.moi { border-color: rgba(255, 255, 255, .25); }
+    .perso.moi .nom::after { content: ' (toi)'; color: var(--tres-doux); font-weight: 500; }
+    .perso.mort { opacity: .42; filter: grayscale(.9); }
+    .perso.mort .tete::after { content: '✝'; position: absolute; top: 6px; right: 8px; font-size: 14px; color: #aaa; }
+    .perso.cliquable { cursor: pointer; border-color: color-mix(in srgb, var(--or) 45%, transparent); }
+    .perso.cliquable:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0, 0, 0, .45); }
+    .perso.choisi { border-color: var(--or); box-shadow: 0 0 0 3px color-mix(in srgb, var(--or) 30%, transparent); }
+    .perso.poison { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, .3); }
+    .perso.loup-ami .role { color: #fca5a5; }
+    .perso .voix { position: absolute; top: -7px; right: -5px; min-width: 22px; padding: 1px 6px; border-radius: 999px; background: var(--or); color: #111; font: 800 11px var(--mono); }
+    .perso .vers { color: var(--tres-doux); font-size: 10.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .perso .ok { position: absolute; top: 6px; left: 8px; font-size: 11px; color: #4ade80; }
+
+    .carte-role { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px; background: rgba(0, 0, 0, .4); }
+    .carte-role .grand { font-size: 38px; line-height: 1; }
+    .carte-role b { display: block; font-size: 15px; }
+    .carte-role p { margin: 2px 0 0; color: var(--doux); font-size: 12.5px; line-height: 1.4; }
+    .carte-role .potions { margin-top: 4px; font: 600 11.5px var(--mono); color: var(--tres-doux); }
+    .carte-role[hidden] { display: none; }
+    .carte-role.revelation { animation: retourne .7s cubic-bezier(.2, .9, .3, 1.2); }
+    @keyframes retourne { from { transform: rotateY(90deg) scale(.9); opacity: 0; } }
+
+    .sorciere { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid rgba(168, 85, 247, .35); border-radius: 14px; background: rgba(46, 16, 101, .35); font-size: 13.5px; }
+    .sorciere[hidden] { display: none; }
+    .sorciere .ligne { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .sorciere .btn.actif { background: #22c55e; color: #052e16; border-color: #22c55e; }
+
+    .recit { display: grid; gap: 4px; margin: 0; padding: 10px 14px; border: 1px solid rgba(255, 255, 255, .06); border-radius: 14px; background: rgba(0, 0, 0, .25); list-style: none; font-size: 13px; color: var(--doux); }
+    .recit li:last-child { color: var(--texte); }
+
+    .droite { min-height: 0; display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, .08); border-radius: 14px; background: rgba(0, 0, 0, .4); overflow: hidden; }
+    .droite .titre { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, .06); font-size: 13px; font-weight: 700; }
+    .droite .titre.loups { color: #fca5a5; background: rgba(127, 29, 29, .3); }
+    .fil { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; display: grid; align-content: start; gap: 7px; font-size: 13.5px; -webkit-user-select: text; user-select: text; }
+    .fil .m b { margin-right: 5px; }
+    .fil .vide { color: var(--tres-doux); font-size: 12.5px; }
+    .saisie { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(255, 255, 255, .06); }
+    .saisie input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid var(--bord2); border-radius: 10px; background: #0b0b0b; color: var(--texte); font: inherit; font-size: 14px; -webkit-user-select: text; user-select: text; }
+    .saisie input:disabled { opacity: .45; }
+    .saisie .btn { height: 38px; }
+    .rapides { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 8px 8px; }
+    .rapides button { padding: 4px 9px; border: 1px solid var(--bord2); border-radius: 999px; background: transparent; color: var(--doux); font: 500 12px var(--police); cursor: pointer; }
+    .rapides button:hover { color: var(--texte); border-color: var(--bord3); }
+    .rapides[hidden], #btnPasser[hidden] { display: none; }
+
+    @media (max-width: 760px) {
+      #jeu { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1.2fr) minmax(190px, 1fr); gap: 8px; padding-left: 8px; padding-right: 8px; }
+      .village { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+      .perso { padding: 9px 4px 6px; }
+      .perso .tete { width: 36px; height: 36px; font-size: 17px; }
+      .perso .nom { font-size: 12px; }
+      .carte-role .grand { font-size: 30px; }
+      .recit { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="bandeau">
+      <h2 id="phase">Le village</h2>
+      <div class="consigne" id="consigne"></div>
+      <div class="chrono" id="chrono"><i></i></div>
+    </div>
+    <div class="gauche">
+      <div class="carte-role" id="carteRole"></div>
+      <div class="sorciere" id="sorciere" hidden></div>
+      <div class="village" id="village"></div>
+      <ul class="recit" id="recit"></ul>
+    </div>
+    <div class="droite">
+      <div class="titre" id="titreChat"><span>💬 Discussion du village</span><button class="btn" id="btnPasser" hidden style="height:28px;font-size:12px">J’ai fini de parler</button></div>
+      <div class="fil" id="fil"></div>
+      <div class="rapides" id="rapides"></div>
+      <form class="saisie" id="saisie"><input id="texte" maxlength="200" autocomplete="off" placeholder="Écris un message…"><button class="btn primaire">Envoyer</button></form>
+    </div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper } from './multi/salon.js';
+    import moteur, { ROLES } from './multi/jeux/loupgarou.js';
+
+    const $ = id => document.getElementById(id);
+    const PHASES = {
+      roles: ['🃏 Distribution des rôles', true], loups: ['🌙 La nuit — les loups-garous', true], voyante: ['🔮 La nuit — la voyante', true],
+      sorciere: ['🧪 La nuit — la sorcière', true], aube: ['🌅 L’aube', false], debat: ['💬 Le débat', false], vote: ['🗳️ Le vote', false],
+      resultat: ['⚖️ Le verdict', false], chasseur: ['🏹 Le chasseur', false], fin: ['🏁 Fin de la partie', false], nuitDebut: ['🌙 La nuit', true]
+    };
+
+    /* petits sons */
+    let audio = null;
+    function bip(f1, f2, d, type = 'sine', vol = .06, retard = 0) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audio.currentTime + retard, o = audio.createOscillator(), g = audio.createGain();
+        o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(.08, d / 3)); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + d + .02);
+      } catch (e) { /* rien */ }
+    }
+    const SON = {
+      nuit: () => { bip(330, 520, .5, 'sine', .05); bip(520, 300, 1.1, 'sine', .045, .45); },     // hurlement
+      jour: () => { bip(523, 523, .18, 'triangle', .06); bip(659, 659, .18, 'triangle', .06, .15); bip(784, 784, .3, 'triangle', .06, .3); },
+      mort: () => bip(200, 90, .6, 'sawtooth', .04),
+      msg: () => bip(900, 1100, .05, 'sine', .03),
+      clic: () => bip(600, 700, .05, 'triangle', .05)
+    };
+
+    let vue = null, ctxJeu = null, anciennePhase = '', debutChrono = 0, totalChrono = 1, recuA = 0, nbMsg = 0, nbMsgLoups = 0;
+    let sauver = false, poison = null, roleVu = '';
+
+    const moi = () => vue && vue.j.find(x => x.id === ctxJeu.moi);
+    const vivant = () => { const m = moi(); return !!(m && m.vivant); };
+    const monRole = () => (vue && vue.moi ? vue.moi.role : null);
+
+    // qui puis-je cliquer pendant cette phase ?
+    function cliquable(p) {
+      if (!vue || vue.fini || !vue.moi) return false;
+      const r = monRole();
+      if (vue.phase === 'chasseur') return vue.chasseur === ctxJeu.moi && p.vivant && p.id !== ctxJeu.moi;
+      if (!vivant() || !p.vivant) return false;
+      if (vue.phase === 'loups') return r === 'loup' && p.role !== 'loup';
+      if (vue.phase === 'voyante') return r === 'voyante' && p.id !== ctxJeu.moi && !vue.monVote;
+      if (vue.phase === 'sorciere') return r === 'sorciere' && vue.sorciere && vue.sorciere.mort && !vue.sorciere.fait && p.id !== ctxJeu.moi;
+      if (vue.phase === 'vote') return p.id !== ctxJeu.moi;
+      return false;
+    }
+
+    function consigne() {
+      const r = monRole(), nomV = id => echapper(ctxJeu.nom(id));
+      if (!vue.moi) return 'Tu regardes la partie.';
+      switch (vue.phase) {
+        case 'roles': return `Tu es <b>${ROLES[r].nom}</b>. Garde-le secret !`;
+        case 'loups': return r === 'loup' && vivant() ? (vue.monVote ? `Tu veux dévorer <b>${nomV(vue.monVote)}</b>. Mettez-vous d’accord dans le chat des loups.` : '<b>Choisis une victime</b> avec les autres loups : clique un joueur.') : 'Chut… les loups-garous rôdent dans le village.';
+        case 'voyante': return r === 'voyante' && vivant() ? (vue.vu ? `<b>${nomV(vue.vu.id)}</b> est ${ROLES[vue.vu.role].icone} <b>${ROLES[vue.vu.role].nom}</b>.` : '<b>Clique un joueur</b> pour découvrir son rôle.') : 'La voyante observe le village…';
+        case 'sorciere': return r === 'sorciere' && vivant() ? (vue.sorciere && vue.sorciere.fait ? 'Tes potions sont prêtes. Rendors-toi…' : 'Utilise tes potions (ou pas), puis valide.') : 'La sorcière prépare ses potions…';
+        case 'aube': return 'Le village se réveille…';
+        case 'debat': return vivant() ? 'Discutez ! Qui pourrait être un loup-garou ?' : 'Tu es mort : tu écoutes le débat en silence.';
+        case 'vote': return vivant() ? (vue.monVote ? `Tu votes contre <b>${nomV(vue.monVote)}</b> (tu peux changer).` : '<b>Clique le joueur</b> que tu veux éliminer.') : 'Le village vote…';
+        case 'resultat': return 'Le village a décidé.';
+        case 'chasseur': return vue.chasseur === ctxJeu.moi ? '<b>Tu es mort, mais tu tires une dernière flèche :</b> clique un joueur.' : `${nomV(vue.chasseur)} vise quelqu’un…`;
+        case 'fin': return vue.gagnant === 'village' ? 'Le village est sauvé ! 🌞' : 'Les loups-garous ont gagné… 🌕';
+      }
+      return '';
+    }
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx;
+      const r = monRole();
+      const jour = !(PHASES[v.phase] || [, true])[1];
+      $('jeu').classList.toggle('jour', jour && v.phase !== 'fin');
+      $('jeu').classList.toggle('fin-loups', v.phase === 'fin' && v.gagnant === 'loups');
+      if (v.phase !== anciennePhase) {
+        if (['loups'].includes(v.phase)) SON.nuit();
+        if (v.phase === 'aube') { SON.jour(); }
+        if (['resultat', 'chasseur'].includes(v.phase)) SON.mort();
+        anciennePhase = v.phase;
+        debutChrono = Date.now(); totalChrono = Math.max(1, v.reste);
+        if (v.phase === 'sorciere') { sauver = false; poison = null; }
+      }
+      recuA = Date.now();
+      $('phase').innerHTML = (PHASES[v.phase] || ['Le village'])[0] + (v.nuit ? `<small>nuit ${v.nuit}</small>` : '');
+      $('consigne').innerHTML = consigne();
+
+      // ma carte
+      const cr = $('carteRole');
+      if (r) {
+        const R = ROLES[r];
+        const pot = r === 'sorciere' && v.sorciere ? `<div class="potions">Vie : ${v.sorciere.vie ? '🧪 dispo' : '✗ utilisée'} · Mort : ${v.sorciere.mort ? '☠️ dispo' : '✗ utilisée'}</div>` : '';
+        const autres = r === 'loup' ? v.j.filter(p => p.role === 'loup' && p.id !== ctx.moi).map(p => ctx.nom(p.id)) : [];
+        cr.innerHTML = `<span class="grand">${R.icone}</span><div><b>Tu es ${R.nom}${vivant() ? '' : ' (mort)'}</b><p>${R.desc}${autres.length ? ` Tes complices : <b>${autres.map(echapper).join(', ')}</b>.` : ''}</p>${pot}</div>`;
+        if (roleVu !== r) { cr.classList.remove('revelation'); void cr.offsetWidth; cr.classList.add('revelation'); roleVu = r; }
+        cr.hidden = false;
+      } else cr.hidden = true;
+
+      // panneau de la sorcière
+      const so = $('sorciere');
+      if (v.phase === 'sorciere' && r === 'sorciere' && vivant() && v.sorciere && !v.sorciere.fait) {
+        const vic = v.sorciere.victime;
+        so.hidden = false;
+        so.innerHTML = `
+          <div>${vic ? `🐺 Les loups ont attaqué <b>${echapper(ctx.nom(vic))}</b>${vic === ctx.moi ? ' (toi !)' : ''}.` : 'Les loups n’ont attaqué personne.'}</div>
+          <div class="ligne">
+            ${v.sorciere.vie && vic ? `<button class="btn${sauver ? ' actif' : ''}" id="btnSauver">🧪 ${sauver ? 'Sera sauvé' : 'Sauver'}</button>` : ''}
+            ${v.sorciere.mort ? `<span>☠️ Empoisonner : ${poison ? `<b>${echapper(ctx.nom(poison))}</b> <button class="btn" id="btnAnnulerPoison" style="height:28px">✕</button>` : '<i style="color:var(--doux)">clique un joueur</i>'}</span>` : ''}
+            <button class="btn primaire" id="btnValider">Valider</button>
+          </div>`;
+      } else so.hidden = true;
+
+      // le village
+      const voix = {};
+      for (const p of v.j) if (p.vote) voix[p.vote] = (voix[p.vote] || 0) + 1;
+      $('village').innerHTML = v.j.map(p => {
+        const nom = ctx.nom(p.id);
+        const R = p.role ? ROLES[p.role] : null;
+        const classes = ['perso', p.id === ctx.moi ? 'moi' : '', p.vivant ? '' : 'mort', cliquable(p) ? 'cliquable' : '', v.monVote === p.id || (v.vu && v.vu.id === p.id && v.phase === 'voyante') ? 'choisi' : '', poison === p.id && v.phase === 'sorciere' ? 'poison' : '', r === 'loup' && p.role === 'loup' && p.id !== ctx.moi ? 'loup-ami' : ''].filter(Boolean).join(' ');
+        const tete = R && (!p.vivant || p.id === ctx.moi || v.fini) ? R.icone : echapper((nom[0] || '?').toUpperCase());
+        return `<button class="${classes}" data-id="${echapper(p.id)}" ${cliquable(p) ? '' : 'tabindex="-1"'}>
+          ${voix[p.id] ? `<span class="voix">${voix[p.id]}</span>` : ''}
+          ${v.phase === 'debat' && p.passe ? '<span class="ok">✓</span>' : ''}
+          <span class="tete" style="background:${ctx.couleur(p.id)}">${tete}</span>
+          <span class="nom">${echapper(nom)}</span>
+          <span class="role">${R ? R.nom : p.vivant ? '' : '?'}</span>
+          ${p.vote ? `<span class="vers">→ ${echapper(ctx.nom(p.vote))}</span>` : ''}
+        </button>`;
+      }).join('');
+
+      $('recit').innerHTML = v.recit.slice(-6).map(l => `<li>${echapper(l.texte)}</li>`).join('');
+
+      // la discussion : chat des loups la nuit (pour les loups), sinon le village
+      const chatLoups = v.phase === 'loups' && r === 'loup';
+      const liste = chatLoups ? (v.chatLoups || []) : v.chat;
+      $('titreChat').classList.toggle('loups', chatLoups);
+      $('titreChat').firstChild.textContent = chatLoups ? '🐺 Chat secret des loups' : '💬 Discussion du village';
+      const fil = $('fil');
+      const enBas = fil.scrollHeight - fil.scrollTop - fil.clientHeight < 40;
+      const recit = liste.length ? '' : `<div class="vide">${chatLoups ? 'Seuls les loups voient ces messages.' : 'Le village discute pendant le jour.'}</div>`;
+      fil.innerHTML = recit + liste.map(m => `<div class="m"><b style="color:${ctx.couleur(m.de)}">${echapper(m.nom)}</b>${echapper(m.texte)}</div>`).join('');
+      if (enBas) fil.scrollTop = fil.scrollHeight;
+      const total = chatLoups ? liste.length : v.chat.length;
+      if (total > (chatLoups ? nbMsgLoups : nbMsg) && liste.length && liste[liste.length - 1].de !== ctx.moi) SON.msg();
+      if (chatLoups) nbMsgLoups = total; else nbMsg = total;
+
+      const peutParler = vivant() && !v.fini && (chatLoups || ['debat', 'vote', 'aube', 'resultat'].includes(v.phase));
+      $('texte').disabled = !peutParler;
+      $('texte').placeholder = peutParler ? (chatLoups ? 'Chuchote aux autres loups…' : 'Écris un message…') : (vivant() ? 'Le village dort…' : 'Les morts ne parlent pas…');
+      $('btnPasser').hidden = !(v.phase === 'debat' && vivant());
+      const mePasse = moi() && moi().passe;
+      $('btnPasser').textContent = mePasse ? '✓ Prêt à voter' : 'J’ai fini de parler';
+      const rap = $('rapides');
+      const phrases = chatLoups ? ['On mange qui ?', 'D’accord !', 'Pas lui, il est discret'] : ['Je suis innocent !', 'Qui a un indice ?', 'Je trouve ça louche…', 'D’accord'];
+      rap.hidden = !peutParler;
+      rap.innerHTML = phrases.map(p => `<button type="button">${p}</button>`).join('');
+      majChrono();
+    }
+
+    function majChrono() {
+      if (!vue) return;
+      const reste = Math.max(0, vue.reste - (Date.now() - recuA));
+      const ch = $('chrono');
+      ch.querySelector('i').style.width = (vue.fini ? 0 : reste / totalChrono * 100) + '%';
+      ch.classList.toggle('urgent', reste < 6000 && !vue.fini);
+    }
+    setInterval(majChrono, 250);
+
+    $('village').addEventListener('click', e => {
+      const b = e.target.closest('.perso');
+      if (!b || !vue) return;
+      const p = vue.j.find(x => x.id === b.dataset.id);
+      if (!p || !cliquable(p)) return;
+      SON.clic();
+      if (vue.phase === 'sorciere') { poison = poison === p.id ? null : p.id; afficher(vue, ctxJeu); return; }
+      ctxJeu.envoyer({ t: 'choisir', cible: p.id });
+    });
+    $('sorciere').addEventListener('click', e => {
+      if (e.target.closest('#btnSauver')) { sauver = !sauver; afficher(vue, ctxJeu); }
+      if (e.target.closest('#btnAnnulerPoison')) { poison = null; afficher(vue, ctxJeu); }
+      if (e.target.closest('#btnValider')) ctxJeu.envoyer({ t: 'choisir', sauver, poison });
+    });
+    function envoyerTexte(texte) {
+      texte = texte.trim();
+      if (!texte || $('texte').disabled) return;
+      ctxJeu.envoyer({ t: 'msg', texte });
+    }
+    $('saisie').addEventListener('submit', e => { e.preventDefault(); envoyerTexte($('texte').value); $('texte').value = ''; });
+    $('rapides').addEventListener('click', e => { const b = e.target.closest('button'); if (b) envoyerTexte(b.textContent); });
+    $('btnPasser').addEventListener('click', () => ctxJeu.envoyer({ t: 'passer' }));
+
+    demarrerJeu({
+      id: 'loupgarou',
+      moteur,
+      zone: $('jeu'),
+      titre: 'Loup-garou',
+      intro: 'Des loups-garous se cachent dans le village. La nuit, ils dévorent un villageois ; le jour, tout le monde discute et vote pour éliminer un suspect. Démasque-les… ou, si tu es un loup, ne te fais pas prendre !',
+      regles: [['Ton rôle', 'Regarde ta carte : loup, voyante, sorcière, chasseur ou villageois.'], ['La nuit', 'Si tu as un pouvoir, clique un joueur pour l’utiliser.'], ['Le jour', 'Discute dans le chat, puis clique le joueur à éliminer.'], ['Gagner', 'Village : éliminer tous les loups. Loups : être aussi nombreux que les autres.']],
+      reglesTactile: [['Ton rôle', 'Regarde ta carte en haut.'], ['La nuit', 'Si tu as un pouvoir, touche un joueur.'], ['Le jour', 'Discute, puis touche le joueur à éliminer.'], ['Gagner', 'Village : éliminer tous les loups. Loups : être aussi nombreux que les autres.']],
+      soloBots: 7,
+      equipes: true,
+      debut() { anciennePhase = ''; nbMsg = 0; nbMsgLoups = 0; roleVu = ''; sauver = false; poison = null; },
+      afficher
+    });
+  </script>
+</body>
+</html>

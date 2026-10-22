@@ -192,6 +192,22 @@
     <rect x="3" y="3" width="7" height="7" fill="#4c566a"/><rect x="22" y="22" width="7" height="7" fill="#4c566a"/><rect x="22" y="3" width="7" height="7" fill="#9a6b3d" stroke="#6b4423" stroke-width=".8"/>
     <circle cx="14" cy="18" r="8" fill="url(#bmb)" stroke="#000"/><path d="M19 12.5l3-3" stroke="#a3a3a3" stroke-width="2"/>
     <circle cx="22.8" cy="8.7" r="2.4" fill="#fb923c"/><circle cx="22.8" cy="8.7" r="1.2" fill="#fde047"/><path d="M10.5 14.5a4 4 0 0 1 3-2.5" stroke="#fff" stroke-opacity=".5" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
+  // Loup-garou : un loup qui hurle devant la pleine lune
+  D.loupgarou = `<svg viewBox="0 0 32 32"><defs>${lin('lgc', '#312e81', '#0b1026')}${rad('lgl', '#fefce8', '#fde68a', '#f59e0b', .4, .35)}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="url(#lgc)" stroke="#05081a"/>
+    <circle cx="20" cy="11" r="7" fill="url(#lgl)"/><circle cx="18" cy="9" r="1.2" fill="#fbbf24" opacity=".5"/><circle cx="22" cy="13" r=".9" fill="#fbbf24" opacity=".5"/>
+    <path d="M5 29l2-7 2-2 1-5 2-3 1 3 2-1 1 2 3 1-1 2-3 0 1 3 2 7z" fill="#111827" stroke="#000" stroke-width=".6" stroke-linejoin="round"/>
+    <path d="M12 12l1 3M15 13l-1 2" stroke="#000" stroke-width=".6"/><circle cx="14.2" cy="15" r=".6" fill="#facc15"/>
+    <path d="M3 29h26" stroke="#020617" stroke-width="3"/></svg>`;
+
+  // Tower defense : une tour de défense crénelée sur un chemin
+  D.defense = `<svg viewBox="0 0 32 32"><defs>${lin('tdt', '#cbd5e1', '#64748b')}${lin('tdh', '#4ade80', '#15803d')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="url(#tdh)" stroke="#14532d"/>
+    <path d="M3 22c6-3 9 3 15 0s8-2 11-1v6H3z" fill="#d6b77a" stroke="#a16207" stroke-width=".8"/>
+    <path d="M10 26V12h12v14z" fill="url(#tdt)" stroke="#334155"/>
+    <path d="M9 12V7h3v2h2V7h4v2h2V7h3v5z" fill="#e2e8f0" stroke="#334155" stroke-linejoin="round"/>
+    <rect x="14" y="15" width="4" height="5" rx="2" fill="#1e293b"/><path d="M18 17.5h8" stroke="#334155" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="27.5" cy="17.5" r="1.6" fill="#facc15"/></svg>`;
   // Installer l'appli : un téléphone et une flèche verte
   D.telecharger = `<svg viewBox="0 0 32 32"><defs>${lin('tlt', '#3a3a3a', '#0e0e0e')}${lin('tlf', '#86efac', '#16a34a')}</defs>
     <rect x="8.5" y="2.5" width="15" height="27" rx="3" fill="url(#tlt)" stroke="#000"/><rect x="10.5" y="5.5" width="11" height="19" rx="1" fill="#1e3a5f"/>
