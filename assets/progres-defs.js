@@ -63,17 +63,19 @@ export const CLASSEMENTS = {
   meteorites: { nom: 'Pluie de météorites', sens: '+' },
   dinoio: { nom: 'Arène.io (taille max)', sens: '+' },
   solitaire: { nom: 'Solitaire', sens: '+' },
-  reflexes: { nom: 'Test de réflexes (ms)', sens: '-' },
+  reflexes: { nom: 'Test de réflexes (ms)', sens: '-', unite: 'ms' },
   flipper: { nom: 'Flipper', sens: '+' },
   route: { nom: 'Traverse la route', sens: '+' },
   tuyaux: { nom: 'Tuyaux', sens: '+' },
-  defense: { nom: 'Tower defense', sens: '+' }
+  defense: { nom: 'Tower defense', sens: '+' },
+  golf: { nom: 'Mini-golf · Jardin', sens: '-', unite: 'coups' },
+  golf2: { nom: 'Mini-golf · Glacier', sens: '-', unite: 'coups' }
 };
 
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
   'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
-  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense']);
+  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }
@@ -116,7 +118,8 @@ export const SUCCES = [
   { id: 'uno', nom: 'UNO !', desc: 'Gagner une partie de Uno.', icone: '🃏', test: gagne('uno') },
   { id: 'bomberman', nom: 'Artificier', desc: 'Gagner une partie de Bomberman.', icone: '💣', test: gagne('bomberman') },
   { id: 'loupgarou', nom: 'Flair infaillible', desc: 'Gagner une partie de Loup-garou.', icone: '🐺', test: gagne('loupgarou') },
-  { id: 'defense', nom: 'Stratège', desc: 'Défendre une carte jusqu’au bout au Tower defense.', icone: '🏰', test: gagne('defense') }
+  { id: 'defense', nom: 'Stratège', desc: 'Défendre une carte jusqu’au bout au Tower defense.', icone: '🏰', test: gagne('defense') },
+  { id: 'golf', nom: 'Golfeur', desc: 'Finir un parcours de Mini-golf au par ou mieux.', icone: '⛳', test: e => e.ev && (e.ev.jeu === 'golf' || e.ev.jeu === 'golf2') && e.ev.gagne }
 ];
 
 /* ---------- Défi du jour ----------
@@ -147,7 +150,8 @@ export const DEFIS = [
   { texte: 'Gagne une partie de Uno.', jeu: 'uno', gagne: true },
   { texte: 'Gagne une partie de Bomberman.', jeu: 'bomberman', gagne: true },
   { texte: 'Gagne une partie de Loup-garou.', jeu: 'loupgarou', gagne: true },
-  { texte: 'Fais 20 000 points au Tower defense.', jeu: 'defense', score: 20000 }
+  { texte: 'Fais 20 000 points au Tower defense.', jeu: 'defense', score: 20000 },
+  { texte: 'Finis le Jardin du Mini-golf au par ou mieux.', jeu: 'golf', gagne: true }
 ];
 
 // le jour (à Bruxelles) sous la forme 2026-10-21

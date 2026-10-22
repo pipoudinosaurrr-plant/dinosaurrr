@@ -48,6 +48,8 @@ Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (
 
 **Loup-garou** (4 à 12 joueurs, moteur dans `games/multi/jeux/loupgarou.js` : loups, voyante, sorcière, chasseur, villageois ; nuits et jours chronométrés, chat du village et chat secret des loups passés au filtre, bots qui discutent et votent).
 
+**Mini-golf** (`games/golf.html`, moteur et parcours dans `games/golf/moteur.js` : 2 parcours de 9 trous, pentes, bosses, sable, glace, eau, tunnels, moulins et portes). Les collisions de la balle sont partagées avec le Flipper dans `games/physique/collisions.js`. Pour ajouter un trou : une ligne dans `PARCOURS` (bords, murs, zones…).
+
 **Tower defense** (`games/defense.html` : 3 cartes, 5 tours à 3 niveaux, 30 vagues). **Éditeur de niveaux** dans Aventure (« Créer un niveau » : brouillon et 20 niveaux gardés dans le navigateur, code ou lien `#jeu/aventure/AV1…` pour partager).
 
 **Chat** : un salon par jeu à plusieurs et des messages privés entre amis (`chat.html#mp/Pseudo`, gardés par l'objet `Presence` du serveur). **Statistiques admin** (Mon compte → ⚡ Admin) : visites, visiteurs uniques, parties par jeu, heures, téléphone/ordi, comptes actifs, sur 7, 30 ou 90 jours. **Flipper** : 2 tables, Nova et Volcan (orbite, kickback, éruption).

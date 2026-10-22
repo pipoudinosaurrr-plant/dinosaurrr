@@ -134,7 +134,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux, bomberman, loupgarou, defense]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux, bomberman, loupgarou, defense, golf]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -478,6 +478,8 @@ content:
                   label: "Jeu : Loup-garou"
                 - name: jeu-defense
                   label: "Jeu : Tower defense"
+                - name: jeu-golf
+                  label: "Jeu : Mini-golf"
                 - name: jeu-flipper
                   label: "Jeu : Flipper"
                 - name: jeu-route

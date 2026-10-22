@@ -89,7 +89,7 @@
       $('onglets').innerHTML = ordre.map(k => `<button data-k="${k}" class="${k === choix ? 'actif' : ''}">${k === 'xp' ? '⭐ Niveaux' : echapper(D.CLASSEMENTS[k].nom)}</button>`).join('');
     }
     $('onglets').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; choix = b.dataset.k; onglets(); liste(); });
-    const format = (k, v) => k === 'xp' ? `${Number(v).toLocaleString('fr-FR')} XP${periode === 'semaine' ? ' cette semaine' : ''}` : k === 'reflexes' ? `${v} ms` : Number(v).toLocaleString('fr-FR');
+    const format = (k, v) => k === 'xp' ? `${Number(v).toLocaleString('fr-FR')} XP${periode === 'semaine' ? ' cette semaine' : ''}` : D.CLASSEMENTS[k] && D.CLASSEMENTS[k].unite ? `${Number(v).toLocaleString('fr-FR')} ${D.CLASSEMENTS[k].unite}` : Number(v).toLocaleString('fr-FR');
     function liste() {
       if (!donnees) return;
       const src = periode === 'semaine' && donnees.semaine ? donnees.semaine : donnees;

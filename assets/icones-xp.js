@@ -208,6 +208,15 @@
     <path d="M9 12V7h3v2h2V7h4v2h2V7h3v5z" fill="#e2e8f0" stroke="#334155" stroke-linejoin="round"/>
     <rect x="14" y="15" width="4" height="5" rx="2" fill="#1e293b"/><path d="M18 17.5h8" stroke="#334155" stroke-width="2.4" stroke-linecap="round"/>
     <circle cx="27.5" cy="17.5" r="1.6" fill="#facc15"/></svg>`;
+  // Mini-golf : un green, un trou, son drapeau et la balle
+  D.golf = `<svg viewBox="0 0 32 32"><defs>${lin('gfh', '#4ade80', '#15803d')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#7a4b25" stroke="#3b2410"/>
+    <rect x="5" y="5" width="22" height="22" rx="3" fill="url(#gfh)"/>
+    <path d="M5 13l22-6v4L5 17zM5 21l22-6v4L5 25z" fill="#166534" opacity=".35"/>
+    <ellipse cx="19" cy="21" rx="3.4" ry="2.4" fill="#052e16"/>
+    <path d="M19 21V7" stroke="#f1f5f9" stroke-width="1.4" stroke-linecap="round"/><path d="M19.5 7l6 2.2-6 2.4z" fill="#ef4444"/>
+    <circle cx="10.5" cy="22" r="2.6" fill="#fff" stroke="#94a3b8" stroke-width=".6"/><circle cx="9.7" cy="21.2" r=".8" fill="#fff" opacity=".9"/></svg>`;
+
   // Installer l'appli : un téléphone et une flèche verte
   D.telecharger = `<svg viewBox="0 0 32 32"><defs>${lin('tlt', '#3a3a3a', '#0e0e0e')}${lin('tlf', '#86efac', '#16a34a')}</defs>
     <rect x="8.5" y="2.5" width="15" height="27" rx="3" fill="url(#tlt)" stroke="#000"/><rect x="10.5" y="5.5" width="11" height="19" rx="1" fill="#1e3a5f"/>

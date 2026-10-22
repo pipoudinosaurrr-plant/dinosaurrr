@@ -49,21 +49,12 @@ export const TABLES = {
 export const SAUCER = TABLES.nova.saucer, BUMPERS = TABLES.nova.bumpers, COULOIRS_HAUT = TABLES.nova.couloirs;
 export const CIBLES_NOVA = TABLES.nova.cibles, CIBLES_TOMBANTES = TABLES.nova.tombantes;
 
+import { formes, contact, reponse, chocBilles } from '../physique/collisions.js';
+
 /* ---------- La forme des tables ---------- */
 
 // ce qui est commun aux deux tables : le tour, le couloir de lancement, les guides et les lance-pierres
-function outils() {
-  const c = [];
-  const seg = (ax, ay, bx, by, o = {}) => {
-    const s = { type: 's', ax, ay, bx, by, r: o.r ?? 3, e: o.e ?? 0.5, f: o.f ?? 0.06, ...o };
-    s.dx = bx - ax; s.dy = by - ay; s.l2 = s.dx * s.dx + s.dy * s.dy || 1;
-    c.push(s);
-    return s;
-  };
-  const poly = (pts, o) => { for (let i = 0; i < pts.length - 1; i++) seg(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], o); };
-  const rond = (x, y, r, o = {}) => { const s = { type: 'c', x, y, r, e: o.e ?? 0.6, f: o.f ?? 0.05, ...o }; c.push(s); return s; };
-  return { c, seg, poly, rond };
-}
+function outils() { return formes(); }   // gélules et ronds : games/physique/collisions.js
 
 function base(o, deflecteurs) {
   const { seg, poly, rond } = o;
@@ -206,45 +197,10 @@ export const billeAuLanceur = p => p.billes.some(b => b.lanceur && b.x > 448 && 
 
 /* ---------- Collisions ---------- */
 
-function reponse(b, nx, ny, vn, e, f) {
-  // vn < 0 : la bille fonce dans l'obstacle
-  if (vn > -35) e = 0;                       // contact doux : la bille se pose au lieu de sautiller
-  b.vx -= (1 + e) * vn * nx;
-  b.vy -= (1 + e) * vn * ny;
-  // frottement de Coulomb : limité par la force du choc
-  const tx = -ny, ty = nx;
-  const vt = b.vx * tx + b.vy * ty;
-  const fr = Math.min(Math.abs(vt), f * (1 + e) * -vn) * Math.sign(vt);
-  b.vx -= fr * tx; b.vy -= fr * ty;
-}
-
 function toucheMur(p, b, m) {
   if (m.eteint) return;
-  if (m.type === 's') {
-    let t = ((b.x - m.ax) * m.dx + (b.y - m.ay) * m.dy) / m.l2;
-    t = t < 0 ? 0 : t > 1 ? 1 : t;
-    const cx = m.ax + m.dx * t, cy = m.ay + m.dy * t;
-    let dx = b.x - cx, dy = b.y - cy;
-    const R = BR + m.r;
-    const d2 = dx * dx + dy * dy;
-    if (d2 >= R * R) return;
-    if (m.sens && (b.x - m.ax) * m.sens[0] + (b.y - m.ay) * m.sens[1] < 0) return;   // portillon : de l'autre côté, on passe
-    const d = Math.sqrt(d2) || 1e-6;
-    const nx = dx / d, ny = dy / d;
-    b.x += nx * (R - d); b.y += ny * (R - d);
-    const vn = b.vx * nx + b.vy * ny;
-    if (vn < 0) { reponse(b, nx, ny, vn, m.e, m.f); choc(p, b, m, nx, ny, -vn); }
-  } else {
-    const dx = b.x - m.x, dy = b.y - m.y;
-    const R = BR + m.r;
-    const d2 = dx * dx + dy * dy;
-    if (d2 >= R * R) return;
-    const d = Math.sqrt(d2) || 1e-6;
-    const nx = dx / d, ny = dy / d;
-    b.x += nx * (R - d); b.y += ny * (R - d);
-    const vn = b.vx * nx + b.vy * ny;
-    if (vn < 0) { reponse(b, nx, ny, vn, m.e, m.f); choc(p, b, m, nx, ny, -vn); }
-  }
+  const c = contact(b, m, BR);
+  if (c && c.vn < 0) { reponse(b, c.nx, c.ny, c.vn, m.e, m.f); choc(p, b, m, c.nx, c.ny, -c.vn); }
 }
 
 // ce qui se passe quand la bille touche un élément actif
@@ -353,17 +309,7 @@ function toucheFlipper(b, f) {
   return -vn;
 }
 
-function toucheBilles(a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  const d2 = dx * dx + dy * dy;
-  if (d2 >= 4 * BR * BR || d2 === 0) return;
-  const d = Math.sqrt(d2), nx = dx / d, ny = dy / d, pen = (2 * BR - d) / 2;
-  a.x -= nx * pen; a.y -= ny * pen; b.x += nx * pen; b.y += ny * pen;
-  const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-  if (vn >= 0) return;
-  const j = -(1 + 0.9) * vn / 2;
-  a.vx -= j * nx; a.vy -= j * ny; b.vx += j * nx; b.vy += j * ny;
-}
+const toucheBilles = (a, b) => chocBilles(a, b, BR, 0.9);
 
 /* ---------- Un pas de temps ---------- */
 

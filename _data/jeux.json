@@ -208,6 +208,19 @@
     "cache": false
   },
   {
+    "id": "golf",
+    "titre": "Mini-golf",
+    "description": "Deux parcours de 9 trous avec une vraie physique de balle : rebonds, pentes, bosses, sable, glace, eau, tunnels et moulins. Tire l’élastique et vise le par !",
+    "icone": "golf",
+    "fichier": "games/golf.html",
+    "largeur": 440,
+    "hauteur": 740,
+    "bureau": true,
+    "nouveau": true,
+    "multi": false,
+    "cache": false
+  },
+  {
     "id": "route",
     "titre": "Traverse la route",
     "description": "Avance le plus loin possible : évite les voitures et les trains, saute de tronc en tronc pour passer les rivières… et ne traîne pas !",

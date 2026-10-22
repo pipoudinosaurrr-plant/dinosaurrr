@@ -55,7 +55,7 @@
     const D = await import('./assets/progres-defs.js');
     const JEUX = window.JEUX || [];
     const nomJeu = id => (D.CLASSEMENTS[id] && D.CLASSEMENTS[id].nom) || (JEUX.find(j => j.id === id) || {}).titre || id;
-    const format = (jeu, v) => (jeu === 'reflexes' ? `${v} ms` : Number(v).toLocaleString('fr-FR'));
+    const format = (jeu, v) => (D.CLASSEMENTS[jeu] && D.CLASSEMENTS[jeu].unite ? `${Number(v).toLocaleString('fr-FR')} ${D.CLASSEMENTS[jeu].unite}` : Number(v).toLocaleString('fr-FR'));
     const date = t => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
     const medaille = n => (n === 1 ? '🥇' : n === 2 ? '🥈' : n === 3 ? '🥉' : '#' + n);
 
