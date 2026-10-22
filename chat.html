@@ -9,10 +9,17 @@
   <style>
     html, body { height: 100%; }
     body { margin: 0; display: flex; flex-direction: column; background: #070707; -webkit-user-select: text; user-select: text; }
-    header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--bord); background: #0c0c0c; }
+    header { display: flex; align-items: center; gap: 10px; padding: 10px 14px 8px; background: #0c0c0c; }
     header b { font-size: 15px; }
     header small { color: var(--tres-doux); font: 500 11px var(--mono); }
     header .espace { flex: 1; }
+    .salons { display: flex; gap: 6px; padding: 0 12px 10px; overflow-x: auto; border-bottom: 1px solid var(--bord); background: #0c0c0c; scrollbar-width: none; }
+    .salons::-webkit-scrollbar { display: none; }
+    .salons button { position: relative; flex: none; height: 30px; padding: 0 11px; border: 1px solid var(--bord2); border-radius: 999px; background: transparent; color: var(--doux); font: 600 12.5px var(--police); cursor: pointer; white-space: nowrap; }
+    .salons button.actif { background: #fafafa; border-color: #fafafa; color: #000; }
+    .salons button.prive { border-color: rgba(96, 165, 250, .5); color: #93c5fd; }
+    .salons button.prive.actif { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+    .salons em { position: absolute; top: -6px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #e11d48; color: #fff; font: 700 10px/16px system-ui; font-style: normal; }
     #messages { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: contain; }
     .msg { display: flex; gap: 9px; align-items: flex-start; }
     .msg .avatar-dino { flex: none; margin-top: 2px; }
@@ -25,10 +32,11 @@
     .bulle p { margin: 2px 0 0; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; }
     .msg.moi { flex-direction: row-reverse; }
     .msg.moi .bulle { border-radius: 14px 4px 14px 14px; background: rgba(34, 197, 94, .1); border-color: rgba(34, 197, 94, .3); }
+    .mode-prive .msg.moi .bulle { background: rgba(59, 130, 246, .14); border-color: rgba(59, 130, 246, .35); }
     .msg.mention .bulle { border-color: rgba(250, 204, 21, .6); }
     .suppr { flex: none; align-self: center; border: 0; background: none; color: var(--tres-doux); cursor: pointer; font-size: 13px; opacity: .6; }
     .suppr:hover { color: #f87171; opacity: 1; }
-    .vide { margin: auto; color: var(--tres-doux); font-size: 13px; text-align: center; }
+    .vide { margin: auto; color: var(--tres-doux); font-size: 13px; text-align: center; line-height: 1.6; }
     form { display: flex; gap: 8px; padding: 10px 12px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid var(--bord); background: #0c0c0c; }
     form input { flex: 1; min-width: 0; height: 42px; padding: 0 13px; border: 1px solid var(--bord2); border-radius: 10px; background: rgba(255, 255, 255, .03); color: #fafafa; font: 15px inherit; font-family: inherit; outline: none; }
     form input:focus { border-color: var(--bord3); }
@@ -36,17 +44,33 @@
     .connexion { padding: 12px; border-top: 1px solid var(--bord); text-align: center; color: var(--doux); font-size: 13.5px; }
     .connexion a { color: var(--accent); }
     .info { padding: 6px 12px; color: #fca5a5; font-size: 12.5px; }
-    .info[hidden], [hidden] { display: none !important; }
+    [hidden] { display: none !important; }
+    /* messages privés */
+    .conv-tete { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--bord); background: #0a0a0a; font-size: 14px; }
+    .conv-tete button { border: 0; background: none; color: var(--doux); font-size: 18px; cursor: pointer; }
+    .conv-tete b { cursor: pointer; }
+    .convs { display: grid; gap: 6px; }
+    .convs h3 { margin: 6px 0 2px; color: var(--tres-doux); font: 600 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .conv { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 11px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+    .conv:hover { border-color: var(--bord3); }
+    .conv .texte { flex: 1; min-width: 0; }
+    .conv .texte b { display: block; font-size: 14px; }
+    .conv .texte small { display: block; overflow: hidden; color: var(--tres-doux); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .conv .non-lu { width: 9px; height: 9px; border-radius: 50%; background: #3b82f6; }
+    .conv .heure { color: var(--tres-doux); font: 500 10.5px var(--mono); }
   </style>
 </head>
 <body>
-  <header><span style="font-size:20px">💬</span><div><b>Chat du site</b><br><small id="etat">Connexion…</small></div><span class="espace"></span><button class="btn petit rouge" id="vider" hidden>Vider le chat</button></header>
+  <header><span style="font-size:20px">💬</span><div><b id="titre">Chat du site</b><br><small id="etat">Connexion…</small></div><span class="espace"></span><button class="btn petit rouge" id="vider" hidden>Vider ce salon</button></header>
+  <nav class="salons" id="salons"></nav>
+  <div class="conv-tete" id="convTete" hidden><button id="convRetour" aria-label="Retour">←</button><span id="convNom"></span></div>
   <div id="messages"><p class="vide">Chargement…</p></div>
   <p class="info" id="info" hidden></p>
   <form id="form" hidden autocomplete="off"><input id="texte" maxlength="200" placeholder="Écris un message…" enterkeyhint="send"><button class="btn primaire" type="submit">Envoyer</button></form>
   <div class="connexion" id="connexion" hidden>Il faut un compte pour écrire dans le chat. <a href="compte.html#connexion">Se connecter</a> · <a href="compte.html#creer">Créer un compte</a></div>
 
   <script src="assets/config.js"></script>
+  <script src="assets/jeux.js"></script>
   <script>
   (async function () {
     const $ = id => document.getElementById(id);
@@ -56,72 +80,137 @@
     let C = parent('DinoCompte'); if (!C) { await charger('assets/compte.js'); C = window.DinoCompte; }
     let P = parent('DinoPresence'); if (!P) { await charger('assets/presence.js'); P = window.DinoPresence; }
     let AV = parent('DinoAvatar'); if (!AV) { await charger('assets/avatars.js'); AV = window.DinoAvatar; }
+    const JEUX = window.JEUX || parent('JEUX') || [];
 
-    let messages = [], ouvert = false;
+    // les salons : le général + un par jeu en ligne
+    const SALONS = [{ id: 'general', nom: '# Général' }, ...JEUX.filter(j => j.multi || j.id === 'dinoio').map(j => ({ id: j.id, nom: '# ' + j.titre }))];
+    const stock = { lire(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }, ecrire(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* rien */ } } };
+    let vue = stock.lire('chat-salon', 'general');   // un salon, ou 'prive'
+    if (vue !== 'prive' && !SALONS.some(s => s.id === vue)) vue = 'general';
+    let conv = null;                                    // conversation privée ouverte (nom)
+    const messages = {};                                // salon → liste
+    const nonLus = {};                                  // salon → nombre
+    let mps = [], convs = [], ouvert = false, mpNonLus = 0;
     const heure = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const quand = t => (Date.now() - t < 86400000 ? heure(t) : new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }));
     const moi = () => (C && C.compte ? C.compte.nom : '');
     const admin = () => !!(C && C.compte && C.compte.admin);
+    const ouvrirProfil = nom => { const f = parent('DinoOuvrirProfil'); if (f) f(nom); else location.href = 'profil.html?nom=' + encodeURIComponent(nom); };
+
+    function dessinerSalons() {
+      $('salons').innerHTML = SALONS.map(s => `<button data-salon="${s.id}" class="${vue === s.id ? 'actif' : ''}">${echapper(s.nom)}${nonLus[s.id] ? `<em>${nonLus[s.id] > 9 ? '9+' : nonLus[s.id]}</em>` : ''}</button>`).join('')
+        + `<button data-salon="prive" class="prive${vue === 'prive' ? ' actif' : ''}">✉ Privé${mpNonLus ? `<em>${mpNonLus > 9 ? '9+' : mpNonLus}</em>` : ''}</button>`;
+      const actif = $('salons').querySelector('.actif');
+      if (actif) actif.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    function htmlMessage(x, prive) {
+      const m = moi();
+      const mention = !prive && m && x.de !== m && x.texte.toLowerCase().includes(m.toLowerCase());
+      return `<div class="msg ${x.de === m ? 'moi' : ''} ${mention ? 'mention' : ''}">
+        ${AV && !prive ? AV.svg(x.avatar || 'vert', 32, x.de) : ''}
+        <div class="bulle"><div class="qui"><b class="${x.admin ? 'admin' : ''}" data-profil="${echapper(x.de)}" title="Voir le profil">${x.admin ? '⚡ ' : ''}${echapper(x.de)}</b><small>${prive ? '' : `niv. ${x.niveau || 1} · `}${quand(x.t)}</small></div><p>${echapper(x.texte)}</p></div>
+        ${admin() && !prive ? `<button class="suppr" data-suppr="${echapper(x.id)}" title="Supprimer ce message">🗑</button>` : ''}
+      </div>`;
+    }
 
     function dessiner(bas) {
       const zone = $('messages');
       const enBas = zone.scrollHeight - zone.scrollTop - zone.clientHeight < 60;
-      const m = moi();
-      zone.innerHTML = messages.length ? messages.map(x => {
-        const mention = m && x.de !== m && x.texte.toLowerCase().includes(m.toLowerCase());
-        return `<div class="msg ${x.de === m ? 'moi' : ''} ${mention ? 'mention' : ''}">
-          ${AV ? AV.svg(x.avatar || 'vert', 32, x.de) : ''}
-          <div class="bulle"><div class="qui"><b class="${x.admin ? 'admin' : ''}" data-profil="${echapper(x.de)}" title="Voir le profil">${x.admin ? '⚡ ' : ''}${echapper(x.de)}</b><small>niv. ${x.niveau || 1} · ${heure(x.t)}</small></div><p>${echapper(x.texte)}</p></div>
-          ${admin() ? `<button class="suppr" data-suppr="${echapper(x.id)}" title="Supprimer ce message">🗑</button>` : ''}
-        </div>`;
-      }).join('') : '<p class="vide">Pas encore de message. Lance la discussion !</p>';
+      document.body.classList.toggle('mode-prive', vue === 'prive');
+      $('convTete').hidden = !(vue === 'prive' && conv);
+      const co = !!(C && C.connecte);
+      $('form').hidden = !co || (vue === 'prive' && !conv);
+      $('connexion').hidden = co;
+      $('vider').hidden = !admin() || vue === 'prive';
+      $('texte').placeholder = vue === 'prive' ? (conv ? `Message privé à ${conv}…` : '') : `Écris dans ${(SALONS.find(s => s.id === vue) || {}).nom || 'le chat'}…`;
+      if (vue === 'prive') {
+        if (!co) { zone.innerHTML = '<p class="vide">Connecte-toi pour écrire en privé à tes amis.</p>'; return; }
+        if (conv) {
+          $('convNom').innerHTML = `✉ <b data-profil="${echapper(conv)}">${echapper(conv)}</b>`;
+          zone.innerHTML = mps.length ? mps.map(x => htmlMessage(x, true)).join('') : `<p class="vide">Pas encore de message avec ${echapper(conv)}.<br>Dis-lui bonjour !</p>`;
+        } else {
+          const amis = (C.amis || []).filter(a => a.statut === 'ami');
+          const sans = amis.filter(a => !convs.some(c => c.nom.toLowerCase() === a.nom.toLowerCase()));
+          zone.innerHTML = `<div class="convs">
+            ${convs.length ? '<h3>Conversations</h3>' + convs.map(c => `<button class="conv" data-conv="${echapper(c.nom)}">${AV ? AV.svg('vert', 34, c.nom) : ''}<span class="texte"><b>${echapper(c.nom)}</b><small>${c.de === moi() ? 'Toi : ' : ''}${echapper(c.dernier)}</small></span>${c.de !== moi() && c.t > (c.lu || 0) ? '<i class="non-lu"></i>' : ''}<span class="heure">${quand(c.t)}</span></button>`).join('') : ''}
+            ${sans.length ? '<h3>Écrire à un ami</h3>' + sans.map(a => `<button class="conv" data-conv="${echapper(a.nom)}">${AV ? AV.svg('vert', 34, a.nom) : ''}<span class="texte"><b>${echapper(a.nom)}</b><small>Nouvelle conversation</small></span></button>`).join('') : ''}
+            ${!convs.length && !sans.length ? '<p class="vide">Les messages privés, c’est entre amis.<br>Ajoute des amis depuis leur profil ou dans Mon compte → Amis.</p>' : ''}
+          </div>`;
+        }
+      } else {
+        const l = messages[vue];
+        zone.innerHTML = !l ? '<p class="vide">Chargement…</p>' : l.length ? l.map(x => htmlMessage(x, false)).join('') : '<p class="vide">Pas encore de message ici. Lance la discussion !</p>';
+      }
       if (bas || enBas) zone.scrollTop = zone.scrollHeight;
     }
 
-    function majCompte() {
-      const co = !!(C && C.connecte);
-      $('form').hidden = !co;
-      $('connexion').hidden = co;
-      $('vider').hidden = !admin();
-      dessiner(false);
+    function choisir(id) {
+      vue = id; conv = null;
+      stock.ecrire('chat-salon', id);
+      if (id !== 'prive') { nonLus[id] = 0; P && P.envoyer({ t: 'chat-ouvrir', salon: id }); }
+      else { mpNonLus = 0; P && P.envoyer({ t: 'mp-liste' }); if (C && C.connecte) C.chargerAmis && C.chargerAmis(); }
+      dessinerSalons(); dessiner(true);
+      const lu = parent('DinoChatLu'); if (lu) lu();
     }
+    function ouvrirConv(nom) { conv = nom; mps = []; P.envoyer({ t: 'mp-ouvrir', avec: nom }); dessiner(true); $('texte').focus(); }
 
-    function ouvrir() {
-      if (P && P.envoyer({ t: 'chat-ouvrir' })) ouvert = true;
-    }
     const arrets = [];
     window.addEventListener('pagehide', () => arrets.forEach(f => f()), { once: true });
     if (P) arrets.push(P.ecouter(m => {
       if (m.t === 'compte') {
         $('etat').textContent = m.n === null ? 'Hors ligne' : (m.n <= 1 ? 'Toi seul sur le site' : `${m.n} personnes sur le site`);
-        if (!ouvert && m.n !== null) ouvrir();
+        if (!ouvert && m.n !== null) { ouvert = true; choisir(vue); }
         if (m.n === null) ouvert = false;
       }
-      if (m.t === 'chat-historique') { messages = m.liste || []; dessiner(true); }
-      if (m.t === 'chat') { messages.push(m.m); if (messages.length > 80) messages.shift(); dessiner(m.m.de === moi()); }
-      if (m.t === 'chat-supprime') { messages = messages.filter(x => x.id !== m.id); dessiner(false); }
-      if (m.t === 'chat-refuse') { $('info').textContent = m.raison; $('info').hidden = false; setTimeout(() => { $('info').hidden = true; }, 3500); }
+      const salon = m.salon || 'general';
+      if (m.t === 'chat-historique') { messages[salon] = m.liste || []; if (salon === vue) dessiner(true); }
+      if (m.t === 'chat') {
+        (messages[salon] = messages[salon] || []).push(m.m);
+        if (messages[salon].length > 80) messages[salon].shift();
+        if (salon === vue) dessiner(m.m.de === moi());
+        else if (m.m.de !== moi()) { nonLus[salon] = (nonLus[salon] || 0) + 1; dessinerSalons(); }
+      }
+      if (m.t === 'chat-supprime') { if (messages[salon]) messages[salon] = messages[salon].filter(x => x.id !== m.id); if (salon === vue) dessiner(false); }
+      if (m.t === 'chat-refuse' || m.t === 'mp-refuse') { $('info').textContent = m.raison; $('info').hidden = false; setTimeout(() => { $('info').hidden = true; }, 3500); }
       if (m.t === 'banni') { $('info').textContent = 'Ton compte a été banni par l’admin.'; $('info').hidden = false; }
+      if (m.t === 'mp-liste') { convs = m.liste || []; if (vue === 'prive' && !conv) dessiner(false); }
+      if (m.t === 'mp-historique') { if (conv && m.avec.toLowerCase() === conv.toLowerCase()) { mps = m.liste || []; dessiner(true); } }
+      if (m.t === 'mp') {
+        if (vue === 'prive' && conv && m.avec.toLowerCase() === conv.toLowerCase()) { mps.push(m.m); dessiner(true); if (m.m.de !== moi()) P.envoyer({ t: 'mp-ouvrir', avec: conv }); }
+        else {
+          if (m.m.de !== moi()) { mpNonLus++; dessinerSalons(); }
+          if (vue === 'prive' && !conv) P.envoyer({ t: 'mp-liste' });
+        }
+      }
     }));
-    if (C) arrets.push(C.ecouter(majCompte));
+    if (C) arrets.push(C.ecouter(() => { dessinerSalons(); dessiner(false); }));
     if (!P || !P.actif) $('etat').textContent = 'Le serveur n’est pas branché';
-    ouvrir();
+    dessinerSalons();
+    // lien direct vers une conversation : chat.html#mp/Pseudo
+    const lien = location.hash.match(/^#mp\/(.+)$/);
+    if (lien) { vue = 'prive'; setTimeout(() => ouvrirConv(decodeURIComponent(lien[1])), 400); }
+    if (P && P.actif) choisir(vue);
 
+    $('salons').addEventListener('click', e => { const b = e.target.closest('[data-salon]'); if (b) choisir(b.dataset.salon); });
+    $('convRetour').addEventListener('click', () => { conv = null; P.envoyer({ t: 'mp-liste' }); dessiner(false); });
     $('form').addEventListener('submit', e => {
       e.preventDefault();
       const texte = $('texte').value.trim();
       if (!texte) return;
-      if (!P || !P.envoyer({ t: 'chat', texte })) { $('info').textContent = 'Pas connecté au serveur, réessaie dans un instant.'; $('info').hidden = false; return; }
+      const envoi = vue === 'prive' ? { t: 'mp', avec: conv, texte } : { t: 'chat', salon: vue, texte };
+      if (!P || !P.envoyer(envoi)) { $('info').textContent = 'Pas connecté au serveur, réessaie dans un instant.'; $('info').hidden = false; return; }
       $('texte').value = '';
     });
-    $('messages').addEventListener('click', e => {
+    document.addEventListener('click', e => {
       const pr = e.target.closest('[data-profil]');
-      if (pr) { const f = parent('DinoOuvrirProfil'); if (f) f(pr.dataset.profil); else location.href = 'profil.html?nom=' + encodeURIComponent(pr.dataset.profil); return; }
+      if (pr) { ouvrirProfil(pr.dataset.profil); return; }
+      const c = e.target.closest('[data-conv]');
+      if (c) { ouvrirConv(c.dataset.conv); return; }
       const b = e.target.closest('[data-suppr]');
-      if (b && admin()) P.envoyer({ t: 'chat-supprimer', id: b.dataset.suppr });
+      if (b && admin()) P.envoyer({ t: 'chat-supprimer', salon: vue, id: b.dataset.suppr });
     });
-    $('vider').addEventListener('click', () => { if (confirm('Effacer tous les messages du chat ?')) P.envoyer({ t: 'chat-vider' }); });
-    // la page du site sait que le chat est lu
-    const lu = parent('DinoChatLu'); if (lu) lu();
+    $('vider').addEventListener('click', () => { if (confirm('Effacer tous les messages de ce salon ?')) P.envoyer({ t: 'chat-vider', salon: vue }); });
   })();
   </script>
 </body>

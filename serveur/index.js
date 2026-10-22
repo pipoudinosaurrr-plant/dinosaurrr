@@ -768,7 +768,11 @@ export class Table extends DurableObject {
    ------------------------------------------------------- */
 
 // filtre du chat : à compléter plus tard (liste de mots donnée par l'admin)
-const filtrerChat = texte => censurer(texte).texte;   // la liste : _data/filtre-chat.json (Pages CMS « Filtre du chat »)
+const filtrerChat = texte => censurer(texte).texte;
+// les salons du chat : le général + un par jeu en ligne
+const SALONS = ['general', 'cercle', 'dinoio', ...Object.keys(JEUX)];
+const cleSalon = id => (id === 'general' ? 'chat' : 'salon:' + id);
+const nettoyerTexte = t => String(t || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);   // la liste : _data/filtre-chat.json (Pages CMS « Filtre du chat »)
 
 const JEUX_ANNONCABLES = new Set(['cercle', ...Object.keys(JEUX)]);
 const ACTIVITES = new Set([...JEUX_ANNONCABLES, 'dinoio']);
@@ -783,11 +787,12 @@ export class Presence extends DurableObject {
     this.minuterie = null;
     this.minuterieParties = null;
     this.parties = {};
-    this.chat = [];
+    this.salons = {};
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
     ctx.blockConcurrencyWhile(async () => {
       this.parties = (await ctx.storage.get('parties')) || {};
-      this.chat = (await ctx.storage.get('chat')) || [];
+      // le salon « général » garde l'ancienne clé « chat »
+      for (const id of SALONS) this.salons[id] = (await ctx.storage.get(id === 'general' ? 'chat' : 'salon:' + id)) || [];
     });
   }
 
@@ -849,7 +854,14 @@ export class Presence extends DurableObject {
     this.envoyer(serveur, { t: 'parties', liste: this.listeParties() });
     this.envoyer(serveur, this.contacts(this.ouverts()));
     this.prevoirCompte();
-    statSite(this, ['visite', 'heure:' + heureBruxelles()]);
+    // statistiques : visite, heure, téléphone ou ordinateur, visiteur unique du jour (empreinte anonyme)
+    const ua = requete.headers.get('User-Agent') || '';
+    const types = ['visite', 'heure:' + heureBruxelles(), /Mobi|Android|iPhone|iPad/i.test(ua) ? 'appareil:mobile' : 'appareil:ordi'];
+    const ip = requete.headers.get('CF-Connecting-IP') || '';
+    if (ip) {
+      this.ctx.waitUntil(crypto.subtle.digest('SHA-256', new TextEncoder().encode('visiteur:' + ip + ':' + ua.slice(0, 60) + ':' + new Date().toISOString().slice(0, 10)))
+        .then(h => appelComptes(this.env, { action: 'stat', types, unique: [...new Uint8Array(h)].slice(0, 12).map(o => o.toString(16).padStart(2, '0')).join('') })).catch(() => {}));
+    } else statSite(this, types);
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -921,33 +933,79 @@ export class Presence extends DurableObject {
     if (!msg || typeof msg !== 'object') return;
     const info = this.lireInfo(ws);
 
-    /* ----- chat (il faut être connecté à son compte) ----- */
-    if (msg.t === 'chat-ouvrir') { this.envoyer(ws, { t: 'chat-historique', liste: this.chat }); return; }
+    /* ----- chat (il faut être connecté à son compte pour écrire) ----- */
+    const salon = SALONS.includes(msg.salon) ? msg.salon : 'general';
+    if (msg.t === 'chat-ouvrir') {
+      this.envoyer(ws, { t: 'chat-historique', salon, liste: this.salons[salon] });
+      this.envoyer(ws, { t: 'chat-salons', liste: SALONS.map(id => { const l = this.salons[id]; return { id, n: l.length, dernier: l.length ? l[l.length - 1].t : 0 }; }) });
+      return;
+    }
     if (msg.t === 'chat') {
       if (!info.compte) return this.envoyer(ws, { t: 'chat-refuse', raison: 'Connecte-toi à ton compte pour écrire dans le chat.' });
       const maintenant = Date.now();
       if (maintenant - (info.dernierChat || 0) < 1200) return this.envoyer(ws, { t: 'chat-refuse', raison: 'Doucement ! Attends un peu entre deux messages.' });
-      let texte = String(msg.texte || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-      texte = filtrerChat(texte);
+      const texte = filtrerChat(nettoyerTexte(msg.texte));
       if (!texte) return;
       info.dernierChat = maintenant;
       this.ecrireInfo(ws, info);
       const m = { id: idAleatoire(), de: info.compte.nom, avatar: info.compte.avatar || '', niveau: info.compte.niveau || 1, admin: info.compte.cle === CLE_ADMIN, texte, t: maintenant };
-      this.chat.push(m);
-      if (this.chat.length > 80) this.chat.splice(0, this.chat.length - 80);
-      const t = JSON.stringify({ t: 'chat', m });
+      const liste = this.salons[salon];
+      liste.push(m);
+      if (liste.length > 80) liste.splice(0, liste.length - 80);
+      const t = JSON.stringify({ t: 'chat', salon, m });
       for (const w of this.ouverts()) { try { w.send(t); } catch (e) { /* fermée */ } }
-      this.ctx.waitUntil(this.ctx.storage.put('chat', this.chat));
+      this.ctx.waitUntil(this.ctx.storage.put(cleSalon(salon), liste));
       this.ctx.waitUntil(this.appelComptes({ action: 'chat-message', cle: info.compte.cle }));
+      statSite(this, ['chat']);
       return;
     }
     if (msg.t === 'chat-supprimer' || msg.t === 'chat-vider') {
       if (!info.compte || info.compte.cle !== CLE_ADMIN) return;
-      if (msg.t === 'chat-vider') this.chat = [];
-      else this.chat = this.chat.filter(m => m.id !== msg.id);
-      const t = JSON.stringify(msg.t === 'chat-vider' ? { t: 'chat-historique', liste: [] } : { t: 'chat-supprime', id: msg.id });
+      if (msg.t === 'chat-vider') this.salons[salon] = [];
+      else this.salons[salon] = this.salons[salon].filter(m => m.id !== msg.id);
+      const t = JSON.stringify(msg.t === 'chat-vider' ? { t: 'chat-historique', salon, liste: [] } : { t: 'chat-supprime', salon, id: msg.id });
       for (const w of this.ouverts()) { try { w.send(t); } catch (e) { /* fermée */ } }
-      this.ctx.waitUntil(this.ctx.storage.put('chat', this.chat));
+      this.ctx.waitUntil(this.ctx.storage.put(cleSalon(salon), this.salons[salon]));
+      return;
+    }
+
+    /* ----- messages privés (entre amis seulement) ----- */
+    if (msg.t === 'mp' || msg.t === 'mp-ouvrir' || msg.t === 'mp-liste') {
+      if (!info.compte) return this.envoyer(ws, { t: 'mp-refuse', raison: 'Connecte-toi à ton compte pour envoyer des messages privés.' });
+      const moi = info.compte;
+      const index = (await this.ctx.storage.get('mpi:' + moi.cle)) || {};
+      if (msg.t === 'mp-liste') {
+        const liste = Object.entries(index).map(([cle, x]) => ({ cle, ...x })).sort((a, b) => b.t - a.t).slice(0, 50);
+        return this.envoyer(ws, { t: 'mp-liste', liste });
+      }
+      // l'autre joueur (et vérifier qu'on est bien amis)
+      const v = await this.appelComptes({ action: 'sont-amis', cle: moi.cle, nom: String(msg.avec || '').slice(0, 20) });
+      if (!v || !v.ok) return this.envoyer(ws, { t: 'mp-refuse', raison: 'Tu ne peux écrire qu’à tes amis.' });
+      const cleConv = 'mpc:' + [moi.cle, v.cle].sort().join('|');
+      const conv = (await this.ctx.storage.get(cleConv)) || [];
+      if (msg.t === 'mp-ouvrir') {
+        if (index[v.cle]) { index[v.cle].lu = Date.now(); this.ctx.waitUntil(this.ctx.storage.put('mpi:' + moi.cle, index)); }
+        return this.envoyer(ws, { t: 'mp-historique', avec: v.nom, liste: conv });
+      }
+      const maintenant = Date.now();
+      if (maintenant - (info.dernierMp || 0) < 700) return this.envoyer(ws, { t: 'mp-refuse', raison: 'Doucement ! Attends un peu entre deux messages.' });
+      const texte = filtrerChat(nettoyerTexte(msg.texte));
+      if (!texte) return;
+      info.dernierMp = maintenant;
+      this.ecrireInfo(ws, info);
+      const m = { id: idAleatoire(), de: moi.nom, texte, t: maintenant };
+      conv.push(m);
+      if (conv.length > 100) conv.splice(0, conv.length - 100);
+      const indexAutre = (await this.ctx.storage.get('mpi:' + v.cle)) || {};
+      index[v.cle] = { nom: v.nom, t: maintenant, dernier: texte.slice(0, 60), de: moi.nom, lu: maintenant };
+      indexAutre[moi.cle] = { nom: moi.nom, t: maintenant, dernier: texte.slice(0, 60), de: moi.nom, lu: (indexAutre[moi.cle] || {}).lu || 0 };
+      await this.ctx.storage.put({ [cleConv]: conv, ['mpi:' + moi.cle]: index, ['mpi:' + v.cle]: indexAutre });
+      for (const w of this.ouverts()) {
+        const c = this.lireInfo(w).compte;
+        if (!c) continue;
+        if (c.cle === moi.cle) this.envoyer(w, { t: 'mp', avec: v.nom, m });
+        else if (c.cle === v.cle) this.envoyer(w, { t: 'mp', avec: moi.nom, m });
+      }
       return;
     }
 

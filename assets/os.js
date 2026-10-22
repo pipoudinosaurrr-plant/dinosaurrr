@@ -245,7 +245,12 @@
       contacts: { titre: 'Contacts en ligne', icone: 'joueurs', taille: [320, 520], adresse: 'contacts', ouvrir: contenuContacts },
       compte: { titre: 'Mon compte', icone: 'session', taille: [470, 640], adresse: 'compte', ouvrir: contenuCompte },
       halloffame: { titre: 'Hall of Fame', icone: 'trophee', taille: [600, 640], adresse: 'halloffame', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'classements.html', 'Hall of Fame') },
-      chat: { titre: 'Chat', icone: 'chat', taille: [420, 580], adresse: 'chat', sansMenus: true, ouvrir: (c, e, o) => { nonLus = 0; majChat(); contenuPage(c, e, o, 'chat.html', 'Chat'); } },
+      chat: { titre: 'Chat', icone: 'chat', taille: [440, 600], adresse: 'chat', sansMenus: true, ouvrir: (c, e, o) => {
+        nonLus = 0; majChat();
+        const src = op => 'chat.html' + (op && op.mp ? '#mp/' + encodeURIComponent(op.mp) : '');
+        contenuPage(c, e, o, src(o), 'Chat');
+        e.reouvrir = op => { if (op && op.mp) { const f = $('iframe', c); if (f) f.src = src(op); } };
+      } },
       tournois: { titre: 'Tournois', icone: 'tournoi', taille: [720, 640], adresse: 'tournois', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'tournoi.html', 'Tournois') },
       musique: { titre: 'Lecteur de musique', icone: 'musique', taille: [390, 440], adresse: '', sansMenus: true, ouvrir: (c) => contenuMusique(c) },
       profil: { titre: 'Profil', icone: 'session', taille: [560, 680], adresse: '', sansMenus: true, ouvrir: (c, e, o) => contenuProfil(c, e, o) },
@@ -1620,11 +1625,20 @@
       iconeChat.hidden = false;
       iconeChat.addEventListener('click', () => ouvrirApp('chat'));
       window.DinoChatLu = () => { nonLus = 0; majChat(); };
+      window.DinoOuvrirMp = nom => ouvrirApp('chat', { mp: String(nom || '') });
       P.ecouter(m => {
-        if (m.t !== 'chat') return;
         const moi = window.DinoCompte && window.DinoCompte.compte ? window.DinoCompte.compte.nom : '';
         const f = fenetres.get('chat');
-        if (m.m.de === moi || (f && !f.el.classList.contains('minimisee'))) return;
+        const chatVisible = f && !f.el.classList.contains('minimisee');
+        // message privé reçu
+        if (m.t === 'mp' && m.m.de !== moi && !chatVisible) {
+          nonLus++; majChat();
+          bulle(`✉ ${m.avec} t’a écrit`, m.m.texte.slice(0, 90), 8000, { icone: 'chat', boutons: [{ texte: 'Répondre', faire: () => window.DinoOuvrirMp(m.avec) }] });
+          return;
+        }
+        // le badge compte seulement le salon « Général »
+        if (m.t !== 'chat' || (m.salon && m.salon !== 'general')) return;
+        if (m.m.de === moi || chatVisible) return;
         nonLus++;
         majChat();
         if (moi && m.m.texte.toLowerCase().includes(moi.toLowerCase())) bulle(`💬 ${m.m.de} parle de toi`, m.m.texte.slice(0, 90), 8000, { icone: 'chat', boutons: [{ texte: 'Ouvrir le chat', faire: () => ouvrirApp('chat') }] });
@@ -2080,6 +2094,7 @@
       ouvrirEcran('Profil', `<iframe src="profil.html?nom=${encodeURIComponent(nom)}" title="Profil"></iframe>`, null, 'profil/' + encodeURIComponent(nom), true, pousser);
     }
     window.DinoOuvrirProfil = nom => ouvrirProfilM(String(nom || ''), true);
+    window.DinoOuvrirMp = nom => { nonLusM = 0; majNonLusM(); ouvrirEcran('Messages', `<iframe src="chat.html#mp/${encodeURIComponent(nom)}" title="Messages"></iframe>`, null, 'mp/' + encodeURIComponent(nom), true, true); };
 
     function ouvrirCompte(param, pousser) {
       ouvrirEcran('Mon compte', `<iframe src="compte.html${param ? '#' + echapper(param) : ''}" title="Mon compte"></iframe>`, null, 'compte', true, pousser);
@@ -2251,11 +2266,12 @@
         if (m.t === 'contacts') { contactsM = m; majJoueurs(); }
         if (m.t === 'invitation') notifInvitation(m);
         if (m.t === 'annonce-admin') notifAnnonce(m);
-        if (m.t === 'chat') {
-          const moi = CO && CO.compte ? CO.compte.nom : '';
-          const ouvertChat = ecran.classList.contains('ouvert') && lireHash() === 'chat';
-          if (m.m.de !== moi && !ouvertChat) { nonLusM++; majNonLusM(); }
+        const moiM = CO && CO.compte ? CO.compte.nom : '';
+        const ouvertChat = ecran.classList.contains('ouvert') && (lireHash() === 'chat' || lireHash().startsWith('mp/'));
+        if (m.t === 'chat' && (!m.salon || m.salon === 'general')) {
+          if (m.m.de !== moiM && !ouvertChat) { nonLusM++; majNonLusM(); }
         }
+        if (m.t === 'mp' && m.m.de !== moiM && !ouvertChat) { nonLusM++; majNonLusM(); toast(`✉ ${m.avec} : ${m.m.texte.slice(0, 60)}`); }
       });
     }
 
@@ -2347,6 +2363,7 @@
       if (h.startsWith('jeu/')) { ouvrirJeu(h.slice(4)); return; }
       if (h === 'compte') { ouvrirCompte(''); return; }
       if (h.startsWith('profil/')) { ouvrirProfilM(decodeURIComponent(h.slice(7))); return; }
+      if (h.startsWith('mp/')) { window.DinoOuvrirMp(decodeURIComponent(h.slice(3))); return; }
       if (PAGES_M[h]) { ouvrirPage(h); return; }
       if (h.startsWith('article/')) {
         const url = h.slice(8);

@@ -111,6 +111,17 @@
     .barre { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; }
     .barre i { display: block; width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(#fde047, #22c55e); }
     .barre span { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); color: var(--tres-doux); font: 500 9px var(--mono); white-space: nowrap; }
+    .periodes { display: inline-flex; gap: 4px; float: right; }
+    .periodes button { height: 26px; padding: 0 10px; border: 1px solid var(--bord2); border-radius: 999px; background: none; color: var(--doux); font: 600 11.5px var(--police); cursor: pointer; }
+    .periodes button.actif { background: #fafafa; color: #000; border-color: #fafafa; }
+    .barre.double i:first-child { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, .12); }
+    .barre.double i:last-child { position: relative; }
+    .repartition { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 4px 0 4px; }
+    .repartition i:first-child { background: #22c55e; } .repartition i:last-child { background: #3b82f6; }
+    .legende { display: flex; gap: 14px; color: var(--doux); font-size: 12px; }
+    .legende b { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 3px; }
+    .chiffres.quatre { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 480px) { .chiffres.quatre { grid-template-columns: repeat(2, 1fr); } }
     .jauge { display: block; height: 4px; margin-top: 4px; border-radius: 3px; background: rgba(255, 255, 255, .06); }
     .jauge i { display: block; height: 100%; border-radius: 3px; background: #22c55e; }
     .compte-admin summary .avatar-dino { flex: none; }
@@ -505,7 +516,7 @@
           <div id="admin-site"><p class="sous">Chargement…</p></div>
         </div>
         <div class="bloc-admin">
-          <h2>📊 Statistiques du site</h2>
+          <h2>📊 Statistiques du site <span class="periodes" id="periodes"><button data-j="7">7 j</button><button data-j="30" class="actif">30 j</button><button data-j="90">90 j</button></span></h2>
           <div id="admin-stats"><p class="sous">Chargement…</p></div>
         </div>
         <div class="bloc-admin">
@@ -535,34 +546,58 @@
       });
       $('#rafraichir-admin').addEventListener('click', chargerSite);
       $('#filtre-comptes').addEventListener('input', dessinerComptes);
+      $('#periodes').addEventListener('click', e => {
+        const b = e.target.closest('[data-j]'); if (!b) return;
+        $('#periodes').querySelectorAll('button').forEach(x => x.classList.toggle('actif', x === b));
+        chargerStats(Number(b.dataset.j));
+      });
       chargerSite();
       chargerComptes();
-      chargerStats();
+      chargerStats(30);
     }
 
-    async function chargerStats() {
-      const d = await C.api('admin-stats');
+    async function chargerStats(nbJours = 30) {
       const boite = $('#admin-stats');
       if (!boite) return;
+      boite.style.opacity = .5;
+      const d = await C.api('admin-stats', { jours: nbJours });
+      boite.style.opacity = 1;
       if (d.erreur) { boite.innerHTML = `<p class="message ko">${echapper(d.erreur)}</p>`; return; }
       const jours = Object.entries(d.jours);
-      const maxV = Math.max(1, ...jours.map(([, v]) => v.visites));
-      const maxH = Math.max(1, ...d.heures);
+      const somme = cle => jours.reduce((s, [, v]) => s + v[cle], 0);
+      const etiquetteJour = ([j], i, court) => court ? (jours.length <= 14 || i % Math.ceil(jours.length / 10) === 0 ? j.slice(8) : '') : new Date(j + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+      const barres = (liste, valeur, etiquette, fond) => {
+        const max = Math.max(1, ...liste.map(x => (fond ? fond(x) : valeur(x))));
+        return `<div class="barres">${liste.map((x, i) => `<div class="barre${fond ? ' double' : ''}" title="${etiquette(x, i)} : ${valeur(x)}${fond ? ' / ' + fond(x) : ''}">${fond ? `<i style="height:${Math.round(fond(x) / max * 100)}%"></i>` : ''}<i style="height:${Math.round(valeur(x) / max * 100)}%"></i><span>${etiquette(x, i, true)}</span></div>`).join('')}</div>`;
+      };
       const maxJ = Math.max(1, ...d.jeux.map(x => x[1]));
-      const barres = (liste, max, etiquette, valeur) => `<div class="barres">${liste.map((x, i) => `<div class="barre" title="${etiquette(x, i)} : ${valeur(x)}"><i style="height:${Math.round(valeur(x) / max * 100)}%"></i><span>${etiquette(x, i, true)}</span></div>`).join('')}</div>`;
+      const app = d.appareils.mobile + d.appareils.ordi;
+      const pctMobile = app ? Math.round(d.appareils.mobile / app * 100) : 0;
       boite.innerHTML = `
-        <div class="chiffres">
-          <div class="chiffre"><b>${d.comptes}</b><span>Comptes</span></div>
-          <div class="chiffre"><b>${d.actifs}</b><span>Actifs 7 j</span></div>
-          <div class="chiffre"><b>${d.nouveaux}</b><span>Nouveaux 7 j</span></div>
+        <div class="chiffres quatre">
+          <div class="chiffre"><b>${somme('uniques') || somme('visites')}</b><span>${somme('uniques') ? 'Visiteurs' : 'Visites'} ${d.nbJours} j</span></div>
+          <div class="chiffre"><b>${d.totalParties}</b><span>Parties ${d.nbJours} j</span></div>
+          <div class="chiffre"><b>${d.actifsJour}</b><span>Comptes actifs 24 h</span></div>
+          <div class="chiffre"><b>${d.comptes}</b><span>Comptes (+${d.nouveaux} en 7 j)</span></div>
         </div>
-        <h3 class="titre-graphe">Visites par jour (14 derniers jours)</h3>
-        ${barres(jours, maxV, ([j], i, court) => court ? j.slice(8) : j, ([, v]) => v.visites)}
-        <h3 class="titre-graphe">Heures de pointe (30 jours)</h3>
-        ${barres(d.heures, maxH, (x, i, court) => court ? (i % 3 === 0 ? i + 'h' : '') : i + ' h', x => x)}
-        <h3 class="titre-graphe">Jeux les plus joués (30 jours)</h3>
-        <ul class="lignes">${d.jeux.length ? d.jeux.slice(0, 12).map(([j, n]) => `<li><span class="nom">${echapper(j === 'cercle' ? 'Le Cercle' : titreJeu(j))}<span class="jauge"><i style="width:${Math.round(n / maxJ * 100)}%"></i></span></span><span class="chiffres-jeu">${n}</span></li>`).join('') : '<li class="vide">Pas encore de parties enregistrées.</li>'}</ul>
-        <p class="aide">Une « visite » = une page du site ouverte. Les parties comptent le solo des joueurs connectés et toutes les parties en ligne.</p>`;
+        <h3 class="titre-graphe">Visiteurs par jour <small>(clair : pages ouvertes, vert : personnes différentes)</small></h3>
+        ${barres(jours, ([, v]) => v.uniques, etiquetteJour, ([, v]) => Math.max(v.visites, v.uniques))}
+        <h3 class="titre-graphe">Parties par jour</h3>
+        ${barres(jours, ([, v]) => v.parties, etiquetteJour)}
+        <h3 class="titre-graphe">Nouveaux comptes par jour</h3>
+        ${barres(jours, ([, v]) => v.comptes, etiquetteJour)}
+        <h3 class="titre-graphe">Messages dans le chat par jour</h3>
+        ${barres(jours, ([, v]) => v.chat, etiquetteJour)}
+        <h3 class="titre-graphe">Heures de pointe</h3>
+        ${barres(d.heures, x => x, (x, i, court) => court ? (i % 3 === 0 ? i + 'h' : '') : i + ' h')}
+        <h3 class="titre-graphe">Téléphone ou ordinateur</h3>
+        ${app ? `<div class="repartition"><i style="width:${pctMobile}%"></i><i style="width:${100 - pctMobile}%"></i></div>
+          <div class="legende"><span><b style="background:#22c55e"></b>Téléphone ${pctMobile} %</span><span><b style="background:#3b82f6"></b>Ordinateur ${100 - pctMobile} %</span></div>` : '<p class="aide">Pas encore de données.</p>'}
+        <h3 class="titre-graphe">Jeux les plus joués</h3>
+        <ul class="lignes">${d.jeux.length ? d.jeux.slice(0, 15).map(([j, n]) => `<li><span class="nom">${echapper(j === 'cercle' ? 'Le Cercle' : titreJeu(j))}<span class="jauge"><i style="width:${Math.round(n / maxJ * 100)}%"></i></span></span><span class="chiffres-jeu">${n}</span></li>`).join('') : '<li class="vide">Pas encore de parties enregistrées.</li>'}</ul>
+        <h3 class="titre-graphe">Joueurs les plus actifs cette semaine</h3>
+        <ul class="lignes">${d.top.length ? d.top.map((x, i) => `<li><span class="nom">${i + 1}. <a class="lien" href="profil.html?nom=${encodeURIComponent(x.nom)}">${echapper(x.nom)}</a></span><span class="chiffres-jeu">${x.xp} XP</span></li>`).join('') : '<li class="vide">Personne pour l’instant.</li>'}</ul>
+        <p class="aide">Les visiteurs sont comptés une fois par jour, sans garder leur adresse (seulement une empreinte effacée après 2 jours). Les parties comptent tout : solo (avec ou sans compte) et en ligne.</p>`;
     }
 
     async function chargerSite() {

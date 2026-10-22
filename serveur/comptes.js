@@ -102,6 +102,7 @@ export class Comptes extends DurableObject {
       CREATE TABLE IF NOT EXISTS xpsemaine (cle TEXT NOT NULL, semaine TEXT NOT NULL, xp INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, semaine));
       CREATE TABLE IF NOT EXISTS recsemaine (cle TEXT NOT NULL, jeu TEXT NOT NULL, semaine TEXT NOT NULL, score REAL NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (cle, jeu, semaine));
       CREATE TABLE IF NOT EXISTS stats_site (jour TEXT NOT NULL, type TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (jour, type));
+      CREATE TABLE IF NOT EXISTS visiteurs (jour TEXT NOT NULL, h TEXT NOT NULL, PRIMARY KEY (jour, h));
       CREATE TABLE IF NOT EXISTS tournois (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, jeu TEXT NOT NULL, quand INTEGER NOT NULL, etat TEXT NOT NULL, cree INTEGER NOT NULL, gagnant TEXT);
       CREATE TABLE IF NOT EXISTS tinscrits (tid INTEGER NOT NULL, cle TEXT NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (tid, cle));
       CREATE TABLE IF NOT EXISTS tmatchs (tid INTEGER NOT NULL, tour INTEGER NOT NULL, pos INTEGER NOT NULL, a TEXT, b TEXT, gagnant TEXT, code TEXT, PRIMARY KEY (tid, tour, pos));
@@ -486,6 +487,15 @@ export class Comptes extends DurableObject {
         };
       }
 
+      // une partie solo finie par quelqu'un sans compte (pour les statistiques seulement)
+      case 'compter': {
+        const jeu = String(d.jeu || '');
+        if (!JEUX_PROGRES.has(jeu) || this.tropDEssais(ip, 'compter', 120, 3600000)) return { ok: false };
+        this.noterEssai(ip, 'compter');
+        this.sql.exec("INSERT INTO stats_site (jour, type, n) VALUES (?, ?, 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1", jourDe(t), 'jeu:' + jeu);
+        return { ok: true };
+      }
+
       case 'existe': {
         const cle = cleCompte(d.nom);
         return { existe: !!this.un('SELECT cle FROM comptes WHERE cle = ?', cle), libre: !verifierPseudo(d.nom) && !this.un('SELECT cle FROM comptes WHERE cle = ?', cle), proprio: formeProprio(d.nom) };
@@ -513,6 +523,13 @@ export class Comptes extends DurableObject {
       }
 
       /* ===== verifier : utilisé par les salles de jeu et la présence (interne) ===== */
+      // messages privés : les deux joueurs sont-ils amis ? (appelé par le serveur)
+      case 'sont-amis': {
+        const autre = this.un('SELECT cle, nom FROM comptes WHERE cle = ?', cleCompte(d.nom));
+        if (!autre || autre.cle === d.cle) return { ok: false };
+        const ami = this.un('SELECT accepte FROM amis WHERE de = ? AND a = ? AND accepte = 1', String(d.cle || ''), autre.cle);
+        return ami ? { ok: true, cle: autre.cle, nom: autre.nom } : { ok: false };
+      }
       case 'verifier': {
         const s = d.jeton ? await this.session(d.jeton) : null;
         if (s) return { compte: { cle: s.cle, nom: s.nom, invisible: !!s.invisible, invitations: s.invitations, avatar: avatarDe(s.avatar).id, niveau: niveauDe(s.xp || 0) } };
@@ -560,6 +577,13 @@ export class Comptes extends DurableObject {
         for (const type of types) {
           if (typeof type !== 'string' || !/^[a-z0-9:-]{1,30}$/.test(type)) continue;
           this.sql.exec('INSERT INTO stats_site (jour, type, n) VALUES (?, ?, 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1', jour, type);
+        }
+        // visiteur unique du jour (empreinte anonyme de l'adresse, jamais l'adresse elle-même)
+        if (typeof d.unique === 'string' && /^[a-f0-9]{16,64}$/.test(d.unique) && !this.un('SELECT h FROM visiteurs WHERE jour = ? AND h = ?', jour, d.unique)) {
+          this.sql.exec('INSERT INTO visiteurs (jour, h) VALUES (?, ?)', jour, d.unique);
+          this.sql.exec("INSERT INTO stats_site (jour, type, n) VALUES (?, 'unique', 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1", jour);
+          // on ne garde pas les empreintes plus de 2 jours
+          this.sql.exec('DELETE FROM visiteurs WHERE jour < ?', jourDe(t - 2 * 86400000));
         }
         return { ok: true };
       }
@@ -748,20 +772,30 @@ export class Comptes extends DurableObject {
       }
       case 'admin-stats': {
         if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
-        const depuis = jourDe(t - 29 * 86400000);
+        const nbJours = [7, 30, 90].includes(Number(d.jours)) ? Number(d.jours) : 30;
+        const depuis = jourDe(t - (nbJours - 1) * 86400000);
         const lignes = this.tous('SELECT jour, type, n FROM stats_site WHERE jour >= ? ORDER BY jour', depuis);
         const jours = {};
-        for (let i = 13; i >= 0; i--) jours[jourDe(t - i * 86400000)] = { visites: 0, parties: 0 };
-        const jeux = {}, heures = Array(24).fill(0);
+        for (let i = nbJours - 1; i >= 0; i--) jours[jourDe(t - i * 86400000)] = { visites: 0, uniques: 0, parties: 0, chat: 0, comptes: 0 };
+        const jeux = {}, heures = Array(24).fill(0), appareils = { mobile: 0, ordi: 0 };
         for (const l of lignes) {
-          if (l.type === 'visite' && jours[l.jour]) jours[l.jour].visites += l.n;
-          if (l.type.startsWith('jeu:')) { jeux[l.type.slice(4)] = (jeux[l.type.slice(4)] || 0) + l.n; if (jours[l.jour]) jours[l.jour].parties += l.n; }
+          const j = jours[l.jour];
+          if (l.type === 'visite' && j) j.visites += l.n;
+          if (l.type === 'unique' && j) j.uniques += l.n;
+          if (l.type === 'chat' && j) j.chat += l.n;
+          if (l.type.startsWith('jeu:')) { jeux[l.type.slice(4)] = (jeux[l.type.slice(4)] || 0) + l.n; if (j) j.parties += l.n; }
           if (l.type.startsWith('heure:')) heures[Number(l.type.slice(6)) % 24] += l.n;
+          if (l.type === 'appareil:mobile') appareils.mobile += l.n;
+          if (l.type === 'appareil:ordi') appareils.ordi += l.n;
         }
+        for (const c of this.tous('SELECT cree FROM comptes WHERE cree > ?', t - nbJours * 86400000)) { const j = jours[jourDe(c.cree)]; if (j) j.comptes++; }
         const nb = this.un('SELECT COUNT(*) AS n FROM comptes').n;
         const nouveaux = this.un('SELECT COUNT(*) AS n FROM comptes WHERE cree > ?', t - 7 * 86400000).n;
         const actifs = this.un('SELECT COUNT(*) AS n FROM comptes WHERE vu > ?', t - 7 * 86400000).n;
-        return { jours, jeux: Object.entries(jeux).sort((a, b) => b[1] - a[1]), heures, comptes: nb, nouveaux, actifs };
+        const actifsJour = this.un('SELECT COUNT(*) AS n FROM comptes WHERE vu > ?', t - 86400000).n;
+        const top = this.tous(`SELECT c.nom, x.xp FROM xpsemaine x JOIN comptes c ON c.cle = x.cle WHERE x.semaine = ? ORDER BY x.xp DESC LIMIT 8`, semaineDe(t));
+        const totalParties = Object.values(jeux).reduce((a, b) => a + b, 0);
+        return { nbJours, jours, jeux: Object.entries(jeux).sort((a, b) => b[1] - a[1]), heures, appareils, comptes: nb, nouveaux, actifs, actifsJour, top, totalParties };
       }
       case 'admin-tournoi': {
         if (moi.cle !== PROPRIO.cle) return { erreur: 'Réservé à l’admin.', statut: 403 };
@@ -779,5 +813,5 @@ export class Comptes extends DurableObject {
 }
 
 // actions que le site a le droit d'appeler (les autres sont réservées au serveur)
-export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires',
+export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'compter', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires',
   'classements', 'tournois', 'progres', 'progres-etat', 'avatar', 'tournoi-inscrire', 'admin-ban', 'admin-stats', 'admin-tournoi']);

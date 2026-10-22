@@ -104,6 +104,7 @@
         <div class="succes">${D.SUCCES.map(s => `<span class="${obtenus.has(s.id) ? '' : 'non'}" title="${echapper(s.nom + ' : ' + s.desc)}${obtenus.has(s.id) ? '' : ' (pas encore)'}">${s.icone}</span>`).join('')}</div>
 
         <div class="actions">
+          ${ami && ami.statut === 'ami' ? '<button class="btn primaire" id="mp">✉ Message</button>' : ''}
           ${C && C.connecte && !moi ? (ami ? `<span class="message">${ami.statut === 'ami' ? '✓ Vous êtes amis' : ami.statut === 'envoyee' ? 'Demande d’ami envoyée' : 'Il/elle t’a demandé en ami (va dans Mon compte → Amis)'}</span>` : '<button class="btn primaire" id="ajouter">Ajouter en ami</button>') : ''}
           ${moi ? '<button class="btn" id="monCompte">Modifier mon profil</button>' : ''}
           ${retourHTML()}
@@ -115,6 +116,8 @@
         if (r && r.erreur) { $('msg').hidden = false; $('msg').textContent = r.erreur; return; }
         afficher();
       });
+      const bmp = $('mp');
+      if (bmp) bmp.addEventListener('click', () => { const f = parent('DinoOuvrirMp'); if (f) f(p.nom); else location.href = 'chat.html#mp/' + encodeURIComponent(p.nom); });
       const mc = $('monCompte');
       if (mc) mc.addEventListener('click', () => { location.href = 'compte.html'; });
       brancherRetour();

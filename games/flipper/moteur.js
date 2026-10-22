@@ -24,15 +24,35 @@ const MIROIR = x => 470 - x;              // la table est symétrique autour de 
 
 // lanceur (couloir de droite)
 export const LANCEUR = { x1: 451, x2: 475, y: 872, course: 36 };
-export const SAUCER = { x: 392, y: 400, r: 14 };
-export const BUMPERS = [{ x: 180, y: 215, r: 22 }, { x: 290, y: 215, r: 22 }, { x: 235, y: 292, r: 22 }];
-export const COULOIRS_HAUT = [195, 235, 275];          // centres des 3 couloirs du haut
-export const CIBLES_NOVA = [330, 372, 414, 456];        // cibles fixes N O V A (mur de gauche)
-export const CIBLES_TOMBANTES = [205, 235, 265];        // 3 cibles qui tombent (au milieu)
 
-/* ---------- La forme de la table ---------- */
+/* ---------- Les tables ----------
+   Chaque table a sa forme (murs, capteurs, trou) et ses règles à elle.
+   La physique, les flippers, le lanceur, les bumpers et les lance-pierres sont communs. */
+export const TABLES = {
+  nova: {
+    nom: 'Nova', sous: 'Nébuleuse · cibles NOVA, verrou, multibille',
+    saucer: { x: 392, y: 400, r: 14 }, ejection: [-0.53 * 400, 0.85 * 400 - 120],
+    bumpers: [{ x: 180, y: 215, r: 22 }, { x: 290, y: 215, r: 22 }, { x: 235, y: 292, r: 22 }],
+    couloirs: [195, 235, 275], postes: [175, 215, 255, 295],
+    cibles: [330, 372, 414, 456],          // cibles fixes N O V A (mur de gauche)
+    tombantes: [205, 235, 265]             // 3 cibles qui tombent (au milieu)
+  },
+  volcan: {
+    nom: 'Volcan', sous: 'Orbite, spinner, kickback, éruption',
+    saucer: { x: 235, y: 430, r: 16 }, ejection: [0, 380],
+    bumpers: [{ x: 228, y: 196, r: 21 }, { x: 318, y: 214, r: 21 }, { x: 270, y: 280, r: 21 }],
+    couloirs: [250, 290, 330], postes: [230, 270, 310, 350],
+    cibles: [372, 410, 448, 486]           // cibles L A V A (mur de droite)
+  }
+};
+// rétrocompatibilité (table Nova)
+export const SAUCER = TABLES.nova.saucer, BUMPERS = TABLES.nova.bumpers, COULOIRS_HAUT = TABLES.nova.couloirs;
+export const CIBLES_NOVA = TABLES.nova.cibles, CIBLES_TOMBANTES = TABLES.nova.tombantes;
 
-function construire() {
+/* ---------- La forme des tables ---------- */
+
+// ce qui est commun aux deux tables : le tour, le couloir de lancement, les guides et les lance-pierres
+function outils() {
   const c = [];
   const seg = (ax, ay, bx, by, o = {}) => {
     const s = { type: 's', ax, ay, bx, by, r: o.r ?? 3, e: o.e ?? 0.5, f: o.f ?? 0.06, ...o };
@@ -42,7 +62,11 @@ function construire() {
   };
   const poly = (pts, o) => { for (let i = 0; i < pts.length - 1; i++) seg(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], o); };
   const rond = (x, y, r, o = {}) => { const s = { type: 'c', x, y, r, e: o.e ?? 0.6, f: o.f ?? 0.05, ...o }; c.push(s); return s; };
+  return { c, seg, poly, rond };
+}
 
+function base(o, deflecteurs) {
+  const { seg, poly, rond } = o;
   // le tour : mur de gauche, grand arc en haut, mur extérieur droit
   seg(22, 250, 22, 910);
   const N = 48;
@@ -55,12 +79,13 @@ function construire() {
   const nx = -26, ny = -30, nl = Math.hypot(nx, ny);
   seg(448, 266, 478, 240, { sens: [nx / nl, ny / nl], e: 0.3, nom: 'portillon' });
 
-  // déflecteur caoutchouc sur le mur de gauche (renvoie la bille vers le centre)
-  // (fermé par-dessous : la bille ne peut pas se coincer derrière)
-  seg(22, 520, 46, 556, { e: 0.75, r: 4, nom: 'caoutchouc' });
-  seg(46, 556, 22, 562, { e: 0.4, r: 3 });
-  seg(MIROIR(22), 520, MIROIR(46), 556, { e: 0.75, r: 4, nom: 'caoutchouc' });
-  seg(MIROIR(46), 556, MIROIR(22), 562, { e: 0.4, r: 3 });
+  // déflecteurs caoutchouc sur les murs (renvoient la bille vers le centre)
+  // (fermés par-dessous : la bille ne peut pas se coincer derrière)
+  for (const cote of deflecteurs) {
+    const X = x => (cote === 'g' ? x : MIROIR(x));
+    seg(X(22), 520, X(46), 556, { e: 0.75, r: 4, nom: 'caoutchouc' });
+    seg(X(46), 556, X(22), 562, { e: 0.4, r: 3 });
+  }
 
   // séparateurs couloir extérieur / couloir intérieur, qui guident vers les flippers
   // le bout du guide s'arrête juste au-dessus de l'axe du flipper : en berceau, la bille s'y appuie
@@ -81,32 +106,68 @@ function construire() {
     if ((B[0] - A[0]) * nxs + (B[1] - A[1]) * nys > 0) { nxs = -nxs; nys = -nys; }
     seg(A[0], A[1], C[0], C[1], { e: 0.6, r: 4, nom: 'lancepierre', cote: s, nsort: [nxs, nys] });
   }
+}
 
-  // bumpers
-  BUMPERS.forEach((b, i) => rond(b.x, b.y, b.r, { e: 0.85, nom: 'bumper', i }));
+function hautEtBumpers(o, T) {
+  T.bumpers.forEach((b, i) => o.rond(b.x, b.y, b.r, { e: 0.85, nom: 'bumper', i }));
+  for (const x of T.postes) o.seg(x, 80, x, 122, { r: 4, e: 0.55, nom: 'poteau-haut' });
+}
 
-  // poteaux des couloirs du haut
-  for (const x of [175, 215, 255, 295]) seg(x, 80, x, 122, { r: 4, e: 0.55, nom: 'poteau-haut' });
-
+function construireNova() {
+  const T = TABLES.nova, o = outils();
+  base(o, ['g', 'd']);
+  hautEtBumpers(o, T);
   // cibles N O V A (fixes) et cibles tombantes
-  CIBLES_NOVA.forEach((y, i) => seg(30, y - 11, 30, y + 11, { r: 3, e: 0.35, nom: 'nova', i }));
-  CIBLES_TOMBANTES.forEach((x, i) => seg(x - 11, 470, x + 11, 470, { r: 4, e: 0.3, nom: 'tombante', i }));
+  T.cibles.forEach((y, i) => o.seg(30, y - 11, 30, y + 11, { r: 3, e: 0.35, nom: 'nova', i }));
+  T.tombantes.forEach((x, i) => o.seg(x - 11, 470, x + 11, 470, { r: 4, e: 0.3, nom: 'tombante', i }));
+  return o.c;
+}
 
-  return c;
+// Volcan : une orbite tout autour à gauche (entrée en bas, sortie en haut à droite des couloirs)
+export const ORBITE = { x: 60, bas: 452, r: 192 };
+function construireVolcan() {
+  const T = TABLES.volcan, o = outils();
+  base(o, ['d']);
+  hautEtBumpers(o, T);
+  // le guide intérieur de l'orbite : droit le long du mur de gauche, puis en arc sous le grand arc
+  const pts = [[ORBITE.x, ORBITE.bas], [ORBITE.x, 250]];
+  const N = 30;
+  for (let i = 1; i <= N; i++) { const a = Math.PI + (Math.PI * 0.42) * i / N; pts.push([250 + (250 - ORBITE.x) * Math.cos(a), 250 + ORBITE.r * Math.sin(a)]); }
+  o.poly(pts, { r: 3, e: 0.4, f: 0.03 });
+  o.rond(ORBITE.x, ORBITE.bas, 5, { e: 0.7, nom: 'poteau' });
+  // sous la sortie de l'orbite, un plancher en pente renvoie la bille vers le jeu (pas droit dans le couloir extérieur)
+  o.seg(22, 488, 58, 515, { r: 3, e: 0.35, nom: 'caoutchouc' });
+  // cibles L A V A (mur de droite)
+  T.cibles.forEach((y, i) => o.seg(440, y - 11, 440, y + 11, { r: 3, e: 0.35, nom: 'lava', i }));
+  // le cratère : un petit bord en fer à cheval autour du trou
+  const S = T.saucer;
+  for (let i = 0; i <= 8; i++) {
+    const a1 = Math.PI * (1.15 + i * 0.0875), a2 = Math.PI * (1.15 + (i + 1) * 0.0875);
+    if (i < 8) o.seg(S.x + 30 * Math.cos(a1), S.y + 30 * Math.sin(a1), S.x + 30 * Math.cos(a2), S.y + 30 * Math.sin(a2), { r: 3, e: 0.5, nom: 'cratere' });
+  }
+  return o.c;
 }
 
 // capteurs (la bille passe dessus sans rebondir)
-const CAPTEURS = [
-  ...COULOIRS_HAUT.map((x, i) => ({ nom: 'couloir', i, x, y: 100, r: 13 })),
+const capteursCommuns = T => [
+  ...T.couloirs.map((x, i) => ({ nom: 'couloir', i, x, y: 100, r: 13 })),
   { nom: 'interieur', i: 0, x: 76, y: 650, r: 12 }, { nom: 'interieur', i: 1, x: MIROIR(76), y: 650, r: 12 },
   { nom: 'exterieur', i: 0, x: 41, y: 690, r: 14 }, { nom: 'exterieur', i: 1, x: MIROIR(41), y: 690, r: 14 }
 ];
+const CAPTEURS = {
+  nova: capteursCommuns(TABLES.nova),
+  volcan: [...capteursCommuns(TABLES.volcan),
+    { nom: 'spinner', i: 0, x: 41, y: 430, r: 15 },
+    { nom: 'orbite', i: 0, x: 41, y: 300, r: 16 }]
+};
 
 /* ---------- La partie ---------- */
 
-export function creerPartie() {
+export function creerPartie(table = 'nova') {
+  if (!TABLES[table]) table = 'nova';
   const p = {
-    murs: construire(),
+    table, T: TABLES[table],
+    murs: table === 'volcan' ? construireVolcan() : construireNova(),
     flippers: [
       { px: 150, py: 768, s: 1, a: FLIP.REPOS, w: 0, appui: false },
       { px: MIROIR(150), py: 768, s: -1, a: FLIP.REPOS, w: 0, appui: false }
@@ -117,7 +178,9 @@ export function creerPartie() {
     couloirs: [false, false, false], nova: [false, false, false, false], tombantes: [false, false, false],
     verrou: false, verrous: 0, billeBonusAllumee: false, jackpot: false, multibille: false,
     tirParfait: { actif: false, couloir: 0, t: 0 }, sauvetage: 0, inclinaison: 0, tilt: false, avertissements: 0,
-    attente: 0, phase: 'jeu', evts: [], t: 0, flash: {}, remiseTombantes: 0, bumpersTouches: 0
+    attente: 0, phase: 'jeu', evts: [], t: 0, flash: {}, remiseTombantes: 0, bumpersTouches: 0,
+    // Volcan
+    lava: [false, false, false, false], kickback: true, pression: 0, eruption: false, orbites: 0, spinner: 0, jackpotV: 50000
   };
   p.murs.forEach(m => { if (m.nom) m.ref = m; });
   nouvelleBille(p);
@@ -197,6 +260,11 @@ function choc(p, b, m, nx, ny, force) {
     p.bumpersTouches++;
     points(p, p.multibille ? 200 : 100, 100);
     evt(p, 'bumper', { i: m.i });
+    // Volcan : chaque coup de bumper fait monter la pression
+    if (p.table === 'volcan' && !p.multibille && !p.eruption) {
+      p.pression++;
+      if (p.pression >= 30) { p.eruption = true; evt(p, 'message', { texte: 'ÉRUPTION PRÊTE : VISE LE CRATÈRE', son: 'bonus' }); }
+    }
   } else if (m.nom === 'lancepierre') {
     if (force > 70 && nx * m.nsort[0] + ny * m.nsort[1] > 0.6) {
       b.vx += m.nsort[0] * 480; b.vy += m.nsort[1] * 480;
@@ -231,7 +299,23 @@ function choc(p, b, m, nx, ny, force) {
         p.remiseTombantes = 1.2;
       }
     }
-  } else if (m.nom === 'caoutchouc' || m.nom === 'poteau') {
+  } else if (m.nom === 'lava') {
+    if (force > 40) {
+      ici['lava' + m.i] = 0.25;
+      points(p, 750, 1000);
+      evt(p, 'cible');
+      if (!p.lava[m.i]) {
+        p.lava[m.i] = true;
+        if (p.lava.every(Boolean)) {
+          p.lava = [false, false, false, false];
+          points(p, 10000);
+          if (!p.kickback) { p.kickback = true; evt(p, 'message', { texte: 'LAVA ! KICKBACK ALLUMÉ', son: 'bonus' }); }
+          else if (!p.billeBonusAllumee) { p.billeBonusAllumee = true; evt(p, 'message', { texte: 'LAVA ! BILLE BONUS AU CRATÈRE', son: 'bonus' }); }
+          else { points(p, 25000); evt(p, 'message', { texte: 'LAVA ! +25 000', son: 'bonus' }); }
+        }
+      }
+    }
+  } else if (m.nom === 'caoutchouc' || m.nom === 'poteau' || m.nom === 'cratere') {
     if (force > 120) evt(p, 'caoutchouc');
   } else if (force > 260) evt(p, 'mur', { force });
 }
@@ -336,6 +420,7 @@ export function avancer(p, dt, cmd) {
     }
   }
   if (p.sauvetage > 0) p.sauvetage -= dt;
+  p.spinner = Math.max(0, p.spinner - dt * 0.8);
 
   const n = Math.max(1, Math.ceil(dt / PAS));
   const h = dt / n;
@@ -371,8 +456,8 @@ function sousPas(p, h) {
     if (b.prise > 0) {
       // la bille est dans le trou : elle attend puis repart vers le flipper gauche
       b.prise -= h;
-      b.x = SAUCER.x; b.y = SAUCER.y; b.vx = 0; b.vy = 0;
-      if (b.prise <= 0) { b.vx = -0.53 * 400; b.vy = 0.85 * 400 - 120; b.sortie = 0.4; evt(p, 'ejecte'); }
+      b.x = p.T.saucer.x; b.y = p.T.saucer.y; b.vx = 0; b.vy = 0;
+      if (b.prise <= 0) { b.vx = p.T.ejection[0] + (Math.random() - 0.5) * 60; b.vy = p.T.ejection[1]; b.sortie = 0.4; evt(p, 'ejecte'); }
       continue;
     }
     if (b.sortie > 0) b.sortie -= h;
@@ -399,7 +484,7 @@ function sousPas(p, h) {
 }
 
 function capteurs(p, b) {
-  for (const c of CAPTEURS) {
+  for (const c of CAPTEURS[p.table]) {
     const dedans = (b.x - c.x) ** 2 + (b.y - c.y) ** 2 < c.r * c.r;
     const cle = c.nom + c.i;
     if (dedans && !b.dans.has(cle)) { b.dans.add(cle); passage(p, b, c); }
@@ -407,8 +492,9 @@ function capteurs(p, b) {
   }
   // le trou (saucer) : attrape la bille si elle n'arrive pas trop vite
   if (!b.sortie) {
-    const d2 = (b.x - SAUCER.x) ** 2 + (b.y - SAUCER.y) ** 2;
-    if (d2 < SAUCER.r * SAUCER.r && b.vx * b.vx + b.vy * b.vy < 1100 * 1100) trou(p, b);
+    const S = p.T.saucer;
+    const d2 = (b.x - S.x) ** 2 + (b.y - S.y) ** 2;
+    if (d2 < S.r * S.r && b.vx * b.vx + b.vy * b.vy < 1100 * 1100) (p.table === 'volcan' ? trouVolcan : trou)(p, b);
   }
 }
 
@@ -434,9 +520,58 @@ function passage(p, b, c) {
     p.flash['interieur' + c.i] = 0.3;
     evt(p, 'couloir');
   } else if (c.nom === 'exterieur') {
+    // Volcan : le kickback renvoie la bille tombée dans le couloir extérieur gauche
+    if (p.table === 'volcan' && c.i === 0 && p.kickback && b.vy > 0 && !p.tilt) {
+      p.kickback = false;
+      b.vx = 0; b.vy = -1750;
+      p.flash.kickback = 0.6;
+      evt(p, 'ejecte');
+      evt(p, 'message', { texte: 'KICKBACK !', son: 'bonus' });
+      return;
+    }
     points(p, 2000, 500);
     p.flash['exterieur' + c.i] = 0.4;
     evt(p, 'exterieur');
+  } else if (c.nom === 'spinner') {
+    // le spinner tourne d'autant plus vite que la bille va vite
+    const tours = Math.max(1, Math.round(Math.hypot(b.vx, b.vy) / 160));
+    p.spinner = Math.min(2, p.spinner + tours * 0.12);
+    points(p, tours * 100, tours * 20);
+    evt(p, 'spinner', { tours });
+  } else if (c.nom === 'orbite') {
+    if (b.vy < -200) {
+      // en montant : une orbite complète
+      p.orbites++;
+      const v = 5000 * Math.min(4, p.orbites);
+      points(p, v, 2000);
+      p.flash.orbite = 0.8;
+      evt(p, 'message', { texte: p.orbites > 1 ? `ORBITE ×${Math.min(4, p.orbites)} : +${v.toLocaleString('fr-FR')}` : 'ORBITE ! +5 000', son: 'bonus' });
+      // un tir parfait du lanceur qui file dans l'orbite
+    }
+  }
+}
+
+function trouVolcan(p, b) {
+  b.prise = 1.1;
+  points(p, 2500, 2500);
+  evt(p, 'trou');
+  p.flash.trou = 1.1;
+  if (p.multibille && p.jackpot) {
+    points(p, p.jackpotV);
+    evt(p, 'message', { texte: `JACKPOT ! +${p.jackpotV.toLocaleString('fr-FR')}`, son: 'gagne' });
+    p.jackpotV += 25000;
+  } else if (p.eruption && !p.multibille) {
+    p.eruption = false; p.pression = 0;
+    p.multibille = true; p.jackpot = true;
+    evt(p, 'message', { texte: 'ÉRUPTION !!! MULTIBILLE', son: 'gagne' });
+    evt(p, 'eruption');
+    billeAuto(p);
+    setTimeoutJeu(p, 0.7, () => billeAuto(p));
+  }
+  if (p.billeBonusAllumee) {
+    p.billeBonusAllumee = false;
+    p.billesBonus++;
+    evt(p, 'message', { texte: 'BILLE BONUS !', son: 'gagne' });
   }
 }
 
@@ -487,6 +622,8 @@ function finDeBille(p) {
   p.tilt = false;
   p.inclinaison = 0;
   p.multibille = false; p.jackpot = false;
+  p.orbites = 0;
+  if (p.table === 'volcan') p.kickback = true;   // le kickback se rallume à chaque bille
   if (p.billesBonus > 0) { p.billesBonus--; p.phase = 'attente'; p.suite = 'rejouer'; }
   else if (p.bille >= p.billesMax) { p.phase = 'attente'; p.suite = 'fin'; }
   else { p.phase = 'attente'; p.suite = 'suivante'; }

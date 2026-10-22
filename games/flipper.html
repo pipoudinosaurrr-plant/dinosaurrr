@@ -25,6 +25,26 @@ const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 const POLICE = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
 
 const C = { fond1: '#0b0820', fond2: '#120a2e', mur: '#38e1ff', murSombre: '#0e5f75', rose: '#ff3fa4', jaune: '#ffd23f', vert: '#3dff9a', violet: '#a46bff', orange: '#ff8a3d', texte: '#e9e6ff' };
+// les thèmes des tables (couleurs, fond, logo)
+const THEMES = {
+  nova: {
+    couleurs: { mur: '#38e1ff', rose: '#ff3fa4', violet: '#a46bff' },
+    fond: ['#120a33', '#0b0820', '#05030f'], tablier: '#07051a',
+    nebuleuses: [[150, 330, 230, 'rgba(164,107,255,.20)'], [330, 560, 220, 'rgba(255,63,164,.13)'], [235, 160, 170, 'rgba(56,225,255,.12)']],
+    logo: 'NOVA', etoiles: true
+  },
+  volcan: {
+    couleurs: { mur: '#ff7a2f', rose: '#ffd23f', violet: '#ff4d4d' },
+    fond: ['#2b0b06', '#160604', '#080202'], tablier: '#140403',
+    nebuleuses: [[235, 470, 260, 'rgba(255,80,20,.22)'], [120, 220, 200, 'rgba(255,170,40,.10)'], [360, 680, 200, 'rgba(255,40,40,.12)']],
+    logo: 'VOLCAN', etoiles: false
+  }
+};
+let tableChoisie = A.stock.lire('flipper-table', 'nova');
+if (!M.TABLES[tableChoisie]) tableChoisie = 'nova';
+const cleRecord = t => (t === 'nova' ? 'flipper' : 'flipper-' + t);
+const appliquerTheme = t => Object.assign(C, THEMES[t].couleurs);
+appliquerTheme(tableChoisie);
 
 let p = null, etat = 'menu', secousse = 0, messages = [], bonusAffiche = null, traines = new Map();
 
@@ -38,31 +58,33 @@ function dessinerDecor() {
   const g = decor.getContext('2d');
   g.scale(k, k);
   // fond : nébuleuse
+  const th = THEMES[p.table];
   const fond = g.createLinearGradient(0, 0, 0, TH);
-  fond.addColorStop(0, '#120a33'); fond.addColorStop(0.55, '#0b0820'); fond.addColorStop(1, '#05030f');
+  fond.addColorStop(0, th.fond[0]); fond.addColorStop(0.55, th.fond[1]); fond.addColorStop(1, th.fond[2]);
   g.fillStyle = fond; g.fillRect(0, 0, W, TH);
-  for (const [x, y, r, c] of [[150, 330, 230, 'rgba(164,107,255,.20)'], [330, 560, 220, 'rgba(255,63,164,.13)'], [235, 160, 170, 'rgba(56,225,255,.12)']]) {
+  for (const [x, y, r, c] of th.nebuleuses) {
     const n = g.createRadialGradient(x, y, 0, x, y, r); n.addColorStop(0, c); n.addColorStop(1, 'transparent');
     g.fillStyle = n; g.fillRect(0, 0, W, TH);
   }
   // étoiles (toujours les mêmes)
   let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 140; i++) { g.fillStyle = `rgba(255,255,255,${0.15 + r() * 0.5})`; g.fillRect(22 + r() * 426, 30 + r() * 820, r() < 0.9 ? 1 : 2, r() < 0.9 ? 1 : 2); }
+  for (let i = 0; i < 140; i++) { g.fillStyle = th.etoiles ? `rgba(255,255,255,${0.15 + r() * 0.5})` : `rgba(255,${120 + Math.floor(r() * 100)},40,${0.12 + r() * 0.35})`; g.fillRect(22 + r() * 426, 30 + r() * 820, r() < 0.9 ? 1 : 2, r() < 0.9 ? 1 : 2); }
   // couloir de lancement
   g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(448, 250, 30, TH - 250);
   // grand logo au milieu
-  g.save(); g.translate(235, 585); g.globalAlpha = 0.09; g.fillStyle = '#fff'; g.font = `900 64px ${POLICE}`; g.textAlign = 'center'; g.fillText('NOVA', 0, 0); g.restore();
+  g.save(); g.translate(235, 585); g.globalAlpha = 0.09; g.fillStyle = '#fff'; g.font = `900 64px ${POLICE}`; g.textAlign = 'center'; g.fillText(th.logo, 0, 0); g.restore();
   // flèches peintes vers les cibles
   const fleche = (x, y, a, c) => { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = c; g.globalAlpha = 0.18; g.beginPath(); g.moveTo(0, -14); g.lineTo(10, 6); g.lineTo(-10, 6); g.fill(); g.restore(); };
-  fleche(235, 512, 0, C.jaune); fleche(368, 430, -0.8, C.vert); fleche(70, 392, -1.9, C.rose);
+  if (p.table === 'nova') { fleche(235, 512, 0, C.jaune); fleche(368, 430, -0.8, C.vert); fleche(70, 392, -1.9, C.rose); }
+  else { fleche(235, 492, 0, C.violet); fleche(92, 478, -1.2, C.jaune); fleche(410, 438, 1.25, C.orange); }
   // tablier en bas
-  g.fillStyle = '#07051a'; g.beginPath(); g.moveTo(22, 910); g.lineTo(22, 860); g.lineTo(140, 860); g.lineTo(160, 900); g.lineTo(310, 900); g.lineTo(330, 860); g.lineTo(448, 860); g.lineTo(448, 910); g.fill();
+  g.fillStyle = th.tablier; g.beginPath(); g.moveTo(22, 910); g.lineTo(22, 860); g.lineTo(140, 860); g.lineTo(160, 900); g.lineTo(310, 900); g.lineTo(330, 860); g.lineTo(448, 860); g.lineTo(448, 910); g.fill();
   g.fillStyle = 'rgba(233,230,255,.35)'; g.font = `700 10px ${MONO}`; g.textAlign = 'center';
-  g.fillText('FLIPPER NOVA', 80, 884); g.fillText('3 BILLES', 390, 884);
+  g.fillText('FLIPPER ' + th.logo, 80, 884); g.fillText('3 BILLES', 390, 884);
   // les murs, en néon
   g.lineCap = 'round'; g.lineJoin = 'round';
   for (const m of p.murs) {
-    if (['nova', 'tombante', 'bumper', 'lancepierre', 'portillon'].includes(m.nom)) continue;
+    if (['nova', 'lava', 'tombante', 'bumper', 'lancepierre', 'portillon'].includes(m.nom)) continue;
     const couleur = m.nom === 'caoutchouc' || m.nom === 'poteau' ? C.rose : m.nom === 'poteau-haut' ? C.violet : C.mur;
     g.shadowColor = couleur; g.shadowBlur = 10;
     g.strokeStyle = couleur; g.fillStyle = couleur;
@@ -73,17 +95,21 @@ function dessinerDecor() {
   // lance-pierres : triangles pleins
   for (const s2 of [1, -1]) {
     const X = x => (s2 === 1 ? x : 470 - x);
-    g.fillStyle = 'rgba(255,63,164,.16)'; g.strokeStyle = C.rose; g.lineWidth = 2;
+    g.fillStyle = p.table === 'volcan' ? 'rgba(255,210,63,.14)' : 'rgba(255,63,164,.16)'; g.strokeStyle = C.rose; g.lineWidth = 2;
     g.beginPath(); g.moveTo(X(92), 610); g.lineTo(X(92), 684); g.lineTo(X(138), 712); g.closePath(); g.fill(); g.stroke();
   }
   // trou (saucer)
-  const t = M.SAUCER;
-  const tg = g.createRadialGradient(t.x, t.y, 2, t.x, t.y, t.r + 4); tg.addColorStop(0, '#000'); tg.addColorStop(0.75, '#000'); tg.addColorStop(1, C.vert);
+  const t = p.T.saucer;
+  const tg = g.createRadialGradient(t.x, t.y, 2, t.x, t.y, t.r + 4); tg.addColorStop(0, '#000'); tg.addColorStop(0.75, p.table === 'volcan' ? '#3a0800' : '#000'); tg.addColorStop(1, p.table === 'volcan' ? '#ff4d1a' : C.vert);
   g.fillStyle = tg; g.beginPath(); g.arc(t.x, t.y, t.r + 3, 0, Math.PI * 2); g.fill();
   // textes peints
   g.fillStyle = 'rgba(233,230,255,.45)'; g.font = `700 8px ${MONO}`;
-  g.fillText('VERROU', t.x, t.y + 30);
-  g.fillText('×', 235, 66);
+  if (p.table === 'nova') { g.fillText('VERROU', t.x, t.y + 30); g.fillText('×', 235, 66); }
+  else {
+    g.fillText('CRATÈRE', t.x, t.y + 58);
+    g.save(); g.translate(41, 360); g.rotate(-Math.PI / 2); g.fillText('ORBITE', 0, 3); g.restore();
+    g.fillText('KICK', 41, 626);
+  }
 }
 
 /* ---------- Dessin de chaque image ---------- */
@@ -102,19 +128,19 @@ function dessinerTable() {
   const f = p.flash, now = performance.now();
 
   // couloirs du haut (+ tir parfait qui clignote)
-  M.COULOIRS_HAUT.forEach((x, i) => {
+  p.T.couloirs.forEach((x, i) => {
     const tp = p.tirParfait.actif && p.tirParfait.couloir === i;
     lampe(x, 140, 6, tp ? C.vert : C.jaune, p.couloirs[i] || tp || !!f['couloir' + i], tp);
   });
   // multiplicateur : ×2 … ×6
   for (let m = 2; m <= 6; m++) {
-    const x = 175 + (m - 2) * 30, y = 48;
+    const x = p.T.couloirs[1] - 60 + (m - 2) * 30, y = 48;
     ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center';
     if (p.mult >= m) { brille(C.orange, 10); ctx.fillStyle = C.orange; } else ctx.fillStyle = 'rgba(255,255,255,.14)';
     ctx.fillText('×' + m, x, y + 4); sansBrille();
   }
   // bumpers
-  M.BUMPERS.forEach((b, i) => {
+  p.T.bumpers.forEach((b, i) => {
     const flash = f['bumper' + i] > 0;
     brille(flash ? '#fff' : C.jaune, flash ? 26 : 12);
     ctx.fillStyle = flash ? '#fff7c2' : '#3a2a05';
@@ -127,29 +153,11 @@ function dessinerTable() {
     ctx.fillStyle = '#3a2a05'; ctx.font = `800 9px ${MONO}`; ctx.textAlign = 'center'; ctx.fillText(p.multibille ? '200' : '100', b.x, b.y + 3);
   });
   // cibles N O V A
-  M.CIBLES_NOVA.forEach((y, i) => {
-    const on = p.nova[i] || f['nova' + i] > 0;
-    ctx.fillStyle = on ? C.rose : '#3b1030'; if (on) brille(C.rose, 12);
-    ctx.fillRect(27, y - 11, 7, 22); sansBrille();
-    ctx.fillStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center';
-    ctx.fillText('NOVA'[i], 48, y + 4);
-  });
-  // cibles tombantes
-  M.CIBLES_TOMBANTES.forEach((x, i) => {
-    if (p.tombantes[i]) { ctx.fillStyle = 'rgba(255,210,63,.18)'; ctx.fillRect(x - 11, 468, 22, 4); return; }
-    brille(C.jaune, 10); ctx.fillStyle = C.jaune; ctx.fillRect(x - 11, 465, 22, 10); sansBrille();
-    ctx.fillStyle = '#3a2a05'; ctx.fillRect(x - 7, 468, 14, 4);
-  });
-  lampe(235, 498, 5, C.jaune, p.remiseTombantes > 0, true);
-  // trou : verrou / jackpot / bille bonus
-  const t = M.SAUCER;
-  lampe(t.x - 18, t.y + 46, 5, C.vert, p.verrou, true);
-  lampe(t.x, t.y + 46, 5, C.violet, p.billeBonusAllumee, true);
-  lampe(t.x + 18, t.y + 46, 5, C.orange, p.jackpot, true);
-  if (f.trou) { brille(C.vert, 22); ctx.strokeStyle = C.vert; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y, t.r + 4 + Math.sin(now / 60) * 2, 0, Math.PI * 2); ctx.stroke(); sansBrille(); }
+  if (p.table === 'nova') dessinerNova(f, now); else dessinerVolcan(f, now);
   // couloirs du bas
   lampe(76, 625, 5, C.mur, !!f.interieur0); lampe(394, 625, 5, C.mur, !!f.interieur1);
-  lampe(41, 660, 5, C.rose, !!f.exterieur0); lampe(429, 660, 5, C.rose, !!f.exterieur1);
+
+  lampe(41, 662, 5, C.rose, !!f.exterieur0); lampe(429, 662, 5, C.rose, !!f.exterieur1);
   // « rejoue » (sauvetage de bille)
   ctx.font = `800 10px ${MONO}`; ctx.textAlign = 'center';
   const sauve = p.sauvetage > 0 && Math.floor(now / 220) % 2 === 0;
@@ -190,6 +198,65 @@ function dessinerTable() {
   }
 }
 
+function dessinerNova(f, now) {
+  p.T.cibles.forEach((y, i) => {
+    const on = p.nova[i] || f['nova' + i] > 0;
+    ctx.fillStyle = on ? C.rose : '#3b1030'; if (on) brille(C.rose, 12);
+    ctx.fillRect(27, y - 11, 7, 22); sansBrille();
+    ctx.fillStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center';
+    ctx.fillText('NOVA'[i], 48, y + 4);
+  });
+  // cibles tombantes
+  p.T.tombantes.forEach((x, i) => {
+    if (p.tombantes[i]) { ctx.fillStyle = 'rgba(255,210,63,.18)'; ctx.fillRect(x - 11, 468, 22, 4); return; }
+    brille(C.jaune, 10); ctx.fillStyle = C.jaune; ctx.fillRect(x - 11, 465, 22, 10); sansBrille();
+    ctx.fillStyle = '#3a2a05'; ctx.fillRect(x - 7, 468, 14, 4);
+  });
+  lampe(235, 498, 5, C.jaune, p.remiseTombantes > 0, true);
+  // trou : verrou / jackpot / bille bonus
+  const t = p.T.saucer;
+  lampe(t.x - 18, t.y + 46, 5, C.vert, p.verrou, true);
+  lampe(t.x, t.y + 46, 5, C.violet, p.billeBonusAllumee, true);
+  lampe(t.x + 18, t.y + 46, 5, C.orange, p.jackpot, true);
+  if (f.trou) { brille(C.vert, 22); ctx.strokeStyle = C.vert; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y, t.r + 4 + Math.sin(now / 60) * 2, 0, Math.PI * 2); ctx.stroke(); sansBrille(); }
+}
+
+let angleSpinner = 0;
+function dessinerVolcan(f, now) {
+  // cibles L A V A (mur de droite)
+  p.T.cibles.forEach((y, i) => {
+    const on = p.lava[i] || f['lava' + i] > 0;
+    ctx.fillStyle = on ? C.orange : '#3b1206'; if (on) brille(C.orange, 12);
+    ctx.fillRect(436, y - 11, 7, 22); sansBrille();
+    ctx.fillStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; ctx.font = `800 11px ${MONO}`; ctx.textAlign = 'center';
+    ctx.fillText('LAVA'[i], 422, y + 4);
+  });
+  // le cratère : jauge de pression tout autour (10 lampes), rouge qui clignote quand l'éruption est prête
+  const t = p.T.saucer;
+  for (let k = 0; k < 10; k++) {
+    const a = Math.PI * (0.95 + k * 0.122);
+    const allume = p.eruption || p.pression >= (k + 1) * 3;
+    lampe(t.x + 46 * Math.cos(a), t.y + 46 * Math.sin(a), 4.5, p.eruption ? '#ff2a1a' : C.orange, allume, p.eruption);
+  }
+  const lueur = ctx.createRadialGradient(t.x, t.y, 2, t.x, t.y, 30);
+  const chaud = p.eruption ? 0.55 + Math.sin(now / 90) * 0.25 : 0.15 + p.pression / 30 * 0.35;
+  lueur.addColorStop(0, `rgba(255,90,20,${chaud})`); lueur.addColorStop(1, 'transparent');
+  ctx.fillStyle = lueur; ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI * 2); ctx.fill();
+  if (f.trou) { brille('#ff4d1a', 22); ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y, t.r + 4 + Math.sin(now / 60) * 2, 0, Math.PI * 2); ctx.stroke(); sansBrille(); }
+  lampe(t.x - 14, t.y + 72, 5, C.orange, p.jackpot, true);
+  lampe(t.x + 14, t.y + 72, 5, C.violet, p.billeBonusAllumee, true);
+  // spinner (une plaque qui tourne à l'entrée de l'orbite)
+  angleSpinner += p.spinner * 0.9;
+  const largeur = Math.abs(Math.cos(angleSpinner)) * 15 + 2;
+  ctx.fillStyle = '#cfd6e2'; ctx.fillRect(41 - largeur, 428, largeur * 2, 4);
+  ctx.fillStyle = '#5b6275'; ctx.fillRect(22, 429, 38, 2);
+  ctx.fillStyle = '#cfd6e2'; ctx.fillRect(41 - largeur, 428, largeur * 2, 4);
+  // orbite qui s'allume
+  if (f.orbite) { brille(C.jaune, 16); ctx.strokeStyle = C.jaune; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(41, 460); ctx.lineTo(41, 260); ctx.stroke(); sansBrille(); }
+  // kickback
+  lampe(41, 640, 6, '#3dff9a', p.kickback || !!f.kickback, !!f.kickback);
+}
+
 function dessinerFlipper(f) {
   const { L, R1, R2 } = M.FLIP;
   const ux = f.s * Math.cos(f.a), uy = Math.sin(f.a);
@@ -218,7 +285,7 @@ function dessinerHUD() {
   ctx.fillText('SCORE', 18, 26);
   ctx.fillText(p ? `BILLE ${Math.min(p.bille, p.billesMax)}/${p.billesMax}${p.billesBonus ? ' +' + p.billesBonus : ''}` : '', 18, 78);
   ctx.textAlign = 'right';
-  const rec = A.record('flipper');
+  const rec = A.record(cleRecord(p ? p.table : tableChoisie));
   ctx.fillText('RECORD ' + A.format(rec || 0), W - 18, 78);
   if (p) {
     ctx.textAlign = 'left'; ctx.font = `800 34px ${MONO}`;
@@ -341,7 +408,8 @@ function traiterEvts() {
 
 function lancerPartie() {
   A.fermerPanneau();
-  p = M.creerPartie();
+  p = M.creerPartie(tableChoisie);
+  appliquerTheme(tableChoisie);
   dessinerDecor();
   messages = []; bonusAffiche = null; traines = new Map();
   etat = 'jeu';
@@ -350,10 +418,10 @@ function lancerPartie() {
 
 function finPartie() {
   etat = 'fin';
-  const r = A.record('flipper', p.score);
+  const r = A.record(cleRecord(p.table), p.score);
   A.finPartie('flipper', { score: p.score });
   setTimeout(() => A.panneau({
-    pastille: 'Flipper', titre: r.nouveau ? 'Nouveau record !' : 'Partie terminée',
+    pastille: 'Flipper ' + p.T.nom, titre: r.nouveau ? 'Nouveau record !' : 'Partie terminée',
     lignes: [['Score', A.format(p.score)], ['Record', A.format(r.record)]],
     boutons: [{ texte: 'Rejouer', primaire: true, action: lancerPartie }, { texte: 'Menu', action: menu }]
   }), 700);
@@ -373,15 +441,22 @@ addEventListener('keydown', e => { if ((e.code === 'KeyP' || e.code === 'Escape'
 
 function menu() {
   etat = 'menu';
-  if (!p) { p = M.creerPartie(); dessinerDecor(); }
-  const rec = A.record('flipper');
+  if (!p || p.table !== tableChoisie) { p = M.creerPartie(tableChoisie); appliquerTheme(tableChoisie); dessinerDecor(); }
+  const rec = A.record(cleRecord(tableChoisie));
   A.panneau({
-    pastille: 'Flipper', titre: 'Flipper Nova',
+    pastille: 'Flipper', titre: 'Flipper ' + M.TABLES[tableChoisie].nom,
+    titreChoix: 'Table',
+    choix: Object.entries(M.TABLES).map(([id, tb]) => ({
+      texte: tb.nom, sous: `${tb.sous} · record ${A.format(A.record(cleRecord(id)) || 0)}`, actif: id === tableChoisie,
+      action: () => { tableChoisie = id; A.stock.ecrire('flipper-table', id); menu(); }
+    })),
     texte: 'Une vraie table de flipper : la bille roule, rebondit et part plus fort quand tu la frappes avec le bout du flipper.',
     lignes: A.TACTILE
       ? [['Flippers', 'Touche à gauche / à droite'], ['Lancer', 'Maintiens LANCER puis lâche'], ['Secouer', 'Secoue le téléphone (gare au TILT)']]
       : [['Flippers', '← → ou Shift gauche / droit'], ['Lancer', 'Maintiens Espace (ou ↓) puis lâche'], ['Secouer', '↑ (gare au TILT)'], ['Record', A.format(rec || 0)]],
-    aide: 'Couloirs du haut : bonus × · N O V A : bille bonus · 3 cibles jaunes : verrou, 2 verrous = multibille · Garde le flipper levé pour bloquer la bille.',
+    aide: tableChoisie === 'nova'
+      ? 'Couloirs du haut : bonus × · N O V A : bille bonus · 3 cibles jaunes : verrou, 2 verrous = multibille · Garde le flipper levé pour bloquer la bille.'
+      : 'Orbite à gauche : jusqu’à ×4 en enchaînant · L A V A : kickback puis bille bonus · 30 coups de bumper = éruption : vise le cratère pour 3 billes, puis jackpot au cratère.',
     boutons: [{ texte: 'Jouer', primaire: true, action: lancerPartie }]
   });
 }

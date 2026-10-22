@@ -77,7 +77,9 @@
     async fin(jeu, infos = {}) {
       try {
         const c = await compte();
-        if (!c || !c.connecte) return null;
+        if (!c) return null;
+        // sans compte : on compte juste la partie (statistiques du site)
+        if (!c.connecte) { c.api('compter', { jeu }).catch(() => {}); return null; }
         const r = await c.api('progres', { jeu, score: infos.score, gagne: !!infos.gagne });
         montrer(r);
         return r;
