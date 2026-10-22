@@ -248,6 +248,7 @@
       chat: { titre: 'Chat', icone: 'chat', taille: [420, 580], adresse: 'chat', sansMenus: true, ouvrir: (c, e, o) => { nonLus = 0; majChat(); contenuPage(c, e, o, 'chat.html', 'Chat'); } },
       tournois: { titre: 'Tournois', icone: 'tournoi', taille: [720, 640], adresse: 'tournois', sansMenus: true, ouvrir: (c, e, o) => contenuPage(c, e, o, 'tournoi.html', 'Tournois') },
       musique: { titre: 'Lecteur de musique', icone: 'musique', taille: [390, 440], adresse: '', sansMenus: true, ouvrir: (c) => contenuMusique(c) },
+      profil: { titre: 'Profil', icone: 'session', taille: [560, 680], adresse: '', sansMenus: true, ouvrir: (c, e, o) => contenuProfil(c, e, o) },
       icones: { titre: 'Icônes du bureau', icone: 'ordinateur', taille: [380, 520], adresse: '', ouvrir: (c, e) => contenuIcones(c, e), dialogue: true }
     };
 
@@ -357,6 +358,7 @@
       arreter() { arreter(); },
       session() { fermerSession(); },
       pageBlog() { window.open('blog/', '_blank', 'noopener'); },
+      installerAppli() { if (window.DinoAppli) window.DinoAppli.installer().then(ok => { if (ok) bulle('Appli installée', NOM + ' est maintenant dans tes applications.', 5000); }); },
       renommerIcone() { renommerIcone(cibleIcone); },
       supprimerIcone() { supprimerIcone(cibleIcone); },
       ajouterBureau() { if (cibleApp && ajouterIcone(cibleApp)) bulle('Icône ajoutée', `« ${ICONES_BASE[cibleApp].nom} » est maintenant sur ton bureau.`, 3000, { icone: ICONES_BASE[cibleApp].icone }); },
@@ -918,6 +920,14 @@
       corps.innerHTML = `<iframe src="${echapper(fichier)}" title="${echapper(titre)}"></iframe>`;
     }
 
+    // profil d'un joueur (profil.html) ; si la fenêtre est déjà ouverte, on change juste de joueur
+    function contenuProfil(corps, etat, options = {}) {
+      const src = nom => 'profil.html?nom=' + encodeURIComponent(nom || '');
+      contenuPage(corps, etat, options, src(options.param), 'Profil');
+      etat.reouvrir = o => { const f = $('iframe', corps); if (f && o && o.param) f.src = src(o.param); };
+    }
+    window.DinoOuvrirProfil = nom => { if (nom) ouvrirApp('profil', { param: String(nom) }); };
+
     // le lecteur de musique (assets/musique.js)
     function contenuMusique(corps) {
       corps.classList.add('sans-defilement');
@@ -997,7 +1007,7 @@
         const inv = e.target.closest('.msn-inviter');
         if (inv) { const l = inv.closest('.msn-contact'); choisirJeuInvitation(inv, l.dataset.cle, l.dataset.nom); return; }
         const contact = e.target.closest('.msn-contact');
-        if (contact && !e.target.closest('button')) ouvrirApp('compte', { param: 'profil/' + encodeURIComponent(contact.dataset.nom) });
+        if (contact && !e.target.closest('button')) ouvrirApp('profil', { param: contact.dataset.nom });
       });
       corps.addEventListener('change', async e => {
         if (e.target.matches('.msn-notifs')) stockage.ecrire('site-notifs-parties', e.target.checked ? 'oui' : 'non');
@@ -1407,6 +1417,7 @@
             ${item('data-action="hasard"', 'hasard', 'Jeu au hasard', 24)}
             <hr>
             ${item('data-action="pageBlog"', 'internet', 'Blog en pleine page', 24)}
+            ${item('data-action="installerAppli" data-installer hidden', 'telecharger', 'Installer l’appli', 24)}
             ${extras ? item('data-app="executer"', 'executer', 'Exécuter…', 24) : ''}
           </div>
         </div>
@@ -1790,6 +1801,7 @@
         ouvrirApp('jeu-' + id, param ? { param } : {});
       }
       else if (h.startsWith('article/')) ouvrirApp('blog', { article: h.slice(8) });
+      else if (h.startsWith('profil/')) ouvrirApp('profil', { param: decodeURIComponent(h.slice(7)) });
       else return false;
       return true;
     }
@@ -1801,6 +1813,9 @@
     dessinerIcones();
     brancherGlisser();
     construireMenu();
+    // « Installer l'appli » apparaît dans le menu quand le navigateur le permet (Chrome, Edge…)
+    const majInstaller = () => { const b = $('[data-installer]', menu); if (b) b.hidden = !(window.DinoAppli && window.DinoAppli.peutInstaller() && !window.DinoAppli.installee); };
+    if (window.DinoAppli) { window.DinoAppli.ecouter(majInstaller); majInstaller(); }
     menu.addEventListener('contextmenu', e => {
       const b = e.target.closest('[data-app]');
       e.preventDefault();
@@ -1992,6 +2007,7 @@
           </div>
         </div>
         <div class="m-carte m-carte-compte"></div>
+        <div class="m-carte m-carte-appli" hidden></div>
         <div class="m-carte">
           <h3>Jeux en ligne</h3>
           <p class="bio" style="margin:0 0 12px"><span class="m-enligne" hidden><i></i><span></span></span></p>
@@ -2001,6 +2017,7 @@
         </div>
         <p class="m-pied">Sur ordinateur, le site s'ouvre en mode bureau.</p>`;
       majCarteCompte();
+      majCarteAppli();
       $('.m-bascule-notifs', vues.moi).addEventListener('click', () => {
         const coupees = stockage.lire('site-notifs-parties', 'oui') === 'non';
         stockage.ecrire('site-notifs-parties', coupees ? 'oui' : 'non');
@@ -2009,6 +2026,28 @@
         majEnLigne();
       });
     }
+
+    // installer le site comme une appli (assets/appli.js)
+    function majCarteAppli() {
+      const zone = $('.m-carte-appli', vues.moi);
+      const ap = window.DinoAppli;
+      if (!zone || !ap || ap.installee) { if (zone) zone.hidden = true; return; }
+      zone.hidden = false;
+      const marches = ap.systeme === 'ios'
+        ? 'Dans Safari : touche <b>Partager</b> (le carré avec une flèche vers le haut), puis <b>Sur l’écran d’accueil</b>.'
+        : ap.systeme === 'android'
+          ? 'Ouvre le menu <b>⋮</b> du navigateur, puis <b>Installer l’application</b> (ou <b>Ajouter à l’écran d’accueil</b>).'
+          : 'Dans le menu du navigateur, choisis <b>Installer</b> ou <b>Ajouter à l’écran d’accueil</b>.';
+      zone.innerHTML = `
+        <h3>Installer l’appli</h3>
+        <p class="bio" style="margin:0 0 12px">Mets ${echapper(NOM)} sur ton écran d’accueil : il s’ouvre en plein écran comme une vraie appli, et tu le retrouves en un clic.</p>
+        ${ap.peutInstaller()
+          ? `<div class="actions"><button class="btn btn-primaire" data-a="installer-appli">${svg('telecharger', 16)}Installer</button></div>`
+          : `<p class="bio" style="margin:0">${marches}</p>`}`;
+      const b = $('[data-a="installer-appli"]', zone);
+      if (b) b.addEventListener('click', () => ap.installer().then(ok => { if (ok) toast('Appli installée !'); majCarteAppli(); }));
+    }
+    if (window.DinoAppli) window.DinoAppli.ecouter(majCarteAppli);
 
     function dessinerTout() { vueAccueil(); vueBlog(); vueJeux(); vueMoi(); majEnLigne(); majParties(); majJoueurs(); majNonLusM(); defiDuJour().then(t => { const el = $('.m-defi-texte', vues.jeux); if (el) el.textContent = t; }); }
 
@@ -2030,9 +2069,17 @@
       ouvrirEcran(p[0], `<iframe src="${p[1]}" title="${echapper(p[0])}"></iframe>`, null, id, true, pousser);
     }
     document.addEventListener('click', e => {
+      const pr = e.target.closest('[data-profil-m]');
+      if (pr) { ouvrirProfilM(pr.dataset.profilM, true); return; }
       const b = e.target.closest('[data-page]');
       if (b && PAGES_M[b.dataset.page]) { e.stopPropagation(); ouvrirPage(b.dataset.page, true); }
     });
+
+    function ouvrirProfilM(nom, pousser) {
+      if (!nom) return;
+      ouvrirEcran('Profil', `<iframe src="profil.html?nom=${encodeURIComponent(nom)}" title="Profil"></iframe>`, null, 'profil/' + encodeURIComponent(nom), true, pousser);
+    }
+    window.DinoOuvrirProfil = nom => ouvrirProfilM(String(nom || ''), true);
 
     function ouvrirCompte(param, pousser) {
       ouvrirEcran('Mon compte', `<iframe src="compte.html${param ? '#' + echapper(param) : ''}" title="Mon compte"></iframe>`, null, 'compte', true, pousser);
@@ -2064,7 +2111,7 @@
         const jeu = x.jeu && JEUX.find(j => j.id === x.jeu);
         return `<div class="m-partie m-joueur">
           <div class="icone">${x.avatar && window.DinoAvatar ? window.DinoAvatar.svg(x.avatar, 34, x.nom) : svg('utilisateur', 20)}</div>
-          <div class="texte"><b>${echapper(x.nom)}${clesAmis.has(x.cle) ? ' <span class="m-etoile">★</span>' : ''}</b><span>${jeu ? 'joue à ' + echapper(jeu.titre) : 'sur le site'}</span></div>
+          <div class="texte" data-profil-m="${echapper(x.nom)}"><b>${echapper(x.nom)}${clesAmis.has(x.cle) ? ' <span class="m-etoile">★</span>' : ''}</b><span>${jeu ? 'joue à ' + echapper(jeu.titre) : 'sur le site'}</span></div>
           ${CO && CO.connecte ? `<button class="btn petit" data-inviter="${echapper(x.cle)}" data-nom="${echapper(x.nom)}">Inviter</button>` : ''}
         </div>`;
       }).join('') : `<p class="m-vide-joueurs">Personne avec un compte en ligne pour l’instant.</p>`;
@@ -2291,7 +2338,7 @@
 
     function suivreAdresse(evenement) {
       const h = lireHash();
-      const ecranDemande = h.startsWith('jeu/') || h.startsWith('article/') || h === 'compte' || !!PAGES_M[h];
+      const ecranDemande = h.startsWith('jeu/') || h.startsWith('article/') || h.startsWith('profil/') || h === 'compte' || !!PAGES_M[h];
       // Lien direct vers un jeu ou un article : on glisse d'abord l'accueil
       // dans l'historique, pour que « retour » ramène bien sur le site
       if (ecranDemande && !evenement && !(history.state && history.state.ecran)) {
@@ -2299,6 +2346,7 @@
       }
       if (h.startsWith('jeu/')) { ouvrirJeu(h.slice(4)); return; }
       if (h === 'compte') { ouvrirCompte(''); return; }
+      if (h.startsWith('profil/')) { ouvrirProfilM(decodeURIComponent(h.slice(7))); return; }
       if (PAGES_M[h]) { ouvrirPage(h); return; }
       if (h.startsWith('article/')) {
         const url = h.slice(8);

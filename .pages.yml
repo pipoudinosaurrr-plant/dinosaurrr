@@ -134,7 +134,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux, bomberman]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -226,6 +226,27 @@ content:
         options:
           path: media/musiques
           extensions: [mp3, ogg, oga, wav, m4a, aac, flac, opus, webm]
+
+  # ---------------------------------------------------------------- Filtre du chat
+  - name: filtre
+    label: Filtre du chat
+    type: file
+    path: _data/filtre-chat.json
+    format: json
+    fields:
+      - name: actif
+        label: Filtre activé
+        type: boolean
+        default: true
+      - name: pseudos
+        label: Refuser aussi les pseudos qui contiennent ces mots
+        type: boolean
+        default: true
+      - name: mots
+        label: Mots interdits
+        type: string
+        list: true
+        description: "Un mot par ligne. « mot » = ce mot exact (con ne bloque pas content). « mot* » = tous les mots qui commencent comme ça (salop* → salope, salopard). Plusieurs mots = l'expression entière. Les accents, chiffres (c0nn4rd), lettres étirées et espacées sont repérés tout seuls."
 
   # ---------------------------------------------------------------- Pendu
   - name: pendu
@@ -451,6 +472,8 @@ content:
                   label: "Jeu : Air hockey"
                 - name: jeu-uno
                   label: "Jeu : Uno"
+                - name: jeu-bomberman
+                  label: "Jeu : Bomberman"
                 - name: jeu-flipper
                   label: "Jeu : Flipper"
                 - name: jeu-route

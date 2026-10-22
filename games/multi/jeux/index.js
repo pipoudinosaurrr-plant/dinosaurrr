@@ -10,5 +10,6 @@ import dessin from './dessin.js';
 import echecs from './echecs.js';
 import hockey from './hockey.js';
 import uno from './uno.js';
+import bomberman from './bomberman.js';
 
-export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno };
+export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno, bomberman };

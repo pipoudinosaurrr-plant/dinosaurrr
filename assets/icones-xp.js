@@ -186,6 +186,18 @@
     <path d="M29 20H19" stroke="#38bdf8" stroke-width="3"/>
     <path d="M8 6v8M22 16v8" stroke="#e2e8f0" stroke-width="2"/></svg>`;
 
+  // Bomberman : une bombe avec sa mèche allumée sur une arène
+  D.bomberman = `<svg viewBox="0 0 32 32"><defs>${rad('bmb', '#6b7280', '#1f2937', '#030712', .35, .3)}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#22402e" stroke="#0f1f16"/>
+    <rect x="3" y="3" width="7" height="7" fill="#4c566a"/><rect x="22" y="22" width="7" height="7" fill="#4c566a"/><rect x="22" y="3" width="7" height="7" fill="#9a6b3d" stroke="#6b4423" stroke-width=".8"/>
+    <circle cx="14" cy="18" r="8" fill="url(#bmb)" stroke="#000"/><path d="M19 12.5l3-3" stroke="#a3a3a3" stroke-width="2"/>
+    <circle cx="22.8" cy="8.7" r="2.4" fill="#fb923c"/><circle cx="22.8" cy="8.7" r="1.2" fill="#fde047"/><path d="M10.5 14.5a4 4 0 0 1 3-2.5" stroke="#fff" stroke-opacity=".5" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
+  // Installer l'appli : un téléphone et une flèche verte
+  D.telecharger = `<svg viewBox="0 0 32 32"><defs>${lin('tlt', '#3a3a3a', '#0e0e0e')}${lin('tlf', '#86efac', '#16a34a')}</defs>
+    <rect x="8.5" y="2.5" width="15" height="27" rx="3" fill="url(#tlt)" stroke="#000"/><rect x="10.5" y="5.5" width="11" height="19" rx="1" fill="#1e3a5f"/>
+    <path d="M16 7v10M11.5 13l4.5 4.5 4.5-4.5" fill="none" stroke="url(#tlf)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="12" y="20.5" width="8" height="2" rx="1" fill="#22c55e"/><circle cx="16" cy="27" r="1" fill="#555"/></svg>`;
+
   // Hall of Fame : une coupe dorée
   D.trophee = `<svg viewBox="0 0 32 32"><defs>${lin('trc', '#fde68a', '#d97706')}${lin('trp', '#78350f', '#451a03')}</defs>
     <path d="M9 5h14v6a7 7 0 0 1-14 0z" fill="url(#trc)" stroke="#92400e"/>

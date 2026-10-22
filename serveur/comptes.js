@@ -8,7 +8,8 @@
    ========================================================== */
 
 import { DurableObject } from 'cloudflare:workers';
-import { XP, niveauDe, xpPourNiveau, titreDe, AVATARS, avatarDe, CLASSEMENTS, JEUX_PROGRES, SUCCES, jourDe, defiDuJour, defiReussi } from '../assets/progres-defs.js';
+import { pseudoInterdit } from './filtre.js';
+import { XP, niveauDe, xpPourNiveau, titreDe, AVATARS, avatarDe, CLASSEMENTS, JEUX_PROGRES, SUCCES, jourDe, semaineDe, semainePrecedente, defiDuJour, defiReussi } from '../assets/progres-defs.js';
 
 const TOURS = 100000;                         // maximum autorisé par Cloudflare
 const DUREE_SESSION = 180 * 24 * 3600 * 1000; // 6 mois sans visite = session expirée
@@ -64,6 +65,7 @@ function verifierPseudo(nom) {
   const cle = clePseudo(n);
   if (formeProprio(n)) return 'Ce pseudo est réservé, choisis-en un autre.';
   if (MOTS_INTERDITS.has(cle) || /^(joueur|invite|bot)\d*$/.test(cle)) return 'Ce pseudo est réservé, choisis-en un autre.';
+  if (pseudoInterdit(n)) return 'Ce pseudo n’est pas autorisé, choisis-en un autre.';
   return null;
 }
 
@@ -97,6 +99,8 @@ export class Comptes extends DurableObject {
       CREATE TABLE IF NOT EXISTS joues (cle TEXT NOT NULL, jeu TEXT NOT NULL, parties INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, jeu));
       CREATE TABLE IF NOT EXISTS defis (cle TEXT NOT NULL, jour TEXT NOT NULL, PRIMARY KEY (cle, jour));
       CREATE TABLE IF NOT EXISTS xpjour (cle TEXT NOT NULL, jour TEXT NOT NULL, xp INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, jour));
+      CREATE TABLE IF NOT EXISTS xpsemaine (cle TEXT NOT NULL, semaine TEXT NOT NULL, xp INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cle, semaine));
+      CREATE TABLE IF NOT EXISTS recsemaine (cle TEXT NOT NULL, jeu TEXT NOT NULL, semaine TEXT NOT NULL, score REAL NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (cle, jeu, semaine));
       CREATE TABLE IF NOT EXISTS stats_site (jour TEXT NOT NULL, type TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (jour, type));
       CREATE TABLE IF NOT EXISTS tournois (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, jeu TEXT NOT NULL, quand INTEGER NOT NULL, etat TEXT NOT NULL, cree INTEGER NOT NULL, gagnant TEXT);
       CREATE TABLE IF NOT EXISTS tinscrits (tid INTEGER NOT NULL, cle TEXT NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (tid, cle));
@@ -120,7 +124,7 @@ export class Comptes extends DurableObject {
     this.sql.exec('DELETE FROM sessions WHERE cle = ?', cle);
     this.sql.exec('DELETE FROM stats WHERE cle = ?', cle);
     this.sql.exec('DELETE FROM amis WHERE de = ? OR a = ?', cle, cle);
-    for (const table of ['succes', 'records', 'joues', 'defis', 'xpjour', 'tinscrits']) this.sql.exec(`DELETE FROM ${table} WHERE cle = ?`, cle);
+    for (const table of ['succes', 'records', 'joues', 'defis', 'xpjour', 'xpsemaine', 'recsemaine', 'tinscrits']) this.sql.exec(`DELETE FROM ${table} WHERE cle = ?`, cle);
     this.sql.exec('DELETE FROM comptes WHERE cle = ?', cle);
   }
 
@@ -136,6 +140,8 @@ export class Comptes extends DurableObject {
       this.sql.exec('INSERT INTO xpjour (cle, jour, xp) VALUES (?, ?, ?) ON CONFLICT (cle, jour) DO UPDATE SET xp = xp + excluded.xp', cle, jour, n);
     }
     this.sql.exec('UPDATE comptes SET xp = xp + ? WHERE cle = ?', n, cle);
+    // l'XP de la semaine (classement de la semaine)
+    this.sql.exec('INSERT INTO xpsemaine (cle, semaine, xp) VALUES (?, ?, ?) ON CONFLICT (cle, semaine) DO UPDATE SET xp = xp + excluded.xp', cle, semaineDe(), n);
     return n;
   }
 
@@ -157,6 +163,12 @@ export class Comptes extends DurableObject {
         if (!ancien || (def.sens === '+' ? ev.score > ancien.score : ev.score < ancien.score)) {
           this.sql.exec('INSERT OR REPLACE INTO records (cle, jeu, score, t) VALUES (?, ?, ?, ?)', cle, ev.jeu, ev.score, Date.now());
           r.record = true;
+        }
+        // record de la semaine
+        const sem = semaineDe();
+        const ancienS = this.un('SELECT score FROM recsemaine WHERE cle = ? AND jeu = ? AND semaine = ?', cle, ev.jeu, sem);
+        if (!ancienS || (def.sens === '+' ? ev.score > ancienS.score : ev.score < ancienS.score)) {
+          this.sql.exec('INSERT OR REPLACE INTO recsemaine (cle, jeu, semaine, score, t) VALUES (?, ?, ?, ?, ?)', cle, ev.jeu, sem, ev.score, Date.now());
         }
       }
       // défi du jour
@@ -272,7 +284,7 @@ export class Comptes extends DurableObject {
   }
 
   adminTournoi(d, t) {
-    const JEUX_TOURNOI = ['puissance4', 'morpion', 'navale', 'pong', 'echecs', 'hockey'];
+    const JEUX_TOURNOI = ['puissance4', 'morpion', 'navale', 'pong', 'echecs', 'hockey', 'bomberman', 'uno'];
     const LETTRES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const code = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), x => LETTRES[x % LETTRES.length]).join('');
     if (d.faire === 'creer') {
@@ -448,8 +460,30 @@ export class Comptes extends DurableObject {
         const c = this.un('SELECT * FROM comptes WHERE cle = ?', cleCompte(d.nom));
         if (!c) return { erreur: 'Ce joueur n’existe pas.', statut: 404 };
         const niveau = niveauDe(c.xp || 0);
-        return { profil: { nom: c.nom, cree: c.cree, avatar: avatarDe(c.avatar).id, xp: c.xp || 0, niveau, titre: titreDe(niveau) }, stats: this.stats(c.cle),
-          succes: this.tous('SELECT id, t FROM succes WHERE cle = ? ORDER BY t', c.cle), records: this.tous('SELECT jeu, score FROM records WHERE cle = ?', c.cle) };
+        const records = this.tous('SELECT jeu, score FROM records WHERE cle = ?', c.cle).map(r => {
+          const def = CLASSEMENTS[r.jeu];
+          // place dans le classement de tous les temps
+          const mieux = def ? this.un(`SELECT COUNT(*) AS n FROM records r JOIN comptes k ON k.cle = r.cle WHERE r.jeu = ? AND k.banni <= ? AND r.score ${def.sens === '-' ? '<' : '>'} ?`, r.jeu, t, r.score).n : 0;
+          return { ...r, place: mieux + 1 };
+        });
+        const joues = this.tous('SELECT jeu, parties FROM joues WHERE cle = ? ORDER BY parties DESC', c.cle);
+        const sem = semaineDe(t);
+        const xpSem = (this.un('SELECT xp FROM xpsemaine WHERE cle = ? AND semaine = ?', c.cle, sem) || { xp: 0 }).xp;
+        return {
+          profil: {
+            nom: c.nom, cree: c.cree, avatar: avatarDe(c.avatar).id, xp: c.xp || 0, niveau, titre: titreDe(niveau), admin: c.cle === PROPRIO.cle,
+            rang: this.un('SELECT COUNT(*) AS n FROM comptes WHERE xp > ? AND banni <= ?', c.xp || 0, t).n + 1,
+            xpSemaine: xpSem,
+            rangSemaine: xpSem ? this.un('SELECT COUNT(*) AS n FROM xpsemaine x JOIN comptes k ON k.cle = x.cle WHERE x.semaine = ? AND x.xp > ? AND k.banni <= ?', sem, xpSem, t).n + 1 : null,
+            parties: joues.reduce((s, j) => s + j.parties, 0),
+            defis: this.un('SELECT COUNT(*) AS n FROM defis WHERE cle = ?', c.cle).n,
+            amis: this.un('SELECT COUNT(*) AS n FROM amis WHERE de = ? AND accepte = 1', c.cle).n,
+            enLigneRecemment: t - (c.vu || 0) < 10 * 60000
+          },
+          stats: this.stats(c.cle), joues: joues.slice(0, 6),
+          succes: this.tous('SELECT id, t FROM succes WHERE cle = ? ORDER BY t', c.cle), records,
+          recordsSemaine: this.tous('SELECT jeu, score FROM recsemaine WHERE cle = ? AND semaine = ?', c.cle, sem)
+        };
       }
 
       case 'existe': {
@@ -505,7 +539,19 @@ export class Comptes extends DurableObject {
         }
         const xp = this.tous('SELECT nom, avatar, xp FROM comptes WHERE banni <= ? ORDER BY xp DESC, cree ASC LIMIT 10', t)
           .map(x => ({ nom: x.nom, avatar: avatarDe(x.avatar).id, niveau: niveauDe(x.xp || 0), score: x.xp || 0 }));
-        return { classements: r, xp };
+        // cette semaine (remis à zéro chaque lundi)
+        const sem = semaineDe(t);
+        const rs = {};
+        for (const [jeu, def] of Object.entries(CLASSEMENTS)) {
+          rs[jeu] = this.tous(`SELECT c.nom, c.avatar, c.xp, r.score FROM recsemaine r JOIN comptes c ON c.cle = r.cle
+            WHERE r.jeu = ? AND r.semaine = ? AND c.banni <= ? ORDER BY r.score ${def.sens === '-' ? 'ASC' : 'DESC'}, r.t ASC LIMIT 10`, jeu, sem, t)
+            .map(x => ({ nom: x.nom, avatar: avatarDe(x.avatar).id, niveau: niveauDe(x.xp || 0), score: x.score }));
+        }
+        const xpSemaine = s => this.tous(`SELECT c.nom, c.avatar, c.xp AS total, x.xp FROM xpsemaine x JOIN comptes c ON c.cle = x.cle
+          WHERE x.semaine = ? AND c.banni <= ? ORDER BY x.xp DESC, c.cree ASC LIMIT 10`, s, t)
+          .map(x => ({ nom: x.nom, avatar: avatarDe(x.avatar).id, niveau: niveauDe(x.total || 0), score: x.xp }));
+        const avant = xpSemaine(semainePrecedente(t))[0] || null;
+        return { classements: r, xp, semaine: { debut: sem, classements: rs, xp: xpSemaine(sem), champion: avant } };
       }
       // statistiques du site (appelé par le serveur : visites, heures, parties)
       case 'stat': {

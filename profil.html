@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Profil</title>
+  <link rel="stylesheet" href="games/jeu.css">
+  <style>
+    body { margin: 0; background: radial-gradient(700px 360px at 50% -80px, rgba(34, 197, 94, .09), transparent 70%), #000; }
+    main { max-width: 640px; margin: 0 auto; padding: 18px 14px 40px; }
+    .haut { display: flex; gap: 14px; align-items: center; }
+    .haut .avatar-dino { flex: none; }
+    h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.04em; overflow-wrap: anywhere; }
+    h1 .admin { color: #fde047; font-size: 18px; }
+    .sous { margin: 2px 0 0; color: var(--doux); font-size: 13px; }
+    .en-ligne { display: inline-flex; align-items: center; gap: 5px; color: #4ade80; font-size: 12px; font-weight: 600; }
+    .en-ligne i { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .niveau { display: flex; justify-content: space-between; margin: 16px 0 6px; font-size: 13.5px; }
+    .niveau .xp { color: var(--doux); font: 500 12px var(--mono); }
+    .barre-xp { height: 8px; border-radius: 6px; background: #1a1a1a; overflow: hidden; }
+    .barre-xp i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0 6px; }
+    .tuile { padding: 10px 8px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); text-align: center; }
+    .tuile b { display: block; font: 800 19px var(--mono); }
+    .tuile small { color: var(--tres-doux); font-size: 11.5px; }
+    h2 { margin: 22px 0 8px; font-size: 15px; }
+    .liste { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .liste li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--bord); border-radius: 12px; background: rgba(255, 255, 255, .02); font-size: 14px; }
+    .liste li .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .liste li .nom small { display: block; color: var(--tres-doux); font-size: 11.5px; }
+    .liste li .val { font: 700 14px var(--mono); }
+    .place { min-width: 34px; text-align: center; font: 700 13px var(--mono); color: var(--doux); }
+    .semaine { padding: 1px 6px; border-radius: 6px; background: rgba(250, 204, 21, .14); color: #fde047; font: 600 10.5px var(--mono); }
+    .succes { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 6px; }
+    .succes span { display: grid; place-items: center; aspect-ratio: 1; border: 1px solid var(--bord); border-radius: 12px; font-size: 22px; background: rgba(255, 255, 255, .03); }
+    .succes span.non { filter: grayscale(1); opacity: .22; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .vide { color: var(--tres-doux); font-size: 13px; }
+    .message { margin: 10px 0 0; font-size: 13px; color: var(--doux); }
+  </style>
+</head>
+<body>
+  <main id="page"><p class="sous">Chargement…</p></main>
+  <script src="assets/config.js"></script>
+  <script src="assets/jeux.js"></script>
+  <script>
+  (async function () {
+    const $ = id => document.getElementById(id);
+    const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const parent = nom => { try { return window.parent !== window ? window.parent[nom] : null; } catch (e) { return null; } };
+    const charger = src => new Promise(r => { const s = document.createElement('script'); s.src = src; s.onload = r; s.onerror = r; document.head.append(s); });
+    let C = parent('DinoCompte'); if (!C) { await charger('assets/compte.js'); C = window.DinoCompte; }
+    let AV = parent('DinoAvatar'); if (!AV) { await charger('assets/avatars.js'); AV = window.DinoAvatar; }
+    const D = await import('./assets/progres-defs.js');
+    const JEUX = window.JEUX || [];
+    const nomJeu = id => (D.CLASSEMENTS[id] && D.CLASSEMENTS[id].nom) || (JEUX.find(j => j.id === id) || {}).titre || id;
+    const format = (jeu, v) => (jeu === 'reflexes' ? `${v} ms` : Number(v).toLocaleString('fr-FR'));
+    const date = t => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const medaille = n => (n === 1 ? '🥇' : n === 2 ? '🥈' : n === 3 ? '🥉' : '#' + n);
+
+    const nom = new URLSearchParams(location.search).get('nom') || (location.hash.match(/^#(.+)$/) || [])[1] || '';
+    async function afficher() {
+      if (!nom) { $('page').innerHTML = '<p class="vide">Aucun joueur choisi.</p>'; return; }
+      const d = C ? await C.api('profil', { nom: decodeURIComponent(nom) }) : { erreur: 'Le serveur n’est pas joignable.' };
+      if (!d || d.erreur) { $('page').innerHTML = `<h1>Profil</h1><p class="message">${echapper((d && d.erreur) || 'Le serveur n’est pas joignable.')}</p>${retourHTML()}`; brancherRetour(); return; }
+      const p = d.profil;
+      document.title = 'Profil de ' + p.nom;
+      const n = p.niveau, debut = D.xpPourNiveau(n), fin = D.xpPourNiveau(n + 1);
+      const pct = Math.max(0, Math.min(100, (p.xp - debut) / (fin - debut) * 100));
+      const victoires = (d.stats || []).reduce((s, x) => s + (x.victoires || 0), 0);
+      const recSem = new Map((d.recordsSemaine || []).map(r => [r.jeu, r.score]));
+      const moi = C && C.connecte && C.compte && C.compte.nom.toLowerCase() === p.nom.toLowerCase();
+      const ami = C && C.amis ? C.amis.find(a => a.nom.toLowerCase() === p.nom.toLowerCase()) : null;
+      const obtenus = new Set((d.succes || []).map(s => s.id));
+      $('page').innerHTML = `
+        <div class="haut">${AV ? AV.svg(p.avatar, 72, p.nom) : ''}
+          <div style="min-width:0">
+            <h1>${echapper(p.nom)} ${p.admin ? '<span class="admin" title="Créateur du site">⚡</span>' : ''}</h1>
+            <p class="sous">${echapper(p.titre)} · membre depuis le ${date(p.cree)}</p>
+            ${p.enLigneRecemment ? '<span class="en-ligne"><i></i>En ligne récemment</span>' : ''}
+          </div>
+        </div>
+        <div class="niveau"><span><b>Niveau ${n}</b></span><span class="xp">${p.xp.toLocaleString('fr-FR')} / ${fin.toLocaleString('fr-FR')} XP</span></div>
+        <div class="barre-xp"><i style="width:${pct.toFixed(1)}%"></i></div>
+        <div class="tuiles">
+          <div class="tuile"><b>${medaille(p.rang)}</b><small>au classement</small></div>
+          <div class="tuile"><b>${p.xpSemaine.toLocaleString('fr-FR')}</b><small>XP cette semaine${p.rangSemaine ? ` (${medaille(p.rangSemaine)})` : ''}</small></div>
+          <div class="tuile"><b>${p.parties.toLocaleString('fr-FR')}</b><small>parties jouées</small></div>
+          <div class="tuile"><b>${victoires}</b><small>victoires en ligne</small></div>
+          <div class="tuile"><b>${p.defis}</b><small>défis réussis</small></div>
+          <div class="tuile"><b>${p.amis}</b><small>ami${p.amis > 1 ? 's' : ''}</small></div>
+        </div>
+
+        <h2>🏆 Records</h2>
+        ${d.records.length ? `<ul class="liste">${d.records.sort((a, b) => a.place - b.place).map(r => `
+          <li><span class="place">${medaille(r.place)}</span><span class="nom">${echapper(nomJeu(r.jeu))}${recSem.has(r.jeu) ? ` <span class="semaine">semaine : ${format(r.jeu, recSem.get(r.jeu))}</span>` : ''}</span><span class="val">${format(r.jeu, r.score)}</span></li>`).join('')}</ul>`
+          : '<p class="vide">Pas encore de record.</p>'}
+
+        <h2>🎮 Jeux préférés</h2>
+        ${d.joues.length ? `<ul class="liste">${d.joues.map(j => `<li><span class="nom">${echapper(nomJeu(j.jeu))}</span><span class="val">${j.parties} partie${j.parties > 1 ? 's' : ''}</span></li>`).join('')}</ul>` : '<p class="vide">Pas encore joué.</p>'}
+
+        <h2>⭐ Succès (${obtenus.size} / ${D.SUCCES.length})</h2>
+        <div class="succes">${D.SUCCES.map(s => `<span class="${obtenus.has(s.id) ? '' : 'non'}" title="${echapper(s.nom + ' : ' + s.desc)}${obtenus.has(s.id) ? '' : ' (pas encore)'}">${s.icone}</span>`).join('')}</div>
+
+        <div class="actions">
+          ${C && C.connecte && !moi ? (ami ? `<span class="message">${ami.statut === 'ami' ? '✓ Vous êtes amis' : ami.statut === 'envoyee' ? 'Demande d’ami envoyée' : 'Il/elle t’a demandé en ami (va dans Mon compte → Amis)'}</span>` : '<button class="btn primaire" id="ajouter">Ajouter en ami</button>') : ''}
+          ${moi ? '<button class="btn" id="monCompte">Modifier mon profil</button>' : ''}
+          ${retourHTML()}
+        </div>
+        <p class="message" id="msg" hidden></p>`;
+      const aj = $('ajouter');
+      if (aj) aj.addEventListener('click', async () => {
+        const r = await C.ami('ami-demande', p.nom);
+        if (r && r.erreur) { $('msg').hidden = false; $('msg').textContent = r.erreur; return; }
+        afficher();
+      });
+      const mc = $('monCompte');
+      if (mc) mc.addEventListener('click', () => { location.href = 'compte.html'; });
+      brancherRetour();
+    }
+    // « Retour » seulement si on est arrivé ici depuis une autre page de la même fenêtre
+    function retourHTML() { return history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin ? '<button class="btn" id="retour">← Retour</button>' : ''; }
+    function brancherRetour() { const b = $('retour'); if (b) b.addEventListener('click', () => history.back()); }
+    afficher();
+  })();
+  </script>
+</body>
+</html>

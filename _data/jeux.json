@@ -169,6 +169,19 @@
     "cache": false
   },
   {
+    "id": "bomberman",
+    "titre": "Bomberman",
+    "description": "De 2 à 4 joueurs en ligne ou contre l’ordinateur : pose des bombes, casse les caisses, ramasse les bonus et sois le dernier debout. Après 2 minutes, l’arène se referme !",
+    "icone": "bomberman",
+    "fichier": "games/bomberman.html",
+    "largeur": 820,
+    "hauteur": 760,
+    "bureau": true,
+    "nouveau": true,
+    "multi": true,
+    "cache": false
+  },
+  {
     "id": "flipper",
     "titre": "Flipper",
     "description": "Une vraie table de flipper avec une vraie physique : bumpers, lance-pierres, cibles, verrou et multibille. Garde le flipper levé pour bloquer la bille, vise avec le bout pour frapper fort.",

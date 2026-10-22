@@ -31,14 +31,24 @@
     .vide { justify-content: center; color: var(--tres-doux); font-size: 13px; }
     .note { margin-top: 14px; color: var(--tres-doux); font-size: 12px; line-height: 1.5; }
     a.lien { color: var(--accent); }
+    .periode { display: inline-flex; padding: 3px; margin-bottom: 10px; border: 1px solid var(--bord2); border-radius: 999px; }
+    .periode button { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--doux); font: 600 12.5px var(--police); cursor: pointer; }
+    .periode button.actif { background: #fafafa; color: #000; }
+    .champion { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(250, 204, 21, .35); border-radius: 12px; background: rgba(250, 204, 21, .06); font-size: 13px; }
+    .champion[hidden] { display: none; }
+    .champion b { color: #fde047; }
+    li .nom button, .champion button { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+    li .nom button:hover, .champion button:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <main>
     <span class="pastille"><span class="point-vert"></span>Hall of Fame</span>
     <h1>🏆 Les meilleurs du site</h1>
-    <p class="sous">Les records de tous les temps, mis à jour à chaque partie.</p>
+    <p class="sous">Le classement de la semaine repart à zéro chaque lundi. Clique sur un pseudo pour voir son profil.</p>
     <div class="defi" id="defi" hidden></div>
+    <div class="periode" id="periode"><button data-p="semaine" class="actif">Cette semaine</button><button data-p="tout">Tous les temps</button></div>
+    <div class="champion" id="champion" hidden></div>
     <div class="onglets" id="onglets"></div>
     <ol id="liste"><li class="vide">Chargement…</li></ol>
     <p class="note" id="note"></p>
@@ -65,22 +75,35 @@
       el.innerHTML = `<span class="ico">${fait ? '✅' : '🎯'}</span><span><b>Défi du jour : ${echapper(defi.texte)}</b><small>${fait ? `Réussi ! Reviens demain pour le prochain.${serie > 1 ? ` Série : ${serie} jours d’affilée 🔥` : ''}` : (C && C.connecte ? `+${D.XP.defi} XP si tu le réussis aujourd’hui.` : 'Connecte-toi à ton compte pour gagner de l’XP avec les défis.')}</small></span>`;
     }
 
-    let donnees = null, choix = 'xp';
+    let donnees = null, choix = 'xp', periode = 'semaine';
+    const ouvrirProfil = nom => { const f = parent('DinoOuvrirProfil'); if (f) f(nom); else location.href = 'profil.html?nom=' + encodeURIComponent(nom); };
+    document.addEventListener('click', e => { const b = e.target.closest('[data-profil]'); if (b) ouvrirProfil(b.dataset.profil); });
+    $('periode').addEventListener('click', e => {
+      const b = e.target.closest('[data-p]'); if (!b) return;
+      periode = b.dataset.p;
+      $('periode').querySelectorAll('button').forEach(x => x.classList.toggle('actif', x === b));
+      liste();
+    });
     const ordre = ['xp', ...Object.keys(D.CLASSEMENTS)];
     function onglets() {
       $('onglets').innerHTML = ordre.map(k => `<button data-k="${k}" class="${k === choix ? 'actif' : ''}">${k === 'xp' ? '⭐ Niveaux' : echapper(D.CLASSEMENTS[k].nom)}</button>`).join('');
     }
     $('onglets').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; choix = b.dataset.k; onglets(); liste(); });
-    const format = (k, v) => k === 'xp' ? `${Number(v).toLocaleString('fr-FR')} XP` : k === 'reflexes' ? `${v} ms` : Number(v).toLocaleString('fr-FR');
+    const format = (k, v) => k === 'xp' ? `${Number(v).toLocaleString('fr-FR')} XP${periode === 'semaine' ? ' cette semaine' : ''}` : k === 'reflexes' ? `${v} ms` : Number(v).toLocaleString('fr-FR');
     function liste() {
       if (!donnees) return;
-      const l = choix === 'xp' ? donnees.xp : (donnees.classements[choix] || []);
+      const src = periode === 'semaine' && donnees.semaine ? donnees.semaine : donnees;
+      const l = choix === 'xp' ? src.xp : (src.classements[choix] || []);
+      // le champion de la semaine dernière
+      const ch = donnees.semaine && donnees.semaine.champion;
+      $('champion').hidden = !(periode === 'semaine' && ch);
+      if (ch) $('champion').innerHTML = `${AV ? AV.svg(ch.avatar, 30, ch.nom) : ''}<span>👑 Champion de la semaine dernière : <b><button data-profil="${echapper(ch.nom)}">${echapper(ch.nom)}</button></b> avec ${Number(ch.score).toLocaleString('fr-FR')} XP</span>`;
       const moi = C && C.compte ? C.compte.nom : '';
       $('liste').innerHTML = l.length ? l.map((x, i) => `
         <li class="${x.nom === moi ? 'moi' : ''}"><span class="place">${i + 1}</span>${AV ? AV.svg(x.avatar, 36, x.nom) : ''}
-          <span class="nom">${echapper(x.nom)}<small>niveau ${x.niveau} · ${echapper(D.titreDe(x.niveau))}</small></span>
+          <span class="nom"><button data-profil="${echapper(x.nom)}">${echapper(x.nom)}</button><small>niveau ${x.niveau} · ${echapper(D.titreDe(x.niveau))}</small></span>
           <span class="score">${format(choix, x.score)}</span></li>`).join('')
-        : '<li class="vide">Personne pour l’instant. Sois le premier !</li>';
+        : `<li class="vide">${periode === 'semaine' ? 'Personne cette semaine pour l’instant. Sois le premier !' : 'Personne pour l’instant. Sois le premier !'}</li>`;
     }
     onglets();
     majDefi();

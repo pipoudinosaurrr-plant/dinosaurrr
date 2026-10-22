@@ -14,6 +14,7 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 | `_data/jeux.json` | La liste des jeux (Pages CMS « Jeux ») |
 | `_data/apparence.json`, `_data/textes.json` | L'apparence et les phrases du site (Pages CMS « Apparence » et « Textes du site ») |
 | `_data/musiques.json` + `media/musiques/` | Les musiques du lecteur (Pages CMS « Musiques du lecteur ») |
+| `_data/filtre-chat.json` | Les mots interdits du chat et des pseudos (Pages CMS « Filtre du chat ») |
 | `_data/commandes.json` | Tes commandes secrètes pour l'Invite de commandes (Pages CMS « Commandes secrètes ») |
 | `assets/config.js`, `assets/jeux.js` | Fabriqués automatiquement à partir des fichiers `_data/` (ne pas les modifier) |
 | `assets/coffre.json`, `outils/coffre.html` | Le coffre secret chiffré, et la page qui le fabrique |
@@ -42,6 +43,14 @@ Ce fichier explique comment mettre le site en ligne sur ton domaine, brancher to
 **Droits admin** (compte `Pipou_Dinosaur` seulement, vérifié par le serveur) : bouton ⚡ Admin en pleine partie dans tous les jeux à plusieurs (`games/multi/admin.js`, et `admin` dans chaque moteur), et onglet ⚡ Admin dans « Mon compte » (comptes, victoires, mots de passe, message à tout le site, fermer une partie). En ligne, les autres joueurs voient les pouvoirs utilisés et la partie ne compte pas dans les victoires.
 
 Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (une seule grande arène pour tout le site, moteur dans `games/dinoio/moteur.js`, objet `Arene` du serveur), Puissance 4, Morpion géant, Bataille navale, Pong, Tron, Course de réflexes, Quiz battle, Dessine et devine, Échecs, Air hockey (les deux derniers se jouent aussi à 2 sur le même écran), Uno (2 à 6 joueurs, moteur dans `games/multi/jeux/uno.js`).
+
+**Bomberman** (2 à 4 joueurs, moteur dans `games/multi/jeux/bomberman.js`, bots qui esquivent les explosions).
+
+**Appli à installer** : `manifest.webmanifest`, `sw.js` (hors ligne, toujours la dernière version quand on est connecté), `assets/appli.js` (bouton « Installer » dans Moi sur téléphone et dans le menu démarrer), icônes dans `assets/appli/`.
+
+**Profils publics** : `profil.html?nom=Pseudo` (aussi `#profil/Pseudo`), ouverts en cliquant sur un pseudo (Hall of Fame, chat, contacts). Le Hall of Fame a un classement **de la semaine** (remis à zéro le lundi) et affiche le champion de la semaine d'avant.
+
+**Filtre du chat** : la liste est dans `_data/filtre-chat.json` (Pages CMS « Filtre du chat »), le code dans `serveur/filtre.js`. Il bloque aussi les pseudos insultants.
 
 Nouveaux jeux solo : **Flipper** (`games/flipper.html` ; la physique et les règles sont dans `games/flipper/moteur.js` : bille, murs arrondis, flippers qui tournent vraiment, 720 calculs par seconde), **Traverse la route** (`games/route.html`) et **Tuyaux** (`games/tuyaux.html`).
 
@@ -143,6 +152,7 @@ Tout se fait sur **app.pagescms.org** (marche aussi sur téléphone). Dans le me
 | **Commandes secrètes** | Ce qui s'affiche quand on tape un mot dans l'Invite de commandes (et ce qui s'ouvre ensuite) |
 | **Apparence** | Thème du bureau (bleu, olive, argent, noir), couleur de sélection, photo de profil, bouton démarrer (texte + image), tes propres fonds d'écran, icônes du bureau (lesquelles, ordre, noms), taille du texte, pixelisation, couleurs de la version téléphone, sons et écran de veille par défaut |
 | **Textes du site** | Les phrases des bulles et des messages, l'écran bleu, l'Invite de commandes, le coffre… (`{nom}` = nom du site, `{pseudo}` = ton pseudo) |
+| **Filtre du chat** | Les mots bloqués dans le chat et les pseudos : un mot par ligne, `mot*` pour tous les mots qui commencent pareil |
 | **Coffre secret** | Le contenu du coffre (fabriqué d'abord sur `dinosaurrr.com/outils/coffre.html`) |
 
 Les icônes du bureau choisies dans **Apparence** sont celles de départ : ensuite chaque visiteur range son propre bureau (clic droit sur le bureau → « Ajouter / enlever des icônes… », clic droit sur une icône → Renommer / Supprimer, glisser pour ranger, glisser un jeu depuis la fenêtre Jeux ou le menu démarrer pour l'ajouter, icônes supprimées dans la Corbeille). Son choix est gardé dans son navigateur.

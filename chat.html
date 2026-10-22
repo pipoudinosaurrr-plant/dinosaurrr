@@ -18,7 +18,8 @@
     .msg .avatar-dino { flex: none; margin-top: 2px; }
     .bulle { min-width: 0; max-width: 100%; padding: 7px 11px 8px; border: 1px solid var(--bord); border-radius: 4px 14px 14px 14px; background: rgba(255, 255, 255, .03); }
     .bulle .qui { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; }
-    .bulle .qui b { color: #e5e5e5; }
+    .bulle .qui b { color: #e5e5e5; cursor: pointer; }
+    .bulle .qui b:hover { text-decoration: underline; }
     .bulle .qui .admin { color: #fde047; }
     .bulle .qui small { color: var(--tres-doux); font: 500 10.5px var(--mono); }
     .bulle p { margin: 2px 0 0; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -69,7 +70,7 @@
         const mention = m && x.de !== m && x.texte.toLowerCase().includes(m.toLowerCase());
         return `<div class="msg ${x.de === m ? 'moi' : ''} ${mention ? 'mention' : ''}">
           ${AV ? AV.svg(x.avatar || 'vert', 32, x.de) : ''}
-          <div class="bulle"><div class="qui"><b class="${x.admin ? 'admin' : ''}">${x.admin ? '⚡ ' : ''}${echapper(x.de)}</b><small>niv. ${x.niveau || 1} · ${heure(x.t)}</small></div><p>${echapper(x.texte)}</p></div>
+          <div class="bulle"><div class="qui"><b class="${x.admin ? 'admin' : ''}" data-profil="${echapper(x.de)}" title="Voir le profil">${x.admin ? '⚡ ' : ''}${echapper(x.de)}</b><small>niv. ${x.niveau || 1} · ${heure(x.t)}</small></div><p>${echapper(x.texte)}</p></div>
           ${admin() ? `<button class="suppr" data-suppr="${echapper(x.id)}" title="Supprimer ce message">🗑</button>` : ''}
         </div>`;
       }).join('') : '<p class="vide">Pas encore de message. Lance la discussion !</p>';
@@ -113,6 +114,8 @@
       $('texte').value = '';
     });
     $('messages').addEventListener('click', e => {
+      const pr = e.target.closest('[data-profil]');
+      if (pr) { const f = parent('DinoOuvrirProfil'); if (f) f(pr.dataset.profil); else location.href = 'profil.html?nom=' + encodeURIComponent(pr.dataset.profil); return; }
       const b = e.target.closest('[data-suppr]');
       if (b && admin()) P.envoyer({ t: 'chat-supprimer', id: b.dataset.suppr });
     });

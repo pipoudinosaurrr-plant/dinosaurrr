@@ -377,7 +377,7 @@
         <ul class="lignes">${confirmes.length ? confirmes.map(a => {
           const co = enLigne.has(a.cle);
           return `<li><i class="rond ${co ? 'en-ligne' : ''}"></i>
-            <span class="nom"><a class="lien" href="#profil/${encodeURIComponent(a.nom)}">${echapper(a.nom)}</a><small>${co ? 'en ligne' : a.vu ? 'vu ' + ilYa(a.vu) : 'hors ligne'}</small></span>
+            <span class="nom"><a class="lien" href="profil.html?nom=${encodeURIComponent(a.nom)}">${echapper(a.nom)}</a><small>${co ? 'en ligne' : a.vu ? 'vu ' + ilYa(a.vu) : 'hors ligne'}</small></span>
             <button class="btn petit" data-act="ami-retirer" data-nom="${echapper(a.nom)}" data-confirmer="1">Retirer</button></li>`;
         }).join('') : '<li class="vide">Ajoute tes potes avec leur pseudo de compte.</li>'}</ul>
         ${envoyees.length ? `<h2>Demandes envoyées</h2><ul class="lignes">${envoyees.map(a => `
@@ -614,7 +614,7 @@
           <details>
             <summary>${AV ? AV.svg(c.avatar || 'vert', 30, c.nom) : ''}<span class="nom" style="margin-left:8px">${echapper(c.nom)}${c.bloque ? ' <span class="badge-rouge">bloqué</span>' : ''}${c.banni ? ` <span class="badge-rouge">banni${c.banni > Date.now() + 50 * 365 * 86400000 ? '' : ' jusqu’au ' + new Date(c.banni).toLocaleDateString('fr-FR')}</span>` : ''}<small>niv. ${c.niveau} · vu ${ilYa(c.vu)} · créé le ${date(c.cree)} · ${c.victoires} V / ${c.parties} parties</small></span></summary>
             <div class="actions-admin" data-nom="${echapper(c.nom)}">
-              <a class="btn petit" href="#profil/${encodeURIComponent(c.nom)}">Voir le profil</a>
+              <a class="btn petit" href="profil.html?nom=${encodeURIComponent(c.nom)}">Voir le profil</a>
               <form class="ligne" data-form="victoires">
                 <select name="jeu" aria-label="Jeu">${options}</select>
                 <input type="text" name="victoires" inputmode="numeric" placeholder="Victoires" aria-label="Victoires">

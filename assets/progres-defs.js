@@ -72,7 +72,7 @@ export const CLASSEMENTS = {
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
   'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
-  'flipper', 'route', 'tuyaux', 'uno']);
+  'flipper', 'route', 'tuyaux', 'uno', 'bomberman']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }
@@ -112,7 +112,8 @@ export const SUCCES = [
   { id: 'flipper', nom: 'Sorcier du flipper', desc: 'Faire 250 000 points au Flipper.', icone: '🎱', test: score('flipper', 250000) },
   { id: 'route50', nom: 'Traverseur', desc: 'Avancer de 50 rangées à Traverse la route.', icone: '🚸', test: score('route', 50) },
   { id: 'tuyaux', nom: 'Plombier', desc: 'Faire 5 000 points à Tuyaux.', icone: '🔧', test: score('tuyaux', 5000) },
-  { id: 'uno', nom: 'UNO !', desc: 'Gagner une partie de Uno.', icone: '🃏', test: gagne('uno') }
+  { id: 'uno', nom: 'UNO !', desc: 'Gagner une partie de Uno.', icone: '🃏', test: gagne('uno') },
+  { id: 'bomberman', nom: 'Artificier', desc: 'Gagner une partie de Bomberman.', icone: '💣', test: gagne('bomberman') }
 ];
 
 /* ---------- Défi du jour ----------
@@ -140,13 +141,23 @@ export const DEFIS = [
   { texte: 'Fais 100 000 points au Flipper.', jeu: 'flipper', score: 100000 },
   { texte: 'Avance de 30 rangées à Traverse la route.', jeu: 'route', score: 30 },
   { texte: 'Fais 2 500 points à Tuyaux.', jeu: 'tuyaux', score: 2500 },
-  { texte: 'Gagne une partie de Uno.', jeu: 'uno', gagne: true }
+  { texte: 'Gagne une partie de Uno.', jeu: 'uno', gagne: true },
+  { texte: 'Gagne une partie de Bomberman.', jeu: 'bomberman', gagne: true }
 ];
 
 // le jour (à Bruxelles) sous la forme 2026-10-21
 export function jourDe(t = Date.now()) {
   return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Brussels', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t));
 }
+// la semaine (du lundi au dimanche, à Bruxelles) sous la forme du lundi : 2026-10-19
+export function semaineDe(t = Date.now()) {
+  const j = jourDe(t);
+  const d = new Date(j + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+// le lundi de la semaine d'avant
+export const semainePrecedente = (t = Date.now()) => semaineDe(Date.parse(semaineDe(t) + 'T12:00:00Z') - 3 * 86400000);
 export function defiDuJour(jour = jourDe()) {
   const n = Math.floor(Date.parse(jour + 'T12:00:00Z') / 86400000);
   // un mélange simple pour que deux jours qui se suivent n'aient pas des défis voisins

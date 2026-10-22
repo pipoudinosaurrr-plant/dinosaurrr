@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bomberman</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    html, body { overscroll-behavior: none; }
+    #jeu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 50px 8px max(10px, env(safe-area-inset-bottom)); touch-action: none; -webkit-user-select: none; user-select: none; }
+    #jeu[hidden] { display: none; }
+    .tete { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+    .pj { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--bord2); border-radius: 999px; background: rgba(0, 0, 0, .55); font-size: 12.5px; white-space: nowrap; }
+    .pj i { width: 10px; height: 10px; border-radius: 50%; }
+    .pj small { color: var(--doux); font: 600 11px var(--mono); }
+    .pj.mort { opacity: .35; text-decoration: line-through; }
+    .info { min-height: 18px; color: var(--doux); font: 600 12px var(--mono); }
+    .info.alerte { color: #f87171; }
+    canvas { display: block; border-radius: 10px; box-shadow: 0 20px 50px -20px rgba(0, 0, 0, .9); }
+    .commandes { display: none; width: 100%; max-width: 520px; justify-content: space-between; align-items: center; padding: 0 8px; }
+    .tactile .commandes { display: flex; }
+    .croix { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 4px; }
+    .croix button, .btn-bombe { border: 1px solid #333; border-radius: 14px; background: rgba(255, 255, 255, .06); color: #ddd; font-size: 22px; touch-action: none; }
+    .croix button.appui, .btn-bombe.appui { background: rgba(255, 255, 255, .2); }
+    .croix [data-d="0"] { grid-column: 2; grid-row: 1; } .croix [data-d="3"] { grid-column: 1; grid-row: 2; }
+    .croix [data-d="1"] { grid-column: 3; grid-row: 2; } .croix [data-d="2"] { grid-column: 2; grid-row: 3; }
+    .btn-bombe { width: 96px; height: 96px; border-radius: 50%; border-color: rgba(248, 113, 113, .55); background: rgba(239, 68, 68, .15); font-size: 34px; }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="tete" id="tete"></div>
+    <canvas id="toile"></canvas>
+    <div class="info" id="info"></div>
+    <div class="commandes">
+      <div class="croix"><button data-d="0">▲</button><button data-d="3">◀</button><button data-d="1">▶</button><button data-d="2">▼</button></div>
+      <button class="btn-bombe" id="btnBombe">💣</button>
+    </div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper, TACTILE } from './multi/salon.js';
+    import moteur, { L, H, MUR, CAISSE, B_BOMBE, B_FLAMME, B_VITESSE } from './multi/jeux/bomberman.js';
+
+    if (TACTILE) document.body.classList.add('tactile');
+    const toile = document.getElementById('toile');
+    const g = toile.getContext('2d');
+    let T = 40;   // taille d'une case en pixels (écran)
+
+    function taille() {
+      const dispoL = innerWidth - 16;
+      const dispoH = innerHeight - 50 - 70 - (TACTILE ? 190 : 20);
+      T = Math.max(16, Math.floor(Math.min(dispoL / L, dispoH / H)));
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      toile.width = L * T * dpr; toile.height = H * T * dpr;
+      toile.style.width = L * T + 'px'; toile.style.height = H * T + 'px';
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      decor = null;
+    }
+    addEventListener('resize', taille);
+
+    /* ---------- sons ---------- */
+    let audio = null;
+    function bruit(duree, vol, filtre) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const n = Math.floor(audio.sampleRate * duree), buf = audio.createBuffer(1, n, audio.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 2;
+        const s = audio.createBufferSource(), f = audio.createBiquadFilter(), gn = audio.createGain();
+        s.buffer = buf; f.type = 'lowpass'; f.frequency.value = filtre; gn.gain.value = vol;
+        s.connect(f).connect(gn).connect(audio.destination); s.start();
+      } catch (e) { /* rien */ }
+    }
+    function bip(f1, f2, d, vol = .06) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audio.currentTime, o = audio.createOscillator(), gn = audio.createGain();
+        o.type = 'square'; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d);
+        gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(.0001, t + d);
+        o.connect(gn).connect(audio.destination); o.start(t); o.stop(t + d + .02);
+      } catch (e) { /* rien */ }
+    }
+
+    /* ---------- état reçu + interpolation ---------- */
+    let vue = null, ctxJeu = null, avant = null, recu = 0, recuDepart = 0, secousse = 0, morts = [];
+    function afficher(v, ctx) {
+      ctxJeu = ctx;
+      avant = vue && vue.p.length === v.p.length ? vue : v;
+      vue = v;
+      recu = performance.now();
+      if (v.depart > 0) recuDepart = recu;
+      document.getElementById('tete').innerHTML = v.j.map((id, i) => {
+        const [, , vivant, , , bombes, portee, vitesse] = v.p[i];
+        return `<span class="pj${vivant ? '' : ' mort'}"><i style="background:${ctx.couleur(id)}"></i>${echapper(ctx.nom(id))}${id === ctx.moi ? ' (toi)' : ''}<small>💣${bombes} 🔥${portee} ⚡${vitesse + 1}</small></span>`;
+      }).join('');
+      const info = document.getElementById('info');
+      if (v.fini) info.textContent = '';
+      else if (v.subite > 0) { info.className = 'info'; info.textContent = v.depart > 0 ? '' : `Mort subite dans ${Math.ceil(v.subite / 1000)} s`; }
+      else { info.className = 'info alerte'; info.textContent = '⚠ MORT SUBITE : l’arène se referme !'; }
+    }
+    function evenement(ev) {
+      if (ev[0] === 'boum') { bruit(.45, .35, 700); secousse = Math.min(.35, secousse + .18); }
+      if (ev[0] === 'pose') bip(220, 150, .06, .05);
+      if (ev[0] === 'bonus') { bip(660, 1320, .12, .05); }
+      if (ev[0] === 'mort') { morts.push({ i: ev[1], x: ev[2], y: ev[3], t: 0 }); bip(400, 60, .5, .07); }
+      if (ev[0] === 'subite') { bip(880, 440, .4, .08); }
+    }
+
+    /* ---------- dessin ---------- */
+    let decor = null, decorG = null;
+    function dessinerCase(c, x, y, v) {
+      const px = x * T, py = y * T;
+      if (v === MUR) {
+        c.fillStyle = '#3b4252'; c.fillRect(px, py, T, T);
+        c.fillStyle = '#4c566a'; c.fillRect(px + 2, py + 2, T - 4, T * 0.45);
+        c.fillStyle = '#2e3440'; c.fillRect(px, py + T - 3, T, 3);
+        c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(px + 2, py + 2, T - 4, 2);
+      } else {
+        c.fillStyle = (x + y) % 2 ? '#1f3a2a' : '#22402e'; c.fillRect(px, py, T, T);
+      }
+    }
+    function dessiner(maintenant) {
+      requestAnimationFrame(dessiner);
+      if (!vue || !ctxJeu) return;
+      const W = L * T, Ht = H * T;
+      g.save();
+      if (secousse > 0) { g.translate((Math.random() - .5) * 8 * secousse, (Math.random() - .5) * 8 * secousse); secousse = Math.max(0, secousse - 0.016); }
+      // sol, murs, caisses, bonus
+      for (let y = 0; y < H; y++) for (let x = 0; x < L; x++) {
+        const v = Number(vue.g[y * L + x]);
+        dessinerCase(g, x, y, v === MUR ? MUR : 0);
+        const px = x * T, py = y * T;
+        if (v === CAISSE) {
+          g.fillStyle = '#9a6b3d'; g.fillRect(px + 2, py + 2, T - 4, T - 4);
+          g.strokeStyle = '#6b4423'; g.lineWidth = Math.max(1.5, T / 14);
+          g.strokeRect(px + 3, py + 3, T - 6, T - 6);
+          g.beginPath(); g.moveTo(px + 4, py + 4); g.lineTo(px + T - 4, py + T - 4); g.moveTo(px + T - 4, py + 4); g.lineTo(px + 4, py + T - 4); g.stroke();
+          g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(px + 2, py + 2, T - 4, 2);
+        } else if (v >= B_BOMBE) {
+          const coul = { [B_BOMBE]: '#3b82f6', [B_FLAMME]: '#f97316', [B_VITESSE]: '#eab308' }[v];
+          const bob = Math.sin(maintenant / 200 + x + y) * T * 0.04;
+          g.fillStyle = coul; g.beginPath(); g.roundRect ? g.roundRect(px + T * .14, py + T * .14 + bob, T * .72, T * .72, T * .16) : g.rect(px + T * .14, py + T * .14 + bob, T * .72, T * .72); g.fill();
+          g.font = `${Math.round(T * .46)}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText(v === B_BOMBE ? '💣' : v === B_FLAMME ? '🔥' : '⚡', px + T / 2, py + T / 2 + bob + 1);
+        }
+      }
+      // bombes
+      for (const [x, y, reste] of vue.b) {
+        const r = reste - (maintenant - recu);
+        const pouls = 1 + Math.sin(maintenant / (r < 800 ? 50 : 120)) * 0.06;
+        const cx = x * T + T / 2, cy = y * T + T / 2 + T * 0.04, rad = T * 0.36 * pouls;
+        g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(cx, y * T + T * .86, rad * .9, rad * .3, 0, 0, Math.PI * 2); g.fill();
+        const gr = g.createRadialGradient(cx - rad * .35, cy - rad * .35, rad * .1, cx, cy, rad);
+        gr.addColorStop(0, r < 800 && Math.floor(maintenant / 80) % 2 ? '#7f1d1d' : '#4b5563'); gr.addColorStop(1, '#0b0b0b');
+        g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, rad, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#a3a3a3'; g.lineWidth = T / 14; g.beginPath(); g.moveTo(cx + rad * .4, cy - rad * .8); g.quadraticCurveTo(cx + rad * .8, cy - rad * 1.3, cx + rad * .9, cy - rad * 1.1); g.stroke();
+        g.fillStyle = Math.random() < .5 ? '#fde047' : '#fb923c'; g.beginPath(); g.arc(cx + rad * .9, cy - rad * 1.1, T * .07 + Math.random() * T * .04, 0, Math.PI * 2); g.fill();
+      }
+      // flammes
+      for (const [x, y, forme] of vue.f) {
+        const px = x * T, py = y * T;
+        g.save(); g.shadowColor = '#f97316'; g.shadowBlur = T * .5;
+        const ext = '#f97316', mil = '#fde047', coeur = '#fff7d6';
+        const barre = (vert, epais, coul) => { g.fillStyle = coul; if (vert) g.fillRect(px + T * (.5 - epais / 2), py, T * epais, T); else g.fillRect(px, py + T * (.5 - epais / 2), T, T * epais); };
+        if (forme === 'c' || forme === 'x') {
+          g.fillStyle = ext; g.beginPath(); g.arc(px + T / 2, py + T / 2, T * .48, 0, Math.PI * 2); g.fill();
+          g.fillStyle = mil; g.beginPath(); g.arc(px + T / 2, py + T / 2, T * .33, 0, Math.PI * 2); g.fill();
+          g.fillStyle = coeur; g.beginPath(); g.arc(px + T / 2, py + T / 2, T * .17, 0, Math.PI * 2); g.fill();
+        } else {
+          const vert = forme[0] === 'v';
+          barre(vert, .8, ext); barre(vert, .52, mil); barre(vert, .24, coeur);
+        }
+        g.restore();
+      }
+      // joueurs (position lissée entre deux images du serveur)
+      const a = Math.min(1, (maintenant - recu) / 50);
+      vue.p.forEach((p, i) => {
+        const q = avant.p[i] || p;
+        const [x1, y1, vivant, regard, bouge, , , , invincible] = p;
+        if (!vivant) return;
+        if (invincible && Math.floor(maintenant / 90) % 2) return;
+        const x = q[0] + (x1 - q[0]) * a, y = q[1] + (y1 - q[1]) * a;
+        const cx = x * T + T / 2, cy = y * T + T / 2;
+        const rebond = bouge ? Math.abs(Math.sin(maintenant / 70)) * T * .06 : 0;
+        const coul = ctxJeu.couleur(vue.j[i]);
+        g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(cx, cy + T * .36, T * .28, T * .1, 0, 0, Math.PI * 2); g.fill();
+        // corps
+        g.fillStyle = coul; g.beginPath(); g.ellipse(cx, cy + T * .12 - rebond, T * .26, T * .24, 0, 0, Math.PI * 2); g.fill();
+        // tête (casque blanc)
+        g.fillStyle = '#f5f5f5'; g.beginPath(); g.arc(cx, cy - T * .14 - rebond, T * .25, 0, Math.PI * 2); g.fill();
+        g.fillStyle = coul; g.beginPath(); g.arc(cx, cy - T * .38 - rebond, T * .06, 0, Math.PI * 2); g.fill();
+        // visage selon la direction
+        const ox = regard === 1 ? T * .08 : regard === 3 ? -T * .08 : 0;
+        if (regard !== 0) {
+          g.fillStyle = '#ffd7b0'; g.beginPath(); g.ellipse(cx + ox, cy - T * .12 - rebond, T * .17, T * .13, 0, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#111';
+          if (regard === 2) { g.fillRect(cx - T * .08, cy - T * .16 - rebond, T * .045, T * .09); g.fillRect(cx + T * .035, cy - T * .16 - rebond, T * .045, T * .09); }
+          else g.fillRect(cx + ox + (regard === 1 ? T * .03 : -T * .075), cy - T * .16 - rebond, T * .045, T * .09);
+        }
+        if (vue.j[i] === ctxJeu.moi && vue.depart > 0) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, T * .55, 0, Math.PI * 2); g.stroke(); }
+      });
+      // joueurs éliminés : petit fantôme qui s'envole
+      morts = morts.filter(m => (m.t += 0.016) < 1.2);
+      for (const m of morts) {
+        g.globalAlpha = 1 - m.t / 1.2;
+        g.fillStyle = '#e5e7eb'; g.beginPath(); g.arc(m.x * T + T / 2, m.y * T + T / 2 - m.t * T * 1.2, T * .25, Math.PI, 0); g.lineTo(m.x * T + T * .75, m.y * T + T * .7 - m.t * T * 1.2); g.lineTo(m.x * T + T * .25, m.y * T + T * .7 - m.t * T * 1.2); g.fill();
+        g.globalAlpha = 1;
+      }
+      // décompte
+      const reste = vue.depart - (maintenant - recuDepart);
+      if (reste > 0) {
+        g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, 0, W, Ht);
+        g.fillStyle = '#fff'; g.font = `800 ${Math.round(T * 2.6)}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(String(Math.ceil(reste / 1000)), W / 2, Ht / 2);
+        g.font = `600 ${Math.round(T * .5)}px Inter, sans-serif`;
+        g.fillText('Tu es le personnage entouré', W / 2, Ht / 2 + T * 1.6);
+      }
+      g.restore();
+    }
+    requestAnimationFrame(dessiner);
+
+    /* ---------- commandes ---------- */
+    const tenues = [];   // directions maintenues (la dernière gagne)
+    let dirEnvoyee = -2;
+    function majDir() {
+      const d = tenues.length ? tenues[tenues.length - 1] : -1;
+      if (d !== dirEnvoyee && ctxJeu && !ctxJeu.spectateur) { dirEnvoyee = d; ctxJeu.envoyer({ t: 'dir', d }); }
+    }
+    const appuyer = d => { if (!tenues.includes(d)) tenues.push(d); majDir(); };
+    const lacher = d => { const i = tenues.indexOf(d); if (i >= 0) tenues.splice(i, 1); majDir(); };
+    const bombe = () => { if (ctxJeu && !ctxJeu.spectateur) ctxJeu.envoyer({ t: 'bombe' }); };
+    const TOUCHES = { ArrowUp: 0, KeyW: 0, ArrowRight: 1, KeyD: 1, ArrowDown: 2, KeyS: 2, ArrowLeft: 3, KeyA: 3 };
+    addEventListener('keydown', e => {
+      if (!vue || e.target.matches('input')) return;
+      if (e.code in TOUCHES) { e.preventDefault(); if (!e.repeat) appuyer(TOUCHES[e.code]); }
+      if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyX') && !e.repeat) { e.preventDefault(); bombe(); }
+    });
+    addEventListener('keyup', e => { if (e.code in TOUCHES) lacher(TOUCHES[e.code]); });
+    addEventListener('blur', () => { tenues.length = 0; majDir(); });
+    document.querySelectorAll('.croix button').forEach(b => {
+      const d = Number(b.dataset.d);
+      b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('appui'); appuyer(d); try { b.setPointerCapture(e.pointerId); } catch (err) { /* rien */ } });
+      const fin = () => { b.classList.remove('appui'); lacher(d); };
+      b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin); b.addEventListener('lostpointercapture', fin);
+    });
+    const bb = document.getElementById('btnBombe');
+    bb.addEventListener('pointerdown', e => { e.preventDefault(); bb.classList.add('appui'); bombe(); });
+    bb.addEventListener('pointerup', () => bb.classList.remove('appui'));
+
+    demarrerJeu({
+      id: 'bomberman',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Bomberman',
+      intro: 'Pose des bombes pour casser les caisses, ramasse les bonus et élimine les autres. Le dernier debout gagne !',
+      regles: [['Bouger', 'Flèches ou ZQSD/WASD.'], ['Bombe', 'Espace (ou X).'], ['Bonus', '💣 une bombe de plus · 🔥 plus de portée · ⚡ plus rapide.'], ['Mort subite', 'Après 2 minutes, l’arène se referme.']],
+      reglesTactile: [['Bouger', 'La croix à gauche.'], ['Bombe', 'Le gros bouton 💣.'], ['Bonus', '💣 une bombe de plus · 🔥 plus de portée · ⚡ plus rapide.'], ['Mort subite', 'Après 2 minutes, l’arène se referme.']],
+      soloBots: 3,
+      debut() { vue = null; avant = null; morts = []; tenues.length = 0; dirEnvoyee = -2; taille(); },
+      afficher,
+      evenement
+    });
+  </script>
+</body>
+</html>

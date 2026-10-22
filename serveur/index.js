@@ -13,6 +13,7 @@ import * as DIO from '../games/dinoio/moteur.js';
 import JEUX from '../games/multi/jeux/index.js';
 import { Comptes, ACTIONS_PUBLIQUES, formeProprio } from './comptes.js';
 import { appliquerAdmin, CLE_ADMIN } from '../games/multi/admin.js';
+import { censurer, pseudoInterdit } from './filtre.js';
 
 export { Comptes };
 
@@ -168,6 +169,7 @@ function nettoyerNom(texte) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 14);
+  if (pseudoInterdit(propre)) return 'Joueur';   // pseudo d'invité insultant
   return propre || 'Joueur';
 }
 
@@ -766,12 +768,7 @@ export class Table extends DurableObject {
    ------------------------------------------------------- */
 
 // filtre du chat : à compléter plus tard (liste de mots donnée par l'admin)
-const MOTS_FILTRES = [];
-function filtrerChat(texte) {
-  let t = texte;
-  for (const mot of MOTS_FILTRES) t = t.replace(new RegExp(mot, 'gi'), m => '*'.repeat(m.length));
-  return t;
-}
+const filtrerChat = texte => censurer(texte).texte;   // la liste : _data/filtre-chat.json (Pages CMS « Filtre du chat »)
 
 const JEUX_ANNONCABLES = new Set(['cercle', ...Object.keys(JEUX)]);
 const ACTIVITES = new Set([...JEUX_ANNONCABLES, 'dinoio']);
