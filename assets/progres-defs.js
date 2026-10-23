@@ -69,13 +69,17 @@ export const CLASSEMENTS = {
   tuyaux: { nom: 'Tuyaux', sens: '+' },
   defense: { nom: 'Tower defense', sens: '+' },
   golf: { nom: 'Mini-golf · Jardin', sens: '-', unite: 'coups' },
-  golf2: { nom: 'Mini-golf · Glacier', sens: '-', unite: 'coups' }
+  golf2: { nom: 'Mini-golf · Glacier', sens: '-', unite: 'coups' },
+  golf3: { nom: 'Mini-golf · Volcan', sens: '-', unite: 'coups' },
+  golf4: { nom: 'Mini-golf · Espace', sens: '-', unite: 'coups' },
+  motdujour: { nom: 'Mot du jour (série)', sens: '+', unite: 'jours' },
+  echecsjour: { nom: 'Échecs du jour (série)', sens: '+', unite: 'jours' }
 };
 
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
   'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
-  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2']);
+  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2', 'golf3', 'golf4', 'duelblocs', 'turbo']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }
@@ -119,7 +123,11 @@ export const SUCCES = [
   { id: 'bomberman', nom: 'Artificier', desc: 'Gagner une partie de Bomberman.', icone: '💣', test: gagne('bomberman') },
   { id: 'loupgarou', nom: 'Flair infaillible', desc: 'Gagner une partie de Loup-garou.', icone: '🐺', test: gagne('loupgarou') },
   { id: 'defense', nom: 'Stratège', desc: 'Défendre une carte jusqu’au bout au Tower defense.', icone: '🏰', test: gagne('defense') },
-  { id: 'golf', nom: 'Golfeur', desc: 'Finir un parcours de Mini-golf au par ou mieux.', icone: '⛳', test: e => e.ev && (e.ev.jeu === 'golf' || e.ev.jeu === 'golf2') && e.ev.gagne }
+  { id: 'golf', nom: 'Golfeur', desc: 'Finir un parcours de Mini-golf au par ou mieux.', icone: '⛳', test: e => e.ev && /^golf\d?$/.test(e.ev.jeu) && e.ev.gagne },
+  { id: 'motdujour7', nom: 'Dictionnaire vivant', desc: 'Trouver le mot du jour 7 jours d’affilée.', icone: '📖', test: e => e.ev && e.ev.jeu === 'motdujour' && Number(e.ev.score) >= 7 },
+  { id: 'echecsjour7', nom: 'Tacticien', desc: 'Réussir le problème d’échecs du jour 7 jours d’affilée.', icone: '♞', test: e => e.ev && e.ev.jeu === 'echecsjour' && Number(e.ev.score) >= 7 },
+  { id: 'duelblocs', nom: 'Démolisseur', desc: 'Gagner une partie de Blocs en duel.', icone: '🧱', test: gagne('duelblocs') },
+  { id: 'turboenligne', nom: 'Pilote en ligne', desc: 'Gagner une course de Turbo en ligne contre un vrai joueur.', icone: '🏎️', test: e => e.ev && e.ev.jeu === 'turbo' && e.ev.gagne && e.ev.enligne }
 ];
 
 /* ---------- Défi du jour ----------
@@ -151,12 +159,20 @@ export const DEFIS = [
   { texte: 'Gagne une partie de Bomberman.', jeu: 'bomberman', gagne: true },
   { texte: 'Gagne une partie de Loup-garou.', jeu: 'loupgarou', gagne: true },
   { texte: 'Fais 20 000 points au Tower defense.', jeu: 'defense', score: 20000 },
-  { texte: 'Finis le Jardin du Mini-golf au par ou mieux.', jeu: 'golf', gagne: true }
+  { texte: 'Finis le Jardin du Mini-golf au par ou mieux.', jeu: 'golf', gagne: true },
+  { texte: 'Trouve le mot du jour.', jeu: 'motdujour', gagne: true },
+  { texte: 'Réussis le problème d’échecs du jour.', jeu: 'echecsjour', gagne: true },
+  { texte: 'Gagne une partie de Blocs en duel.', jeu: 'duelblocs', gagne: true }
 ];
 
 // le jour (à Bruxelles) sous la forme 2026-10-21
 export function jourDe(t = Date.now()) {
   return new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Brussels', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t));
+}
+// les jeux du jour (Mot du jour, Échecs du jour) : n° 1 = le 23 octobre 2026
+export function numeroDuJour(t = Date.now()) {
+  const [a, m, j] = jourDe(t).split('-').map(Number);
+  return Math.round((Date.UTC(a, m - 1, j) - Date.UTC(2026, 9, 23)) / 86400000) + 1;
 }
 // la semaine (du lundi au dimanche, à Bruxelles) sous la forme du lundi : 2026-10-19
 export function semaineDe(t = Date.now()) {

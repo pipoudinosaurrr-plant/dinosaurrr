@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Blocs en duel</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; padding: 50px 8px 8px; touch-action: none; }
+    #jeu[hidden] { display: none; }
+    #toile { display: block; width: 100%; height: 100%; }
+    .commandes { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: none; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 8px 8px max(10px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0, 0, 0, .85) 30%); }
+    .tactile #jeu:not([hidden]) ~ .commandes { display: grid; }
+    .tactile #jeu { padding-bottom: 96px; }
+    .commandes button { height: 72px; border: 1px solid #2a2a2a; border-radius: 14px; background: rgba(24, 24, 27, .92); color: #fff; font: 700 22px var(--police); touch-action: none; }
+    .commandes button.appuye { background: #3f3f46; }
+    .commandes button small { display: block; font-size: 10px; color: var(--doux); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden><canvas id="toile"></canvas></main>
+  <div class="commandes" id="commandes">
+    <button data-c="h">⇄<small>garder</small></button>
+    <button data-c="g">◀</button>
+    <button data-c="r">⟳<small>tourner</small></button>
+    <button data-c="d">▶</button>
+    <button data-c="b">▼</button>
+    <button data-c="c">⤓<small>poser</small></button>
+  </div>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, TACTILE } from './multi/salon.js';
+    import moteur, { cases, COL, LIG, TYPES } from './multi/jeux/duelblocs.js';
+
+    if (TACTILE) document.body.classList.add('tactile');
+    const toile = document.getElementById('toile');
+    const ctx = toile.getContext('2d');
+    const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+    const COULEURS = { 1: '#22d3ee', 2: '#facc15', 3: '#a855f7', 4: '#22c55e', 5: '#ef4444', 6: '#3b82f6', 7: '#f97316', 8: '#52525b' };
+    const couleurType = t => COULEURS[TYPES.indexOf(t) + 1];
+
+    /* ---------- Sons ---------- */
+    let audio = null;
+    function bip(f1, f2, d, type = 'square', vol = 0.05, retard = 0) {
+      try {
+        if (localStorage.getItem('site-son') === 'false') return;
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audio.currentTime + retard, o = audio.createOscillator(), g = audio.createGain();
+        o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d);
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + d + 0.02);
+      } catch (e) { /* rien */ }
+    }
+    const SON = {
+      pose: () => bip(180, 120, 0.06, 'triangle', 0.1),
+      lignes: n => { for (let i = 0; i < n; i++) bip(660 + i * 120, 880 + i * 120, 0.1, 'square', 0.06, i * 0.07); },
+      attaque: () => bip(300, 900, 0.18, 'sawtooth', 0.05),
+      recu: () => bip(120, 60, 0.25, 'sawtooth', 0.07),
+      mort: () => bip(300, 60, 0.6, 'sawtooth', 0.07),
+      bouge: () => bip(500, 500, 0.02, 'square', 0.02)
+    };
+
+    let vue = null, ctxJeu = null, recuA = 0, secousse = 0, flash = {};
+
+    /* ---------- Dessin ---------- */
+    function redim() {
+      const r = toile.getBoundingClientRect();
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      toile.width = Math.round(r.width * dpr); toile.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    addEventListener('resize', redim);
+
+    function bloc(x, y, c, couleur, fantome = false) {
+      if (fantome) { ctx.strokeStyle = couleur; ctx.globalAlpha = 0.45; ctx.lineWidth = Math.max(1, c * 0.08); ctx.strokeRect(x + 1.5, y + 1.5, c - 3, c - 3); ctx.globalAlpha = 1; return; }
+      ctx.fillStyle = couleur; ctx.fillRect(x + 0.5, y + 0.5, c - 1, c - 1);
+      if (c > 8) {
+        ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x + 0.5, y + 0.5, c - 1, Math.max(1, c * 0.14));
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x + 0.5, y + c - 0.5 - Math.max(1, c * 0.14), c - 1, Math.max(1, c * 0.14));
+      }
+    }
+    function mini(type, x, y, c) {
+      if (!type) return;
+      const f = cases(type, 0);
+      const minX = Math.min(...f.map(q => q[0])), maxX = Math.max(...f.map(q => q[0])), minY = Math.min(...f.map(q => q[1])), maxY = Math.max(...f.map(q => q[1]));
+      const ox = x - (maxX - minX + 1) * c / 2, oy = y - (maxY - minY + 1) * c / 2;
+      for (const [cx, cy] of f) bloc(ox + (cx - minX) * c, oy + (cy - minY) * c, c, couleurType(type));
+    }
+    function grille(j, x, y, c, moi) {
+      const W = COL * c, H = LIG * c;
+      ctx.fillStyle = '#0a0a0b'; ctx.fillRect(x, y, W, H);
+      if (c > 10) {
+        ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
+        for (let i = 1; i < COL; i++) { ctx.beginPath(); ctx.moveTo(x + i * c + 0.5, y); ctx.lineTo(x + i * c + 0.5, y + H); ctx.stroke(); }
+        for (let i = 1; i < LIG; i++) { ctx.beginPath(); ctx.moveTo(x, y + i * c + 0.5); ctx.lineTo(x + W, y + i * c + 0.5); ctx.stroke(); }
+      }
+      for (let r = 0; r < LIG; r++) for (let k = 0; k < COL; k++) {
+        const v = j.g[r * COL + k];
+        if (v !== '0') bloc(x + k * c, y + r * c, c, COULEURS[v]);
+      }
+      if (j.p && j.v) {
+        const col = couleurType(j.p.type);
+        if (moi) {
+          // le fantôme : là où la pièce va tomber
+          let fy = j.p.y;
+          const libre = yy => cases(j.p.type, j.p.rot).every(([cx, cy]) => { const gx = j.p.x + cx, gy = yy + cy; return gx >= 0 && gx < COL && gy < LIG && (gy < 0 || j.g[gy * COL + gx] === '0'); });
+          while (libre(fy + 1)) fy++;
+          for (const [cx, cy] of cases(j.p.type, j.p.rot)) if (fy + cy >= 0) bloc(x + (j.p.x + cx) * c, y + (fy + cy) * c, c, col, true);
+        }
+        for (const [cx, cy] of cases(j.p.type, j.p.rot)) if (j.p.y + cy >= 0) bloc(x + (j.p.x + cx) * c, y + (j.p.y + cy) * c, c, col);
+      }
+      // les lignes qui vont arriver
+      if (j.a) { const h = Math.min(LIG, j.a) * c; ctx.fillStyle = '#ef4444'; ctx.fillRect(x - Math.max(3, c * 0.25) - 2, y + H - h, Math.max(3, c * 0.25), h); }
+      ctx.strokeStyle = flash[j.id] > 0 ? '#fde047' : '#3f3f46'; ctx.lineWidth = 2; ctx.strokeRect(x - 1, y - 1, W + 2, H + 2);
+      if (!j.v) {
+        ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(x, y, W, H);
+        ctx.fillStyle = '#fca5a5'; ctx.font = `800 ${Math.max(10, c * 0.9)}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('K.O.', x + W / 2, y + H / 2);
+      }
+    }
+
+    function dessiner() {
+      requestAnimationFrame(dessiner);
+      if (!vue || !ctxJeu) return;
+      const r = toile.getBoundingClientRect();
+      const W = r.width, H = r.height;
+      ctx.clearRect(0, 0, W, H);
+      const moiJ = vue.j.find(j => j.id === ctxJeu.moi) || vue.j[0];
+      const autres = vue.j.filter(j => j !== moiJ);
+      // tailles : ma grille le plus grand possible, les autres à côté
+      let C = Math.floor(Math.min((H - 26) / LIG, (W - 20) / (COL + 5.2 + (autres.length ? 5.5 : 0))));
+      const largeurMoi = COL * C + 5 * C;
+      const reste = W - largeurMoi - 24;
+      const cols = autres.length <= 1 ? 1 : (reste > 2 * 10 * C * 0.4 ? 2 : 1);
+      const rangs = Math.ceil(autres.length / cols) || 1;
+      let c = Math.floor(Math.min(C * 0.55, (reste - (cols - 1) * 14) / cols / COL, (H - rangs * 22) / rangs / LIG));
+      if (autres.length && c < 4) { C = Math.floor(C * 0.85); c = 4; }
+      const total = COL * C + 5 * C + (autres.length ? 18 + cols * COL * c + (cols - 1) * 14 : 0);
+      const x0 = Math.max(8, (W - total) / 2) + (secousse > 0 ? (Math.random() - 0.5) * 8 * secousse : 0);
+      const y0 = Math.max(18, (H - LIG * C) / 2);
+      grille(moiJ, x0, y0, C, true);
+      // à droite de ma grille : la réserve, les suivantes, les chiffres
+      const px = x0 + COL * C + C * 0.6, pw = C * 4;
+      ctx.fillStyle = '#a1a1aa'; ctx.font = `700 ${Math.max(9, C * 0.42)}px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('GARDÉE', px, y0);
+      ctx.strokeStyle = '#27272a'; ctx.lineWidth = 1; ctx.strokeRect(px, y0 + C * 0.7, pw, C * 2.6);
+      mini(moiJ.r, px + pw / 2, y0 + C * 2, C * 0.75);
+      ctx.fillText('SUIVANTES', px, y0 + C * 3.8);
+      ctx.strokeRect(px, y0 + C * 4.5, pw, C * 7.4);
+      moiJ.s.forEach((t, i) => mini(t, px + pw / 2, y0 + C * 5.8 + i * C * 2.3, C * (i ? 0.6 : 0.75)));
+      const ligne = (titre, val, yy) => { ctx.fillStyle = '#71717a'; ctx.fillText(titre, px, yy); ctx.fillStyle = '#fafafa'; ctx.font = `800 ${Math.max(12, C * 0.8)}px ${MONO}`; ctx.fillText(String(val), px, yy + C * 0.55); ctx.font = `700 ${Math.max(9, C * 0.42)}px ${MONO}`; };
+      ligne('LIGNES', moiJ.l, y0 + C * 12.6);
+      ligne('ENVOYÉES', moiJ.env, y0 + C * 14.6);
+      if (moiJ.c >= 1) { ctx.fillStyle = '#fde047'; ctx.fillText(`COMBO ×${moiJ.c}`, px, y0 + C * 16.8); }
+      ctx.fillStyle = '#71717a'; ctx.fillText(`${Math.round(1000 / vue.vitesse * 10) / 10} cases/s`, px, y0 + C * 18.4);
+      // les adversaires
+      const ax = x0 + COL * C + 5 * C + 18;
+      autres.forEach((j, i) => {
+        const cx = ax + (i % cols) * (COL * c + 14), cy = y0 + Math.floor(i / cols) * (LIG * c + 22);
+        grille(j, cx, cy + 16, c, false);
+        ctx.fillStyle = ctxJeu.couleur(j.id); ctx.font = `700 ${Math.max(10, Math.min(13, c * 1.1))}px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(ctxJeu.nom(j.id).slice(0, 12), cx, cy);
+      });
+      // compte à rebours
+      const t0 = Math.max(0, vue.t0 - (Date.now() - recuA));
+      if (t0 > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x0, y0, COL * C, LIG * C);
+        ctx.fillStyle = '#fff'; ctx.font = `900 ${C * 3}px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(Math.ceil(t0 / 1000)), x0 + COL * C / 2, y0 + LIG * C / 2);
+      }
+      for (const k in flash) flash[k] -= 1 / 60;
+      secousse = Math.max(0, secousse - 1 / 30);
+    }
+    requestAnimationFrame(dessiner);
+
+    /* ---------- Commandes (avec répétition quand on reste appuyé) ---------- */
+    const envoyer = t => { if (ctxJeu && vue && !vue.fini) ctxJeu.envoyer(t); };
+    const repet = {};
+    function appui(c) {
+      if (c === 'r') return envoyer({ t: 'r', s: 1 });
+      if (c === 'q') return envoyer({ t: 'r', s: -1 });
+      if (c === 'c') return envoyer({ t: 'c' });
+      if (c === 'h') return envoyer({ t: 'h' });
+      if (repet[c]) return;
+      envoyer({ t: c }); if (c !== 'b') SON.bouge();
+      // ◀ ▶ : 170 ms puis toutes les 45 ms ; ▼ : toutes les 40 ms
+      repet[c] = setTimeout(function boucle() { envoyer({ t: c }); repet[c] = setTimeout(boucle, c === 'b' ? 40 : 45); }, c === 'b' ? 40 : 170);
+    }
+    function lache(c) { clearTimeout(repet[c]); delete repet[c]; }
+    const TOUCHES = { ArrowLeft: 'g', ArrowRight: 'd', ArrowDown: 'b', ArrowUp: 'r', KeyX: 'r', KeyW: 'r', KeyZ: 'q', KeyY: 'q', ControlLeft: 'q', Space: 'c', KeyC: 'h', ShiftLeft: 'h', ShiftRight: 'h', KeyA: 'g', KeyQ: 'g', KeyD: 'd', KeyS: 'b' };
+    addEventListener('keydown', e => {
+      if (e.target.matches && e.target.matches('input')) return;
+      const c = TOUCHES[e.code];
+      if (!c || document.getElementById('jeu').hidden) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      appui(c);
+    });
+    addEventListener('keyup', e => { const c = TOUCHES[e.code]; if (c) lache(c); });
+    for (const b of document.querySelectorAll('#commandes button')) {
+      const c = b.dataset.c;
+      b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('appuye'); try { b.setPointerCapture(e.pointerId); } catch (err) { /* rien */ } appui(c); });
+      const fin = () => { b.classList.remove('appuye'); lache(c); };
+      b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin); b.addEventListener('lostpointercapture', fin);
+    }
+    // sur téléphone : glisser sur la grille marche aussi (gauche/droite, tap = tourner, glisser vers le bas = poser)
+    let geste = null;
+    toile.addEventListener('pointerdown', e => { geste = { x: e.clientX, y: e.clientY, t: Date.now(), bouge: false, pas: 0 }; });
+    toile.addEventListener('pointermove', e => {
+      if (!geste) return;
+      const dx = e.clientX - geste.x, pas = 26;
+      while (dx - geste.pas * pas > pas) { geste.pas++; geste.bouge = true; envoyer({ t: 'd' }); }
+      while (dx - geste.pas * pas < -pas) { geste.pas--; geste.bouge = true; envoyer({ t: 'g' }); }
+    });
+    toile.addEventListener('pointerup', e => {
+      if (!geste) return;
+      const dy = e.clientY - geste.y, dt = Date.now() - geste.t;
+      if (!geste.bouge && dy > 60 && dt < 400) envoyer({ t: 'c' });
+      else if (!geste.bouge && Math.abs(dy) < 12 && dt < 300) envoyer({ t: 'r', s: 1 });
+      geste = null;
+    });
+
+    demarrerJeu({
+      id: 'duelblocs',
+      moteur,
+      zone: document.getElementById('jeu'),
+      titre: 'Blocs en duel',
+      intro: 'Le jeu de blocs, à plusieurs : chaque fois que tu fais 2 lignes ou plus, des lignes grises montent chez un adversaire. Le dernier encore en vie gagne !',
+      regles: [['Bouger', '← →'], ['Tourner', '↑ ou X (Z dans l’autre sens)'], ['Poser d’un coup', 'Espace'], ['Garder', 'C ou Maj'], ['Attaquer', '2 lignes → 1, 3 → 2, 4 → 4 lignes envoyées']],
+      reglesTactile: [['Bouger', '◀ ▶ (ou glisse sur la grille)'], ['Tourner', '⟳ (ou touche la grille)'], ['Poser', '⤓ (ou glisse vers le bas)'], ['Attaquer', '2 lignes → 1, 3 → 2, 4 → 4 lignes envoyées']],
+      soloBots: 1,
+      texteSolo: 'Jouer contre l’ordinateur',
+      debut(ctx) { ctxJeu = ctx; vue = null; flash = {}; setTimeout(redim, 0); },
+      evenement(ev, ctx) {
+        const [quoi, a, b, n] = ev;
+        if (quoi === 'pose' && a === ctx.moi) SON.pose();
+        if (quoi === 'lignes') { flash[a] = 0.3; if (a === ctx.moi) SON.lignes(b); }
+        if (quoi === 'attaque') { if (a === ctx.moi) { SON.attaque(); ctx.toast(`${n} ligne${n > 1 ? 's' : ''} envoyée${n > 1 ? 's' : ''} à ${ctx.nom(b)} !`, 1500); } if (b === ctx.moi) SON.recu(); }
+        if (quoi === 'monte' && a === ctx.moi) secousse = 1;
+        if (quoi === 'mort') { if (a === ctx.moi) SON.mort(); else ctx.toast(`${ctx.nom(a)} est K.O. !`, 1600); }
+      },
+      afficher(v, ctx) { vue = v; ctxJeu = ctx; recuA = Date.now(); }
+    });
+    redim();
+  </script>
+</body>
+</html>

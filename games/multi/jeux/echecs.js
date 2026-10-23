@@ -155,8 +155,8 @@ function materielInsuffisant(b) {
 
 /* ---------- Notation (en français : R D T F C) ---------- */
 const LETTRE = { K: 'R', Q: 'D', R: 'T', B: 'F', N: 'C', P: '' };
-const nomCase = i => 'abcdefgh'[i & 7] + (8 - (i >> 3));
-function notation(p, m, legaux) {
+export const nomCase = i => 'abcdefgh'[i & 7] + (8 - (i >> 3));
+export function notation(p, m, legaux) {
   if (m.roque) return m.roque === 'petit' ? 'O-O' : 'O-O-O';
   const piece = p.b[m.de], t = piece.toUpperCase();
   let s = LETTRE[t];

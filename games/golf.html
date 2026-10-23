@@ -25,10 +25,13 @@ const POLICE = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-seri
 
 const THEMES = {
   jardin: { fond: '#07100a', herbe: '#2f8f3a', herbe2: '#287d32', rail: '#7a4b25', railClair: '#b07a45', poteau: '#5b3a1c', bloc: '#8b8f98', blocClair: '#c4c8d0' },
-  glacier: { fond: '#060a16', herbe: '#1f7a86', herbe2: '#1a6c77', rail: '#9fb3c8', railClair: '#e6f0fa', poteau: '#475569', bloc: '#a5d8f3', blocClair: '#e0f4ff' }
+  glacier: { fond: '#060a16', herbe: '#1f7a86', herbe2: '#1a6c77', rail: '#9fb3c8', railClair: '#e6f0fa', poteau: '#475569', bloc: '#a5d8f3', blocClair: '#e0f4ff' },
+  volcan: { fond: '#120604', herbe: '#5b4636', herbe2: '#544032', rail: '#1c1917', railClair: '#f97316', poteau: '#292524', bloc: '#57534e', blocClair: '#a8a29e' },
+  espace: { fond: '#03010f', herbe: '#2e2a78', herbe2: '#29256c', rail: '#818cf8', railClair: '#e0e7ff', poteau: '#64748b', bloc: '#94a3b8', blocClair: '#e2e8f0' }
 };
 const cleRecord = id => (id === 'jardin' ? 'golf' : 'golf-' + id);
-const jeuSite = id => (id === 'jardin' ? 'golf' : 'golf2');
+// le nom du classement dans le Hall of Fame (assets/progres-defs.js)
+const jeuSite = id => ({ jardin: 'golf', glacier: 'golf2', volcan: 'golf3', espace: 'golf4' })[id] || 'golf';
 
 let parcoursChoisi = A.stock.lire('golf-parcours', 'jardin');
 if (!G.PARCOURS[parcoursChoisi]) parcoursChoisi = 'jardin';
@@ -75,7 +78,7 @@ function evenements() {
     else if (e.nom === 'bumper') { SON.bumper(); eclairs['b' + Math.round(p.balle.x / 30)] = 0.15; }
     else if (e.nom === 'pale' || e.nom === 'porte') SON.pale();
     else if (e.nom === 'trou') SON.trou();
-    else if (e.nom === 'plouf') { SON.plouf(); message = { titre: 'Plouf !', sous: '+1 coup de pénalité', t: 1.4 }; }
+    else if (e.nom === 'plouf') { SON.plouf(); message = { titre: e.danger === 'lave' ? 'Brûlée !' : e.danger === 'vide' ? 'Perdue dans l’espace !' : 'Plouf !', sous: '+1 coup de pénalité', t: 1.4 }; }
     else if (e.nom === 'tunnel') SON.tunnel();
     else if (e.nom === 'fini') {
       const nom = e.max ? 'Trop de coups' : G.nomScore(e.coups, e.par);
@@ -180,7 +183,28 @@ function dessinerTerrain(t) {
       continue;
     }
     const f = z.forme;
-    if (z.eau) {
+    if (z.lave) {
+      ctx.save(); chemin(f);
+      const ys = f.map(q => q[1]);
+      const g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
+      g.addColorStop(0, '#f97316'); g.addColorStop(0.5, '#dc2626'); g.addColorStop(1, '#ea580c');
+      ctx.fillStyle = g; ctx.fill(); ctx.clip();
+      // des bulles de lave qui gonflent et éclatent
+      for (let k = 0; k < 14; k++) {
+        const bx = sable[k * 7][0], by = Math.min(...ys) + sable[k * 7][1] % Math.max(1, Math.max(...ys) - Math.min(...ys));
+        const ph = (t * 0.7 + sable[k * 7][2] * 5) % 1;
+        ctx.fillStyle = `rgba(254,240,138,${0.55 * (1 - ph)})`; ctx.beginPath(); ctx.arc(bx, by, 2 + ph * 7, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(254,215,170,.35)'; ctx.lineWidth = 2;
+      for (let y = Math.min(...ys) + 12; y < Math.max(...ys); y += 22) { ctx.beginPath(); for (let x = 0; x <= 400; x += 10) ctx.lineTo(x, y + Math.sin(x / 20 + t * 1.2 + y) * 3); ctx.stroke(); }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 2; chemin(f); ctx.stroke();
+    } else if (z.vide) {
+      ctx.save(); chemin(f); ctx.fillStyle = '#000'; ctx.fill(); ctx.clip();
+      for (const [x, y, k] of sable.slice(0, 250)) { ctx.fillStyle = `rgba(255,255,255,${0.2 + 0.6 * Math.abs(Math.sin(t * (0.6 + k) + k * 11))})`; ctx.fillRect(x, y, 1.3, 1.3); }
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(167,139,250,.6)'; ctx.lineWidth = 2; chemin(f); ctx.stroke();
+    } else if (z.eau) {
       ctx.save(); chemin(f);
       const ys = f.map(q => q[1]);
       const g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
@@ -370,7 +394,7 @@ function dessinerMessage() {
 
 function dessiner(t) {
   ctx.fillStyle = theme.fond; ctx.fillRect(0, 0, W, H);
-  if (theme === THEMES.glacier) for (const [x, y, k] of etoiles) { ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.35 * Math.abs(Math.sin(t * (0.5 + k) + k * 9))})`; ctx.fillRect(x, y, 1.5, 1.5); }
+  if (theme === THEMES.glacier || theme === THEMES.espace) for (const [x, y, k] of etoiles) { ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.35 * Math.abs(Math.sin(t * (0.5 + k) + k * 9))})`; ctx.fillRect(x, y, 1.5, 1.5); }
   if (!p) return;
   dessinerHaut();
   ctx.save(); ctx.translate(FX, FY);

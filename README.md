@@ -48,7 +48,13 @@ Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (
 
 **Loup-garou** (4 à 12 joueurs, moteur dans `games/multi/jeux/loupgarou.js` : loups, voyante, sorcière, chasseur, villageois ; nuits et jours chronométrés, chat du village et chat secret des loups passés au filtre, bots qui discutent et votent).
 
-**Mini-golf** (`games/golf.html`, moteur et parcours dans `games/golf/moteur.js` : 2 parcours de 9 trous, pentes, bosses, sable, glace, eau, tunnels, moulins et portes). Les collisions de la balle sont partagées avec le Flipper dans `games/physique/collisions.js`. Pour ajouter un trou : une ligne dans `PARCOURS` (bords, murs, zones…).
+**Jeux du jour** (le même pour tout le monde, nouveau à minuit, série de jours réussis vérifiée par le serveur dans `serveur/quotidien.js`) : **Mot du jour** (`games/motdujour.html`, mots dans `games/motdujour/mots.js`) et **Échecs du jour** (`games/echecsjour.html`, problèmes dans `games/echecsjour/liste.json`, fabriqués à partir de parties de l'ordinateur : un seul premier coup mate en 2 ou en 3).
+
+**Blocs en duel** (2 à 4 joueurs, moteur `games/multi/jeux/duelblocs.js` : les lignes faites montent chez l'adversaire). **Turbo en ligne** (bouton dans le menu de Turbo, moteur `games/multi/jeux/turbo.js`, circuits partagés dans `games/turbo/pistes.js`).
+
+**Commentaires du blog** (`assets/commentaires.js`, compte obligatoire, passés au filtre du chat, supprimables par l'auteur et l'admin).
+
+**Mini-golf** (`games/golf.html`, moteur et parcours dans `games/golf/moteur.js` : 4 parcours de 9 trous : Jardin, Glacier, Volcan, Espace ; pentes, bosses, sable, glace, eau, lave, trous noirs, tunnels, moulins et portes). Les collisions de la balle sont partagées avec le Flipper dans `games/physique/collisions.js`. Pour ajouter un trou : une ligne dans `PARCOURS` (bords, murs, zones…).
 
 **Tower defense** (`games/defense.html` : 3 cartes, 5 tours à 3 niveaux, 30 vagues). **Éditeur de niveaux** dans Aventure (« Créer un niveau » : brouillon et 20 niveaux gardés dans le navigateur, code ou lien `#jeu/aventure/AV1…` pour partager).
 

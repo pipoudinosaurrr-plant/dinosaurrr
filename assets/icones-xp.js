@@ -217,6 +217,30 @@
     <path d="M19 21V7" stroke="#f1f5f9" stroke-width="1.4" stroke-linecap="round"/><path d="M19.5 7l6 2.2-6 2.4z" fill="#ef4444"/>
     <circle cx="10.5" cy="22" r="2.6" fill="#fff" stroke="#94a3b8" stroke-width=".6"/><circle cx="9.7" cy="21.2" r=".8" fill="#fff" opacity=".9"/></svg>`;
 
+  // Mot du jour : une grille de lettres colorées
+  D.motdujour = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#18181b" stroke="#000"/>
+    <rect x="5" y="6" width="6.5" height="6.5" rx="1.2" fill="#16a34a"/><rect x="12.8" y="6" width="6.5" height="6.5" rx="1.2" fill="#3f3f46"/><rect x="20.5" y="6" width="6.5" height="6.5" rx="1.2" fill="#ca8a04"/>
+    <rect x="5" y="14" width="6.5" height="6.5" rx="1.2" fill="#16a34a"/><rect x="12.8" y="14" width="6.5" height="6.5" rx="1.2" fill="#16a34a"/><rect x="20.5" y="14" width="6.5" height="6.5" rx="1.2" fill="#16a34a"/>
+    <rect x="5" y="22" width="6.5" height="4" rx="1.2" fill="#27272a"/><rect x="12.8" y="22" width="6.5" height="4" rx="1.2" fill="#27272a"/><rect x="20.5" y="22" width="6.5" height="4" rx="1.2" fill="#27272a"/>
+    <path d="M7 10.5l1.2-3h.2l1.2 3M7.5 9.4h1.6M15.2 16v3M22 16.2h2.6M22.4 18.3h2" stroke="#fff" stroke-width=".9" fill="none"/></svg>`;
+
+  // Échecs du jour : un cavalier sur un échiquier avec une étoile
+  D.echecsjour = `<svg viewBox="0 0 32 32"><defs>${lin('ejc', '#fafafa', '#a1a1aa')}</defs>
+    <rect x="2.5" y="2.5" width="27" height="27" rx="4" fill="#e9e3d0" stroke="#3f3f46"/>
+    <path d="M3 3h6.75v6.75H3zM16.5 3h6.75v6.75H16.5zM9.75 9.75h6.75v6.75H9.75zM23.25 9.75H29v6.75h-5.75zM3 16.5h6.75v6.75H3zM16.5 16.5h6.75v6.75H16.5zM9.75 23.25h6.75V29H9.75zM23.25 23.25H29V29h-5.75z" fill="#6d8a4f"/>
+    <path d="M11 26h11v-2.5c0-1-.6-1.6-1.4-2.2 1.6-2 2.4-4.6 1.9-7.6-.6-3.4-3.4-5.4-6.6-5.2l-1.2-1.8-.8 2.6c-1.6 1-3 2.6-3.6 4.6l1.6 1.2 2.4-1.4.4 1.6c-1.6 1.4-3 3.4-3.2 5.8-.6.6-.8 1.2-.8 2z" fill="url(#ejc)" stroke="#18181b" stroke-width="1" stroke-linejoin="round"/>
+    <circle cx="14.2" cy="12.2" r=".9" fill="#18181b"/><path d="M24.5 3.8l.9 1.9 2 .3-1.5 1.4.4 2-1.8-1-1.8 1 .4-2-1.5-1.4 2-.3z" fill="#facc15" stroke="#a16207" stroke-width=".4"/></svg>`;
+
+  // Blocs en duel : deux piles de blocs face à face, une flèche d'attaque
+  D.duelblocs = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#0a0a0b" stroke="#27272a"/>
+    <path d="M5 26h4v-4H5zM9 26h4v-4H9zM5 22h4v-4H5zM9 22h4v-4H9z" fill="#22d3ee" stroke="#0e7490" stroke-width=".6"/>
+    <path d="M5 18h4v-4H5z" fill="#a855f7" stroke="#6b21a8" stroke-width=".6"/>
+    <path d="M19 26h4v-4h-4zM23 26h4v-4h-4zM19 22h4v-4h-4z" fill="#71717a" stroke="#3f3f46" stroke-width=".6"/>
+    <path d="M23 22h4v-4h-4z" fill="#f97316" stroke="#9a3412" stroke-width=".6"/>
+    <path d="M10 9h9M16 6l3.5 3L16 12" stroke="#ef4444" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
   // Installer l'appli : un téléphone et une flèche verte
   D.telecharger = `<svg viewBox="0 0 32 32"><defs>${lin('tlt', '#3a3a3a', '#0e0e0e')}${lin('tlf', '#86efac', '#16a34a')}</defs>
     <rect x="8.5" y="2.5" width="15" height="27" rx="3" fill="url(#tlt)" stroke="#000"/><rect x="10.5" y="5.5" width="11" height="19" rx="1" fill="#1e3a5f"/>

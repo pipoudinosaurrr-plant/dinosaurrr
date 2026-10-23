@@ -25,6 +25,7 @@ const RAIL = 5;                      // épaisseur des bordures (moitié)
 // les sols : freinage constant (px/s²) + freinage proportionnel (par seconde)
 export const SOLS = {
   herbe: { frein: 260, colle: 0.35 },
+  espace: { frein: 150, colle: 0.16 },
   sable: { frein: 1500, colle: 2.6 },
   glace: { frein: 38, colle: 0.05 },
   pont: { frein: 260, colle: 0.35 }
@@ -100,6 +101,69 @@ export const PARCOURS = {
         zones: [{ sol: 'glace', forme: rect(120, 290, 160, 140) }, { pente: [0, 200], forme: rect(290, 290, 70, 145) }, { sol: 'sable', forme: cercle(245, 120, 22) }],
         portes: [{ x: 190, de: 109, a: 231, demi: [10, 28], periode: 2.8, phase: 0 }] }
     ]
+  },
+  volcan: {
+    nom: 'Le Volcan',
+    sous: 'Lave, geysers et cratères',
+    trous: [
+      { nom: 'La coulée', par: 2, depart: [200, 510], trou: [200, 120], bords: [rect(130, 60, 140, 500)],
+        zones: [{ lave: true, forme: rect(130, 240, 38, 170) }, { lave: true, forme: rect(232, 240, 38, 170) }] },
+      { nom: 'Le cratère', par: 3, depart: [200, 520], trou: [200, 290], bords: [rect(60, 90, 280, 470)],
+        zones: [{ bosse: [200, 290, 105, 330] }, { lave: true, forme: rect(60, 90, 70, 60) }, { lave: true, forme: rect(270, 90, 70, 60) }] },
+      { nom: 'Les geysers', par: 3, depart: [200, 515], trou: [200, 110], bords: [rect(110, 60, 180, 500)],
+        zones: [{ tapis: [900, 0], forme: rect(115, 380, 170, 40) }, { tapis: [-900, 0], forme: rect(115, 220, 170, 40) }],
+        bumpers: [[145, 300, 13], [255, 300, 13]] },
+      { nom: 'Le pont de basalte', par: 4, depart: [105, 515], trou: [295, 115], bords: [rect(60, 60, 280, 500)],
+        zones: [{ lave: true, forme: rect(60, 210, 280, 190) }, { sol: 'pont', forme: rect(80, 300, 52, 100) }, { sol: 'pont', forme: rect(80, 300, 240, 50) }, { sol: 'pont', forme: rect(268, 210, 52, 140) }] },
+      { nom: 'Les portes de feu', par: 3, depart: [200, 515], trou: [200, 115], bords: [rect(110, 60, 180, 500)],
+        murs: [[110, 400, 170, 400], [230, 400, 290, 400], [110, 250, 170, 250], [230, 250, 290, 250]],
+        zones: [{ lave: true, forme: rect(115, 405, 45, 40) }, { lave: true, forme: rect(240, 405, 45, 40) }],
+        portes: [{ y: 382, de: 159, a: 241, demi: [30, 8], periode: 2.2, phase: 0.6 }, { y: 232, de: 159, a: 241, demi: [30, 8], periode: 1.7, phase: 2.2 }] },
+      { nom: 'La cheminée', par: 4, depart: [90, 505], trou: [90, 140],
+        bords: [[[40, 560], [360, 560], [360, 60], [40, 60], [40, 240], [260, 240], [260, 440], [40, 440]]],
+        zones: [{ pente: [0, 260], forme: rect(260, 250, 100, 180) }, { lave: true, forme: rect(220, 445, 40, 40) }, { lave: true, forme: rect(220, 195, 40, 40) }, { bosse: [140, 150, 50, 220] }] },
+      { nom: 'La rivière de lave', par: 3, depart: [200, 515], trou: [200, 115], bords: [rect(60, 60, 280, 500)],
+        zones: [{ lave: true, forme: [[60, 300], [340, 250], [340, 330], [60, 380]] }, { sol: 'pont', forme: [[175, 250], [225, 250], [225, 380], [175, 380]] }],
+        moulins: [{ x: 200, y: 410, l: 34, n: 2, w: 0.2 }] },
+      { nom: 'Les éruptions', par: 3, depart: [200, 515], trou: [200, 115], bords: [rect(70, 60, 260, 500)],
+        bumpers: [[140, 230, 14], [200, 210, 14], [260, 230, 14], [140, 300, 14], [200, 320, 14], [260, 300, 14]],
+        zones: [{ lave: true, forme: cercle(110, 140, 22) }, { lave: true, forme: cercle(290, 140, 22) }] },
+      { nom: 'Le sommet du volcan', par: 5, depart: [90, 510], trou: [310, 125], bords: [rect(40, 60, 320, 500)],
+        murs: [[40, 440, 290, 440], [110, 280, 360, 280]],
+        zones: [{ tapis: [1300, 0], forme: rect(45, 450, 90, 100) }, { lave: true, forme: rect(160, 290, 60, 70) }, { pente: [0, 220], forme: rect(290, 290, 70, 145) }, { bosse: [310, 125, 55, -260] }, { lave: true, forme: rect(150, 65, 60, 50) }] }
+    ]
+  },
+  espace: {
+    nom: 'L’Espace',
+    sous: 'Planètes, trous noirs, téléporteurs',
+    nuit: true,
+    sol: 'espace',
+    trous: [
+      { nom: 'Décollage', par: 2, depart: [200, 515], trou: [200, 115], bords: [rect(130, 60, 140, 500)],
+        zones: [{ tapis: [0, -1400], forme: rect(135, 330, 130, 60) }] },
+      { nom: 'L’orbite', par: 3, depart: [200, 520], trou: [200, 110], bords: [rect(60, 60, 280, 500)],
+        ronds: [[200, 310, 46]], zones: [{ bosse: [200, 310, 125, -170] }] },
+      { nom: 'Le trou noir', par: 3, depart: [200, 520], trou: [200, 110], bords: [rect(60, 60, 280, 500)],
+        zones: [{ vide: true, forme: cercle(200, 310, 26) }, { bosse: [200, 310, 135, -300] }] },
+      { nom: 'Les téléporteurs', par: 3, depart: [110, 510], trou: [300, 115], bords: [rect(60, 430, 280, 130), rect(60, 255, 280, 130), rect(60, 60, 280, 150)],
+        tunnels: [{ de: [305, 465], vers: [95, 370], dir: [0, -1] }, { de: [305, 290], vers: [95, 195], dir: [0, -1] }],
+        ronds: [[200, 320, 12]] },
+      { nom: 'Les astéroïdes', par: 3, depart: [200, 520], trou: [200, 105], bords: [rect(60, 60, 280, 500)],
+        ronds: [[110, 200, 14], [175, 180, 10], [250, 210, 16], [300, 170, 9], [130, 290, 11], [215, 270, 13], [290, 300, 12], [160, 380, 15], [245, 360, 10], [100, 420, 9], [300, 410, 13]],
+        bumpers: [[200, 330, 12]] },
+      { nom: 'La station', par: 3, depart: [200, 515], trou: [200, 110], bords: [rect(90, 60, 220, 500)],
+        murs: [[90, 380, 164, 380], [236, 380, 310, 380]],
+        moulins: [{ x: 200, y: 380, l: 40, n: 3, w: 0.26 }],
+        portes: [{ y: 230, de: 140, a: 260, demi: [26, 9], periode: 2.4, phase: 0 }] },
+      { nom: 'Gravité zéro', par: 4, depart: [90, 520], trou: [200, 300], bords: [rect(60, 100, 280, 450)],
+        murs: [[110, 540, 110, 160], [110, 160, 290, 160], [290, 160, 290, 470], [290, 470, 160, 470], [160, 470, 160, 220], [160, 220, 240, 220]],
+        zones: [{ sol: 'glace', forme: rect(60, 100, 280, 450) }, { bosse: [200, 300, 40, -220] }] },
+      { nom: 'Les anneaux', par: 3, depart: [200, 520], trou: [200, 110], bords: [rect(60, 60, 280, 500)],
+        zones: [{ bosse: [140, 380, 70, 280] }, { bosse: [260, 260, 70, 280] }, { vide: true, forme: rect(60, 300, 34, 120) }, { vide: true, forme: rect(306, 200, 34, 120) }] },
+      { nom: 'Retour sur Terre', par: 4, depart: [90, 505], trou: [90, 140],
+        bords: [[[40, 560], [360, 560], [360, 60], [40, 60], [40, 240], [260, 240], [260, 440], [40, 440]]],
+        zones: [{ tapis: [0, -1500], forme: rect(265, 300, 90, 100) }, { vide: true, forme: cercle(200, 150, 24) }, { bosse: [200, 150, 95, -230] }, { bosse: [90, 140, 45, -200] }] }
+    ]
   }
 };
 export const PARCOURS_IDS = Object.keys(PARCOURS);
@@ -166,7 +230,7 @@ function chocMobile(b, m, vwx, vwy, e, f) {
 
 /* ---------- Le sol sous la balle ---------- */
 export function sol(trou, x, y) {
-  const s = { sol: 'herbe', ax: 0, ay: 0, eau: false };
+  const s = { sol: trou.def.solDefaut || 'herbe', ax: 0, ay: 0, eau: false, danger: null };
   for (const z of trou.zones) {
     if (z.bosse) {
       const [cx, cy, r, force] = z.bosse;
@@ -175,7 +239,9 @@ export function sol(trou, x, y) {
       continue;
     }
     if (!dansPoly(z.forme, x, y)) continue;
-    if (z.eau) s.eau = true;
+    if (z.eau) { s.eau = true; s.danger = 'eau'; }
+    if (z.lave) { s.eau = true; s.danger = 'lave'; }
+    if (z.vide) { s.eau = true; s.danger = 'vide'; }
     if (z.sol) { s.sol = z.sol; if (z.sol === 'pont') s.eau = false; }
     if (z.pente) { s.ax += z.pente[0]; s.ay += z.pente[1]; }
     if (z.tapis) { s.ax += z.tapis[0]; s.ay += z.tapis[1]; s.tapis = true; }
@@ -194,7 +260,7 @@ export function creerPartie(parcours = 'jardin') {
 }
 export function commencerTrou(p, n) {
   p.n = n;
-  p.trou = construireTrou(PARCOURS[p.parcours].trous[n]);
+  p.trou = construireTrou({ ...PARCOURS[p.parcours].trous[n], solDefaut: PARCOURS[p.parcours].sol });
   const [x, y] = p.trou.def.depart;
   p.balle = { x, y, vx: 0, vy: 0, z: 1 };
   p.dernier = { x, y };
@@ -325,7 +391,7 @@ function sousPas(p, h) {
   // l'eau (et sécurité : la balle ne peut pas sortir du terrain)
   const s2 = sol(T, b.x, b.y);
   if (s2.eau || !T.def.bords.some(bo => dansPoly(bo, b.x, b.y))) {
-    p.phase = 'plouf'; b.vx = b.vy = 0; evt(p, 'plouf');
+    p.phase = 'plouf'; b.vx = b.vy = 0; evt(p, 'plouf', { danger: s2.danger || 'eau' });
     return;
   }
 

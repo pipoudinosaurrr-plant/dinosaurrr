@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Échecs du jour</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+    body { display: flex; flex-direction: column; align-items: center; height: 100dvh; padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); background: radial-gradient(700px 360px at 50% -120px, rgba(109, 138, 79, .18), transparent 70%), #000; }
+    header { width: 100%; max-width: 560px; display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; border-bottom: 1px solid var(--bord); }
+    header h1 { flex: 1; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.03em; }
+    header h1 small { margin-left: 6px; color: var(--doux); font: 600 12px var(--mono); }
+    .icone { display: grid; place-items: center; height: 36px; min-width: 36px; padding: 0 10px; border: 1px solid var(--bord2); border-radius: 10px; background: transparent; color: var(--texte); font: 600 12.5px var(--police); cursor: pointer; }
+    .icone.actif { border-color: #eab308; color: #fde047; }
+    main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    .consigne { text-align: center; }
+    .consigne b { display: block; font-size: 19px; letter-spacing: -.02em; }
+    .consigne span { color: var(--doux); font-size: 13.5px; }
+    .points { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+    .points i { width: 10px; height: 10px; border-radius: 50%; background: #27272a; }
+    .points i.rate { background: #ef4444; }
+    .zone { --taille: min(94vw, calc(100dvh - 250px), 560px); position: relative; }
+    .plateau { display: grid; grid-template-columns: repeat(8, 1fr); width: var(--taille); height: var(--taille); border: 2px solid #3f3f46; border-radius: 6px; overflow: hidden; box-shadow: 0 30px 60px -30px #000; }
+    .plateau.secoue { animation: secoue .4s; }
+    @keyframes secoue { 25%, 75% { transform: translateX(-6px); } 50% { transform: translateX(6px); } }
+    .case { position: relative; display: grid; place-items: center; padding: 0; border: 0; cursor: pointer; font-size: calc(var(--taille) / 8 * .78); line-height: 1; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", "Arial Unicode MS", sans-serif; }
+    .case.claire { background: #e9e3d0; } .case.foncee { background: #6d8a4f; }
+    .case.dernier.claire { background: #f3e58a; } .case.dernier.foncee { background: #b6b84a; }
+    .case.choisie { box-shadow: inset 0 0 0 4px #facc15; }
+    .case.indice { box-shadow: inset 0 0 0 4px #38bdf8; animation: clignote 1s infinite alternate; }
+    @keyframes clignote { to { box-shadow: inset 0 0 0 4px transparent; } }
+    .case.echec { background: radial-gradient(circle, #ef4444 0%, #b91c1c 45%, transparent 75%) !important; }
+    .case .cible { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(0, 0, 0, .28); pointer-events: none; }
+    .case .cible.prise { width: 92%; height: 92%; background: none; border: 5px solid rgba(0, 0, 0, .28); }
+    .piece { pointer-events: none; transform: translateY(2%); }
+    .piece.blanc { color: #fff; -webkit-text-stroke: 1.5px #1a1a1a; text-shadow: 0 2px 2px rgba(0, 0, 0, .35); }
+    .piece.noir { color: #1a1a1a; -webkit-text-stroke: .5px #000; text-shadow: 0 1px 1px rgba(255, 255, 255, .25); }
+    .coord { position: absolute; font: 700 10px var(--mono); opacity: .7; pointer-events: none; }
+    .coord.l { left: 3px; top: 2px; } .coord.c { right: 3px; bottom: 1px; }
+    .claire .coord { color: #6d8a4f; } .foncee .coord { color: #e9e3d0; }
+    .promo { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(0, 0, 0, .55); }
+    .promo[hidden] { display: none; }
+    .promo div { display: flex; gap: 6px; padding: 10px; border-radius: 12px; background: #18181b; border: 1px solid #3f3f46; }
+    .promo button { width: calc(var(--taille) / 8); height: calc(var(--taille) / 8); border: 0; border-radius: 8px; background: #e9e3d0; font-size: calc(var(--taille) / 8 * .75); cursor: pointer; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; }
+    .barre { display: flex; gap: 8px; }
+    .bulle { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 30; padding: 10px 16px; border-radius: 10px; background: #fafafa; color: #000; font: 700 14px var(--police); pointer-events: none; transition: opacity .3s; }
+    .bulle[hidden] { display: block; opacity: 0; }
+    .voile { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .72); }
+    .voile[hidden] { display: none; }
+    .boite { position: relative; width: 100%; max-width: 420px; max-height: 92dvh; overflow-y: auto; padding: 22px; border: 1px solid var(--bord2); border-radius: 18px; background: #0b0b0b; animation: arrive .3s cubic-bezier(.2, .8, .2, 1); }
+    @keyframes arrive { from { transform: translateY(16px); opacity: 0; } }
+    .boite h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.03em; }
+    .boite p { color: var(--doux); margin: 6px 0; }
+    .fermer { position: absolute; top: 12px; right: 12px; }
+    .chiffres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0; text-align: center; }
+    .chiffres b { display: block; font: 800 24px var(--mono); }
+    .chiffres small { color: var(--tres-doux); font-size: 11px; line-height: 1.2; display: block; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .actions .btn { flex: 1; }
+    .prochain { margin-top: 12px; text-align: center; color: var(--doux); font-size: 13px; }
+    .prochain b { color: var(--texte); font: 700 18px var(--mono); display: block; }
+    .monde { margin: 4px 0 0; font-size: 12.5px; color: var(--tres-doux); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Échecs du jour <small id="numero"></small></h1>
+    <button class="icone" id="btnMode" title="Un problème au hasard">Entraînement</button>
+    <button class="icone" id="btnStats" title="Statistiques">📊</button>
+  </header>
+  <main>
+    <div class="consigne"><b id="titre"></b><span id="sous"></span><div class="points" id="points"></div></div>
+    <div class="zone"><div class="plateau" id="plateau"></div><div class="promo" id="promo" hidden><div id="choixPromo"></div></div></div>
+    <div class="barre"><button class="btn" id="btnIndice">💡 Indice</button><button class="btn" id="btnAbandon">Voir la solution</button></div>
+  </main>
+  <div class="bulle" id="bulle" hidden></div>
+  <div class="voile" id="voileStats" hidden>
+    <div class="boite">
+      <button class="icone fermer" data-fermer>✕</button>
+      <h2 id="statsTitre">Statistiques</h2>
+      <p id="statsSous"></p>
+      <div class="chiffres" id="chiffres"></div>
+      <p class="monde" id="monde"></p>
+      <div class="actions" id="statsActions"></div>
+      <div class="prochain" id="prochain"></div>
+    </div>
+  </div>
+
+  <script src="../assets/config.js"></script>
+<script type="module">
+import { coupsLegaux, _faire, enEchec } from './multi/jeux/echecs.js';
+import { position, texteCoup, estMat, coupsGagnants, defense } from './echecsjour/regles.js';
+import { PROBLEMES, problemeDuJour } from './echecsjour/problemes.js';
+import { numeroDuJour } from '../assets/progres-defs.js';
+
+const $ = id => document.getElementById(id);
+const stock = {
+  lire(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  ecrire(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* rien */ } }
+};
+const parent = nom => { try { return window.parent !== window ? window.parent[nom] : null; } catch (e) { return null; } };
+const GLYPHES = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
+const glyphe = p => GLYPHES[p.toUpperCase()] + '︎';
+const ERREURS_MAX = 3;
+
+/* ---------- Sons ---------- */
+let audio = null;
+function bip(f, d = 0.08, type = 'triangle', vol = 0.06, retard = 0) {
+  if (stock.lire('site-son', true) === false) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audio.currentTime + retard, o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(audio.destination); o.start(t); o.stop(t + d + 0.02);
+  } catch (e) { /* rien */ }
+}
+const SON = { coup: () => bip(380, 0.06, 'triangle', 0.08), prise: () => bip(240, 0.09, 'square', 0.06), faux: () => bip(150, 0.2, 'square', 0.05), mat: () => [523, 659, 784, 1047].forEach((f, i) => bip(f, 0.14, 'square', 0.05, i * 0.1)) };
+
+/* ---------- État ---------- */
+const NUMERO = numeroDuJour();
+let entrainement = false;
+let pb, p, joueur, coups, erreurs, reste, fini, gagne, choisie = null, dernier = null, indice = null, occupe = false, promoEnAttente = null;
+const cleJour = () => 'echecsjour-' + NUMERO;
+
+function charger(probleme, sauve) {
+  pb = probleme;
+  p = position(pb);
+  joueur = p.tour;
+  coups = []; erreurs = 0; reste = pb.n; fini = false; gagne = false; choisie = null; dernier = null; indice = null;
+  // on rejoue les coups déjà faits aujourd'hui
+  if (sauve) {
+    for (const c of sauve.coups || []) {
+      const m = coupsLegaux(p).find(x => texteCoup(x) === c);
+      if (!m) break;
+      if (p.tour === joueur) reste--;
+      _faire(p, m); coups.push(c); dernier = m;
+    }
+    erreurs = sauve.erreurs || 0; fini = !!sauve.fini; gagne = !!sauve.gagne;
+  }
+  $('numero').textContent = entrainement ? 'entraînement' : 'n°' + NUMERO;
+  majConsigne();
+  dessiner();
+}
+function sauver() { if (!entrainement) stock.ecrire(cleJour(), { coups, erreurs, fini, gagne }); }
+
+function majConsigne() {
+  const camp = joueur === 0 ? 'Les blancs' : 'Les noirs';
+  $('titre').textContent = fini ? (gagne ? 'Échec et mat ! 🎉' : 'Solution') : `${camp} jouent et font mat en ${pb.n}`;
+  $('sous').textContent = fini ? (gagne ? (erreurs ? `Trouvé avec ${erreurs} erreur${erreurs > 1 ? 's' : ''}` : 'Trouvé du premier coup !') : 'Ce sera pour demain !')
+    : p.tour === joueur ? (reste === pb.n ? 'Trouve le premier coup' : `Encore ${reste} coup${reste > 1 ? 's' : ''} pour mater`) : 'L’adversaire réfléchit…';
+  $('points').innerHTML = Array.from({ length: ERREURS_MAX }, (_, i) => `<i class="${i < erreurs ? 'rate' : ''}" title="erreur"></i>`).join('');
+  $('btnIndice').disabled = fini || !!indice;
+  $('btnAbandon').disabled = fini;
+}
+
+/* ---------- Le plateau ---------- */
+const plateau = $('plateau');
+const cases = [];
+for (let k = 0; k < 64; k++) { const b = document.createElement('button'); b.className = 'case'; plateau.append(b); cases.push(b); }
+const indexEcran = k => (joueur === 1 ? 63 - k : k);   // on regarde du côté de celui qui joue
+function dessiner() {
+  const legaux = choisie !== null ? coupsLegaux(p).filter(m => m.de === choisie) : [];
+  const roiEchec = enEchec(p.b, p.tour) ? p.b.indexOf(p.tour === 0 ? 'K' : 'k') : -1;
+  for (let k = 0; k < 64; k++) {
+    const i = indexEcran(k), r = i >> 3, c = i & 7;
+    const el = cases[k];
+    el.dataset.i = i;
+    const piece = p.b[i];
+    el.className = 'case ' + ((r + c) % 2 ? 'foncee' : 'claire') + (dernier && (dernier.de === i || dernier.a === i) ? ' dernier' : '') + (choisie === i ? ' choisie' : '') + (indice === i ? ' indice' : '') + (roiEchec === i ? ' echec' : '');
+    const cible = legaux.find(m => m.a === i);
+    el.innerHTML = (piece !== '.' ? `<span class="piece ${piece === piece.toUpperCase() ? 'blanc' : 'noir'}">${glyphe(piece)}</span>` : '')
+      + (cible ? `<span class="cible${piece !== '.' ? ' prise' : ''}"></span>` : '')
+      + ((k & 7) === 0 ? `<span class="coord l">${8 - r}</span>` : '') + (k >> 3 === 7 ? `<span class="coord c">${'abcdefgh'[c]}</span>` : '');
+  }
+}
+
+plateau.addEventListener('click', e => {
+  const b = e.target.closest('.case');
+  if (!b || fini || occupe || p.tour !== joueur) return;
+  const i = Number(b.dataset.i);
+  const piece = p.b[i];
+  if (choisie !== null) {
+    const possibles = coupsLegaux(p).filter(m => m.de === choisie && m.a === i);
+    if (possibles.length) {
+      if (possibles.length > 1) { demanderPromo(possibles); return; }
+      jouer(possibles[0]); return;
+    }
+  }
+  choisie = piece !== '.' && (piece === piece.toUpperCase() ? 0 : 1) === joueur ? i : null;
+  dessiner();
+});
+
+function demanderPromo(possibles) {
+  promoEnAttente = possibles;
+  $('choixPromo').innerHTML = 'QRBN'.split('').map(q => `<button data-q="${q}">${glyphe(q)}</button>`).join('');
+  $('promo').hidden = false;
+}
+$('choixPromo').addEventListener('click', e => {
+  const b = e.target.closest('[data-q]');
+  if (!b || !promoEnAttente) return;
+  const m = promoEnAttente.find(x => x.promo === b.dataset.q);
+  $('promo').hidden = true; promoEnAttente = null;
+  if (m) jouer(m);
+});
+
+function poser(m) {
+  (m.prise ? SON.prise : SON.coup)();
+  _faire(p, m); coups.push(texteCoup(m)); dernier = m; choisie = null;
+}
+
+function jouer(m) {
+  const bons = coupsGagnants(p, reste);
+  if (!bons.some(x => texteCoup(x) === texteCoup(m))) {
+    // mauvais coup : on le montre, puis on revient en arrière
+    erreurs++;
+    SON.faux();
+    const avant = { b: [...p.b], tour: p.tour, roque: p.roque, ep: p.ep, demi: p.demi };
+    _faire(p, m); dernier = m; choisie = null; dessiner();
+    plateau.classList.remove('secoue'); void plateau.offsetWidth; plateau.classList.add('secoue');
+    bulle(erreurs >= ERREURS_MAX ? 'Raté… voici la solution' : 'Pas le bon coup, réessaie !');
+    occupe = true;
+    setTimeout(() => {
+      Object.assign(p, avant); dernier = null; occupe = false;
+      if (erreurs >= ERREURS_MAX) montrerSolution(); else { majConsigne(); dessiner(); sauver(); }
+    }, 900);
+    return;
+  }
+  poser(m);
+  reste--;
+  if (estMat(p)) { finir(true); return; }
+  majConsigne(); dessiner(); sauver();
+  // la défense de l'adversaire
+  occupe = true;
+  setTimeout(() => {
+    const r = defense(p, reste);
+    if (r) poser(r);
+    occupe = false; indice = null;
+    majConsigne(); dessiner(); sauver();
+  }, 650);
+}
+
+// on rejoue la solution (bonne défense comprise)
+function montrerSolution() {
+  fini = true; gagne = false;
+  majConsigne(); sauver();
+  const pas = () => {
+    if (estMat(p) || reste <= 0) { dessiner(); finir(false); return; }
+    if (p.tour === joueur) { const m = coupsGagnants(p, reste)[0]; if (!m) { finir(false); return; } poser(m); reste--; }
+    else { const r = defense(p, reste); if (!r) { finir(false); return; } poser(r); }
+    dessiner();
+    setTimeout(pas, 900);
+  };
+  setTimeout(pas, 500);
+}
+
+function finir(ok) {
+  fini = true; gagne = ok;
+  majConsigne(); dessiner(); sauver();
+  if (ok) { SON.mat(); bulle('Échec et mat !', 2000); }
+  if (!entrainement) {
+    const s = stock.lire('echecsjour-stats', { joues: 0, gagnes: 0, serie: 0, max: 0, parfaits: 0, dernier: 0 });
+    if (s.dernier !== NUMERO) {
+      s.joues++;
+      if (ok) { s.gagnes++; if (!erreurs) s.parfaits++; s.serie = s.dernier === NUMERO - 1 ? s.serie + 1 : 1; s.max = Math.max(s.max, s.serie); } else s.serie = 0;
+      s.dernier = NUMERO;
+      stock.ecrire('echecsjour-stats', s);
+    }
+    envoyer();
+  }
+  setTimeout(() => montrerStats(), ok ? 1800 : 1200);
+}
+
+/* ---------- Compte : série, Hall of Fame ---------- */
+let serveur = null;
+async function compte() {
+  let C = parent('DinoCompte');
+  if (!C && !window.DinoCompte) await new Promise(r => { const s = document.createElement('script'); s.src = '../assets/compte.js'; s.onload = r; s.onerror = r; document.head.append(s); });
+  return C || window.DinoCompte || null;
+}
+async function envoyer() {
+  const C = await compte();
+  if (!C || !C.connecte) return;
+  const envoi = { jeu: 'echecsjour', numero: NUMERO, preuve: { coups, erreurs } };
+  if (navigator.onLine === false) { stock.ecrire('echecsjour-attente', envoi); return; }
+  const r = await C.api('quotidien', envoi);
+  if (r && r.erreur && /joindre/.test(r.erreur)) { stock.ecrire('echecsjour-attente', envoi); return; }
+  if (r && !r.erreur) {
+    serveur = r;
+    const P = parent('DinoProgres') || window.DinoProgres;
+    if (P && P.notif && r.xp) P.notif('✨', `+${r.xp} XP`, r.gagne ? `Série : ${r.serie} jour${r.serie > 1 ? 's' : ''}` : '', '', 3000);
+    if (P && P.notif && r.defi) P.notif('🎯', 'Défi du jour réussi !', r.defi, 'vert', 5000);
+    if (!$('voileStats').hidden) montrerStats();
+  }
+}
+async function envoyerAttente() {
+  const a = stock.lire('echecsjour-attente', null);
+  if (!a || navigator.onLine === false) return;
+  const C = await compte();
+  if (!C || !C.connecte) return;
+  const r = await C.api('quotidien', a);
+  if (!(r && r.erreur && /joindre/.test(r.erreur))) stock.ecrire('echecsjour-attente', null);
+}
+addEventListener('online', envoyerAttente);
+async function chargerSerie() {
+  const C = await compte();
+  if (!C || !C.connecte || navigator.onLine === false) return;
+  const r = await C.api('quotidien-moi', { jeu: 'echecsjour' });
+  if (r && !r.erreur) serveur = r;
+}
+
+let minuterieBulle = 0;
+function bulle(texte, duree = 1600) {
+  const b = $('bulle'); b.textContent = texte; b.hidden = false;
+  clearTimeout(minuterieBulle); minuterieBulle = setTimeout(() => { b.hidden = true; }, duree);
+}
+
+async function partager() {
+  const texte = `Échecs du jour n°${NUMERO} ♟ mat en ${pb.n} — ${gagne ? (erreurs ? `trouvé avec ${erreurs} erreur${erreurs > 1 ? 's' : ''} ${'🟥'.repeat(erreurs)}🟩` : 'trouvé du premier coup 🟩') : 'raté 🟥🟥🟥'}\n${location.origin}/#jeu/echecsjour`;
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: texte }); return; }
+    await navigator.clipboard.writeText(texte); bulle('Résultat copié !');
+  } catch (e) { bulle('Impossible de copier'); }
+}
+
+async function montrerStats() {
+  const s = stock.lire('echecsjour-stats', { joues: 0, gagnes: 0, serie: 0, max: 0, parfaits: 0, dernier: 0 });
+  const serie = serveur ? serveur.serie : s.serie, max = serveur ? Math.max(serveur.meilleure, s.max) : s.max;
+  $('statsTitre').textContent = fini ? (gagne ? 'Bravo !' : 'Raté pour aujourd’hui') : 'Statistiques';
+  $('statsSous').textContent = entrainement ? 'Le mode entraînement ne compte pas dans les statistiques.' : serveur ? 'Ta série est gardée sur ton compte.' : 'Connecte-toi pour garder ta série sur ton compte et entrer dans le Hall of Fame.';
+  $('chiffres').innerHTML = [[s.joues, 'problèmes'], [s.parfaits, 'du premier coup'], [serie, 'série en cours'], [max, 'meilleure série']].map(([v, t]) => `<div><b>${v}</b><small>${t}</small></div>`).join('');
+  $('statsActions').innerHTML = (fini && !entrainement ? '<button class="btn primaire" id="btnPartager">Partager</button>' : '') + '<button class="btn" id="btnAuHasard">Un problème au hasard</button>';
+  const bp = $('btnPartager'); if (bp) bp.onclick = partager;
+  $('btnAuHasard').onclick = () => { fermer(); passerEntrainement(true); };
+  $('voileStats').hidden = false;
+  $('monde').textContent = '';
+  const C = await compte();
+  if (C && navigator.onLine !== false && !entrainement) {
+    const r = await C.api('quotidien-stats', { jeu: 'echecsjour' });
+    if (r && !r.erreur && r.joueurs) $('monde').textContent = `Aujourd’hui : ${r.reussi} joueur${r.reussi > 1 ? 's ont' : ' a'} trouvé sur ${r.joueurs} (avec un compte).`;
+  }
+}
+const fermer = () => { $('voileStats').hidden = true; };
+document.querySelectorAll('.voile').forEach(v => v.addEventListener('click', e => { if (e.target === v || e.target.closest('[data-fermer]')) fermer(); }));
+addEventListener('keydown', e => { if (e.key === 'Escape') fermer(); });
+
+setInterval(() => {
+  const el = $('prochain');
+  if ($('voileStats').hidden || entrainement) { el.textContent = ''; return; }
+  if (numeroDuJour() !== NUMERO) { el.innerHTML = '<b>Nouveau problème disponible !</b><button class="btn" onclick="location.reload()">Jouer</button>'; return; }
+  let fin = Date.now();
+  while (numeroDuJour(fin) === NUMERO) fin += 60000;
+  const reste = Math.max(0, fin - Date.now());
+  el.innerHTML = `Prochain problème dans<b>${Math.floor(reste / 3600000)} h ${String(Math.floor(reste / 60000) % 60).padStart(2, '0')}</b>`;
+}, 1000);
+
+function passerEntrainement(oui) {
+  entrainement = oui;
+  $('btnMode').classList.toggle('actif', oui);
+  $('btnMode').textContent = oui ? 'Problème du jour' : 'Entraînement';
+  if (oui) { let q; do { q = PROBLEMES[Math.floor(Math.random() * PROBLEMES.length)]; } while (q === problemeDuJour(NUMERO) && PROBLEMES.length > 1); charger(q); }
+  else charger(problemeDuJour(NUMERO), stock.lire(cleJour(), null));
+}
+
+$('btnMode').onclick = () => passerEntrainement(!entrainement);
+$('btnStats').onclick = () => montrerStats();
+$('btnIndice').onclick = () => {
+  if (fini || p.tour !== joueur || indice !== null) return;
+  const m = coupsGagnants(p, reste)[0];
+  if (!m) return;
+  indice = m.de; erreurs = Math.min(ERREURS_MAX - 1, erreurs + 1);    // un indice coûte une erreur
+  bulle('La pièce qui clignote doit bouger (−1 point)');
+  majConsigne(); dessiner(); sauver();
+};
+$('btnAbandon').onclick = () => { if (!fini && !occupe) { erreurs = ERREURS_MAX; montrerSolution(); } };
+
+// pour les tests automatiques
+window.__echecsjour = { get p() { return p; }, get pb() { return pb; }, jouerTexte: t => { const m = coupsLegaux(p).find(x => texteCoup(x) === t); if (m) jouer(m); }, coupsGagnants: () => coupsGagnants(p, reste).map(texteCoup), get fini() { return fini; }, get gagne() { return gagne; } };
+
+passerEntrainement(false);
+if (fini) setTimeout(montrerStats, 600);
+chargerSerie();
+setTimeout(envoyerAttente, 1500);
+</script>
+</body>
+</html>

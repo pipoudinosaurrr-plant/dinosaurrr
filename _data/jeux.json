@@ -1,5 +1,31 @@
 [
   {
+    "id": "motdujour",
+    "titre": "Mot du jour",
+    "description": "Trouve le mot de 5 lettres en 6 essais. Un nouveau mot chaque jour, le même pour tout le monde : garde ta série et partage ton résultat !",
+    "icone": "motdujour",
+    "fichier": "games/motdujour.html",
+    "largeur": 520,
+    "hauteur": 760,
+    "bureau": true,
+    "nouveau": true,
+    "multi": false,
+    "cache": false
+  },
+  {
+    "id": "echecsjour",
+    "titre": "Échecs du jour",
+    "description": "Un problème d’échecs par jour : trouve le mat en 2 ou 3 coups. Le même pour tout le monde, avec ta série de jours réussis.",
+    "icone": "echecsjour",
+    "fichier": "games/echecsjour.html",
+    "largeur": 600,
+    "hauteur": 760,
+    "bureau": true,
+    "nouveau": true,
+    "multi": false,
+    "cache": false
+  },
+  {
     "id": "cercle",
     "titre": "Le Cercle",
     "description": "Multijoueur jusqu'à 8. Le cercle rétrécit : pousse les autres dehors, évite les bombes et le vent. Le dernier dedans gagne.",
@@ -195,6 +221,19 @@
     "cache": false
   },
   {
+    "id": "duelblocs",
+    "titre": "Blocs en duel",
+    "description": "Le jeu de blocs à 2, 3 ou 4 joueurs, en ligne ou contre l’ordinateur : chaque fois que tu fais 2 lignes ou plus, des lignes grises montent chez ton adversaire. Le dernier en vie gagne !",
+    "icone": "duelblocs",
+    "fichier": "games/duelblocs.html",
+    "largeur": 960,
+    "hauteur": 680,
+    "bureau": true,
+    "nouveau": true,
+    "multi": true,
+    "cache": false
+  },
+  {
     "id": "flipper",
     "titre": "Flipper",
     "description": "Une vraie table de flipper avec une vraie physique : bumpers, lance-pierres, cibles, verrou et multibille. Garde le flipper levé pour bloquer la bille, vise avec le bout pour frapper fort.",
@@ -210,7 +249,7 @@
   {
     "id": "golf",
     "titre": "Mini-golf",
-    "description": "Deux parcours de 9 trous avec une vraie physique de balle : rebonds, pentes, bosses, sable, glace, eau, tunnels et moulins. Tire l’élastique et vise le par !",
+    "description": "Quatre parcours de 9 trous (Jardin, Glacier, Volcan, Espace) avec une vraie physique de balle : rebonds, pentes, sable, glace, lave, trous noirs, tunnels et moulins.",
     "icone": "golf",
     "fichier": "games/golf.html",
     "largeur": 440,
@@ -262,7 +301,7 @@
   {
     "id": "turbo",
     "titre": "Turbo",
-    "description": "Course de voitures en 3D façon arcade : 3 circuits, 7 adversaires, virages, bosses et nitro. Finis premier pour débloquer le circuit suivant.",
+    "description": "Course de voitures en 3D façon arcade : 3 circuits, 7 adversaires, virages, bosses et nitro. Finis premier pour débloquer le circuit suivant. Nouveau : course en ligne jusqu’à 6 pilotes avec tes amis !",
     "icone": "turbo",
     "fichier": "games/turbo.html",
     "largeur": 900,

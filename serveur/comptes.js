@@ -8,8 +8,9 @@
    ========================================================== */
 
 import { DurableObject } from 'cloudflare:workers';
-import { pseudoInterdit } from './filtre.js';
-import { XP, niveauDe, xpPourNiveau, titreDe, AVATARS, avatarDe, CLASSEMENTS, JEUX_PROGRES, SUCCES, jourDe, semaineDe, semainePrecedente, defiDuJour, defiReussi } from '../assets/progres-defs.js';
+import { pseudoInterdit, censurer } from './filtre.js';
+import { XP, niveauDe, xpPourNiveau, titreDe, AVATARS, avatarDe, CLASSEMENTS, JEUX_PROGRES, SUCCES, jourDe, semaineDe, semainePrecedente, defiDuJour, defiReussi, numeroDuJour } from '../assets/progres-defs.js';
+import { verifierQuotidien, JEUX_QUOTIDIENS } from './quotidien.js';
 
 const TOURS = 100000;                         // maximum autorisé par Cloudflare
 const DUREE_SESSION = 180 * 24 * 3600 * 1000; // 6 mois sans visite = session expirée
@@ -17,6 +18,7 @@ const ECHECS_MAX = 5;                         // 5 mauvais mots de passe…
 const BLOCAGE = 5 * 60 * 1000;                // … = compte bloqué 5 minutes
 const MOTS_INTERDITS = new Set(['visiteur', 'invite', 'admin', 'administrateur', 'moderateur', 'modo', 'dinosaurrr', 'joueur', 'bot', 'systeme', 'serveur', 'anonyme']);
 const INVITATIONS = ['tous', 'amis', 'personne'];
+const ARTICLE = /^\/blog\/\d{4}\/\d{2}\/\d{2}\/[^/?#\s]{1,200}\/$/;   // adresse d'un article du blog
 
 const enc = new TextEncoder();
 const hex = octets => Array.from(new Uint8Array(octets), o => o.toString(16).padStart(2, '0')).join('');
@@ -103,6 +105,10 @@ export class Comptes extends DurableObject {
       CREATE TABLE IF NOT EXISTS recsemaine (cle TEXT NOT NULL, jeu TEXT NOT NULL, semaine TEXT NOT NULL, score REAL NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (cle, jeu, semaine));
       CREATE TABLE IF NOT EXISTS stats_site (jour TEXT NOT NULL, type TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (jour, type));
       CREATE TABLE IF NOT EXISTS visiteurs (jour TEXT NOT NULL, h TEXT NOT NULL, PRIMARY KEY (jour, h));
+      CREATE TABLE IF NOT EXISTS quotidien (cle TEXT NOT NULL, jeu TEXT NOT NULL, numero INTEGER NOT NULL, essais INTEGER NOT NULL, gagne INTEGER NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (cle, jeu, numero));
+      CREATE INDEX IF NOT EXISTS quotidien_jour ON quotidien(jeu, numero);
+      CREATE TABLE IF NOT EXISTS commentaires (id INTEGER PRIMARY KEY AUTOINCREMENT, article TEXT NOT NULL, cle TEXT NOT NULL, texte TEXT NOT NULL, t INTEGER NOT NULL, supprime INTEGER NOT NULL DEFAULT 0);
+      CREATE INDEX IF NOT EXISTS commentaires_article ON commentaires(article, t);
       CREATE TABLE IF NOT EXISTS tournois (id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, jeu TEXT NOT NULL, quand INTEGER NOT NULL, etat TEXT NOT NULL, cree INTEGER NOT NULL, gagnant TEXT);
       CREATE TABLE IF NOT EXISTS tinscrits (tid INTEGER NOT NULL, cle TEXT NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (tid, cle));
       CREATE TABLE IF NOT EXISTS tmatchs (tid INTEGER NOT NULL, tour INTEGER NOT NULL, pos INTEGER NOT NULL, a TEXT, b TEXT, gagnant TEXT, code TEXT, PRIMARY KEY (tid, tour, pos));
@@ -285,7 +291,7 @@ export class Comptes extends DurableObject {
   }
 
   adminTournoi(d, t) {
-    const JEUX_TOURNOI = ['puissance4', 'morpion', 'navale', 'pong', 'echecs', 'hockey', 'bomberman', 'uno'];
+    const JEUX_TOURNOI = ['puissance4', 'morpion', 'navale', 'pong', 'echecs', 'hockey', 'bomberman', 'uno', 'duelblocs'];
     const LETTRES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const code = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), x => LETTRES[x % LETTRES.length]).join('');
     if (d.faire === 'creer') {
@@ -496,6 +502,28 @@ export class Comptes extends DurableObject {
         return { ok: true };
       }
 
+      // les commentaires d'un article du blog (tout le monde peut les lire)
+      case 'commentaires': {
+        const article = String(d.article || '');
+        if (!ARTICLE.test(article)) return { erreur: 'Article inconnu.', statut: 400 };
+        const liste = this.tous(`SELECT m.id, m.texte, m.t, c.cle, c.nom, c.avatar, c.xp FROM commentaires m JOIN comptes c ON c.cle = m.cle
+          WHERE m.article = ? AND m.supprime = 0 AND c.banni <= ? ORDER BY m.t ASC LIMIT 300`, article, t);
+        return { commentaires: liste.map(x => ({ id: x.id, nom: x.nom, avatar: avatarDe(x.avatar).id, niveau: niveauDe(x.xp || 0), texte: x.texte, t: x.t, admin: x.cle === PROPRIO.cle })) };
+      }
+      // le nombre de commentaires de chaque article (pour la liste du blog)
+      case 'commentaires-nombres': {
+        const r = {};
+        for (const x of this.tous('SELECT m.article, COUNT(*) AS n FROM commentaires m JOIN comptes c ON c.cle = m.cle WHERE m.supprime = 0 AND c.banni <= ? GROUP BY m.article', t)) r[x.article] = x.n;
+        return { nombres: r };
+      }
+      // les jeux du jour : combien ont réussi aujourd'hui, en combien d'essais
+      case 'quotidien-stats': {
+        const jeu = String(d.jeu || '');
+        if (!JEUX_QUOTIDIENS.has(jeu)) return { erreur: 'Jeu inconnu.', statut: 400 };
+        const numero = numeroDuJour(t);
+        const lignes = this.tous('SELECT essais, gagne, COUNT(*) AS n FROM quotidien WHERE jeu = ? AND numero = ? GROUP BY essais, gagne', jeu, numero);
+        return { numero, joueurs: lignes.reduce((s, l) => s + l.n, 0), reussi: lignes.filter(l => l.gagne).reduce((s, l) => s + l.n, 0), repartition: lignes.map(l => ({ essais: l.essais, gagne: !!l.gagne, n: l.n })) };
+      }
       case 'existe': {
         const cle = cleCompte(d.nom);
         return { existe: !!this.un('SELECT cle FROM comptes WHERE cle = ?', cle), libre: !verifierPseudo(d.nom) && !this.un('SELECT cle FROM comptes WHERE cle = ?', cle), proprio: formeProprio(d.nom) };
@@ -694,6 +722,68 @@ export class Comptes extends DurableObject {
         this.sql.exec("INSERT INTO stats_site (jour, type, n) VALUES (?, ?, 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1", jourDe(t), 'jeu:' + jeu);
         return this.evenement(moi.cle, ev);
       }
+      // écrire un commentaire sous un article (passé au filtre, 1 toutes les 20 secondes)
+      case 'commenter': {
+        const article = String(d.article || '');
+        if (!ARTICLE.test(article)) return { erreur: 'Article inconnu.', statut: 400 };
+        let texte = String(d.texte || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 500);
+        if (!texte) return { erreur: 'Ton commentaire est vide.' };
+        const dernier = this.un('SELECT t FROM commentaires WHERE cle = ? ORDER BY t DESC LIMIT 1', moi.cle);
+        if (dernier && t - dernier.t < 20000) return { erreur: 'Attends quelques secondes avant d’écrire un autre commentaire.' };
+        if (this.un('SELECT COUNT(*) AS n FROM commentaires WHERE cle = ? AND t > ?', moi.cle, t - 3600000).n >= 20) return { erreur: 'Tu as écrit beaucoup de commentaires : réessaie plus tard.' };
+        texte = censurer(texte).texte;
+        this.sql.exec('INSERT INTO commentaires (article, cle, texte, t) VALUES (?, ?, ?, ?)', article, moi.cle, texte, t);
+        this.sql.exec("INSERT INTO stats_site (jour, type, n) VALUES (?, 'commentaire', 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1", jourDe(t));
+        return { ok: true };
+      }
+      // supprimer : l'auteur du commentaire, ou l'admin
+      case 'commentaire-supprimer': {
+        const m = this.un('SELECT cle FROM commentaires WHERE id = ?', Number(d.id) || 0);
+        if (!m) return { erreur: 'Commentaire introuvable.' };
+        if (m.cle !== moi.cle && moi.cle !== PROPRIO.cle) return { erreur: 'Tu ne peux supprimer que tes commentaires.', statut: 403 };
+        this.sql.exec('UPDATE commentaires SET supprime = 1 WHERE id = ?', Number(d.id));
+        return { ok: true };
+      }
+      // un jeu du jour terminé : le serveur vérifie la solution, compte la série de jours réussis
+      case 'quotidien': {
+        const jeu = String(d.jeu || '');
+        if (!JEUX_QUOTIDIENS.has(jeu)) return { erreur: 'Jeu inconnu.', statut: 400 };
+        // une partie finie hors ligne juste avant minuit peut arriver le lendemain : on accepte la veille
+        const numero = [numeroDuJour(t), numeroDuJour(t) - 1].includes(Number(d.numero)) ? Number(d.numero) : numeroDuJour(t);
+        const deja = this.un('SELECT essais, gagne FROM quotidien WHERE cle = ? AND jeu = ? AND numero = ?', moi.cle, jeu, numero);
+        let r = {};
+        if (!deja) {
+          const v = verifierQuotidien(jeu, numero, d.preuve);
+          if (!v) return { erreur: 'Résultat refusé.', statut: 400 };
+          this.sql.exec('INSERT INTO quotidien (cle, jeu, numero, essais, gagne, t) VALUES (?, ?, ?, ?, ?, ?)', moi.cle, jeu, numero, v.essais, v.gagne ? 1 : 0, t);
+          // la série : jours réussis d'affilée jusqu'à aujourd'hui
+          const faits = new Set(this.tous('SELECT numero FROM quotidien WHERE cle = ? AND jeu = ? AND gagne = 1 AND numero > ?', moi.cle, jeu, numero - 400).map(x => x.numero));
+          let serie = 0;
+          while (faits.has(numero - serie)) serie++;
+          this.sql.exec("INSERT INTO stats_site (jour, type, n) VALUES (?, ?, 1) ON CONFLICT (jour, type) DO UPDATE SET n = n + 1", jourDe(t), 'jeu:' + jeu);
+          r = this.evenement(moi.cle, { jeu, score: v.gagne ? serie : null, gagne: v.gagne, enligne: false });
+          r.serie = serie;
+          r.essais = v.essais; r.gagne = v.gagne;
+        } else { r = { deja: true, essais: deja.essais, gagne: !!deja.gagne }; }
+        const faits = new Set(this.tous('SELECT numero FROM quotidien WHERE cle = ? AND jeu = ? AND gagne = 1 AND numero > ?', moi.cle, jeu, numero - 400).map(x => x.numero));
+        let serie = 0;
+        while (faits.has(numero - serie)) serie++;
+        const meilleur = this.un('SELECT score FROM records WHERE cle = ? AND jeu = ?', moi.cle, jeu);
+        return { ...r, numero, serie, meilleure: Math.max(serie, meilleur ? meilleur.score : 0) };
+      }
+      // ma série actuelle (sans rien envoyer)
+      case 'quotidien-moi': {
+        const jeu = String(d.jeu || '');
+        if (!JEUX_QUOTIDIENS.has(jeu)) return { erreur: 'Jeu inconnu.', statut: 400 };
+        const numero = numeroDuJour(t);
+        const faits = new Set(this.tous('SELECT numero FROM quotidien WHERE cle = ? AND jeu = ? AND gagne = 1 AND numero > ?', moi.cle, jeu, numero - 400).map(x => x.numero));
+        // pas encore joué aujourd'hui : la série d'hier compte encore
+        let serie = 0, depart = faits.has(numero) ? numero : numero - 1;
+        while (faits.has(depart - serie)) serie++;
+        const aujourdhui = this.un('SELECT essais, gagne FROM quotidien WHERE cle = ? AND jeu = ? AND numero = ?', moi.cle, jeu, numero);
+        const meilleur = this.un('SELECT score FROM records WHERE cle = ? AND jeu = ?', moi.cle, jeu);
+        return { numero, serie, meilleure: Math.max(serie, meilleur ? meilleur.score : 0), aujourdhui: aujourdhui ? { essais: aujourdhui.essais, gagne: !!aujourdhui.gagne } : null };
+      }
       case 'progres-etat':
         return this.etatProgres(moi.cle);
       case 'avatar': {
@@ -813,5 +903,5 @@ export class Comptes extends DurableObject {
 }
 
 // actions que le site a le droit d'appeler (les autres sont réservées au serveur)
-export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'compter', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires',
+export const ACTIONS_PUBLIQUES = new Set(['inscription', 'connexion', 'reclamer', 'profil', 'compter', 'quotidien', 'quotidien-stats', 'quotidien-moi', 'commentaires', 'commentaires-nombres', 'commenter', 'commentaire-supprimer', 'existe', 'moi', 'deconnexion', 'mdp', 'reglages', 'supprimer', 'amis', 'ami-demande', 'ami-accepter', 'ami-retirer', 'admin-liste', 'admin-compte', 'admin-supprimer', 'admin-mdp', 'admin-victoires',
   'classements', 'tournois', 'progres', 'progres-etat', 'avatar', 'tournoi-inscrire', 'admin-ban', 'admin-stats', 'admin-tournoi']);

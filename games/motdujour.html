@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mot du jour</title>
+  <link rel="stylesheet" href="jeu.css">
+  <style>
+    html, body { overflow: hidden; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+    body { display: flex; flex-direction: column; align-items: center; height: 100dvh; padding: max(10px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); background: radial-gradient(700px 360px at 50% -120px, rgba(34, 197, 94, .1), transparent 70%), #000; }
+    header { width: 100%; max-width: 500px; display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; border-bottom: 1px solid var(--bord); }
+    header h1 { flex: 1; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.03em; }
+    header h1 small { margin-left: 6px; color: var(--doux); font: 600 12px var(--mono); }
+    .icone { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--bord2); border-radius: 10px; background: transparent; color: var(--texte); font: 600 15px var(--police); cursor: pointer; }
+    .icone:hover { border-color: var(--bord3); }
+    .mode { padding: 0 10px; width: auto; font-size: 12px; }
+    .mode.actif { border-color: #eab308; color: #fde047; }
+
+    main { flex: 1; min-height: 0; width: 100%; max-width: 500px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; }
+    .grille { --t: min(62px, calc((100dvh - 330px) / 6.6), calc((100vw - 60px) / 5.4)); display: grid; grid-template-rows: repeat(6, var(--t)); gap: 6px; }
+    .ligne { display: grid; grid-template-columns: repeat(5, var(--t)); gap: 6px; }
+    .ligne.secoue { animation: secoue .45s; }
+    @keyframes secoue { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+    .case { position: relative; display: grid; place-items: center; border: 2px solid var(--bord2); border-radius: 8px; font: 800 calc(var(--t) * .5) / 1 var(--police); text-transform: uppercase; color: #fff; transform-style: preserve-3d; }
+    .case.pleine { border-color: var(--bord3); animation: pop .12s; }
+    @keyframes pop { 50% { transform: scale(1.08); } }
+    .case.v, .case.j, .case.g { border-color: transparent; animation: retourne .5s ease both; animation-delay: calc(var(--i) * .18s); }
+    .case.v { --c: #16a34a; } .case.j { --c: #ca8a04; } .case.g { --c: #3f3f46; }
+    @keyframes retourne { 0% { transform: rotateX(0); background: transparent; border-color: var(--bord3); } 49% { transform: rotateX(90deg); background: transparent; border-color: var(--bord3); } 50% { background: var(--c); border-color: transparent; } 100% { transform: rotateX(0); background: var(--c); border-color: transparent; } }
+    .case.deja { animation: none; background: var(--c); }
+    .ligne.gagne .case { animation: saute .5s ease both; animation-delay: calc(var(--i) * .09s); background: var(--c); }
+    @keyframes saute { 40% { transform: translateY(-14px); } 70% { transform: translateY(3px); } }
+
+    .clavier { width: 100%; max-width: 500px; display: grid; gap: 7px; }
+    .rangee { display: flex; justify-content: center; gap: 5px; }
+    .touche { flex: 1; max-width: 46px; height: min(54px, 7.2dvh); border: 0; border-radius: 7px; background: #2a2a2e; color: #fff; font: 700 15px var(--police); text-transform: uppercase; cursor: pointer; transition: background .2s; }
+    .touche.large { flex: 1.6; max-width: 72px; font-size: 12px; }
+    .touche:active { filter: brightness(1.3); }
+    .touche.v { background: #16a34a; } .touche.j { background: #ca8a04; } .touche.g { background: #18181b; color: #71717a; }
+
+    .bulle { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 30; padding: 10px 16px; border-radius: 10px; background: #fafafa; color: #000; font: 700 14px var(--police); pointer-events: none; transition: opacity .3s; }
+    .bulle[hidden] { display: block; opacity: 0; }
+
+    .voile { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .72); }
+    .voile[hidden] { display: none; }
+    .boite { position: relative; width: 100%; max-width: 420px; max-height: 92dvh; overflow-y: auto; padding: 22px; border: 1px solid var(--bord2); border-radius: 18px; background: #0b0b0b; animation: arrive .3s cubic-bezier(.2, .8, .2, 1); }
+    @keyframes arrive { from { transform: translateY(16px); opacity: 0; } }
+    .boite h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.03em; }
+    .boite p { color: var(--doux); margin: 6px 0; }
+    .fermer { position: absolute; top: 12px; right: 12px; }
+    .chiffres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0; text-align: center; }
+    .chiffres b { display: block; font: 800 24px var(--mono); }
+    .chiffres small { color: var(--tres-doux); font-size: 11px; line-height: 1.2; display: block; }
+    .barres { display: grid; gap: 4px; margin: 6px 0 14px; }
+    .barre { display: flex; align-items: center; gap: 8px; font: 600 12px var(--mono); }
+    .barre i { display: block; min-width: 22px; padding: 2px 6px; border-radius: 4px; background: #3f3f46; text-align: right; font-style: normal; }
+    .barre.moi i { background: #16a34a; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .actions .btn { flex: 1; }
+    .prochain { margin-top: 12px; text-align: center; color: var(--doux); font-size: 13px; }
+    .prochain b { color: var(--texte); font: 700 18px var(--mono); display: block; }
+    .exemple { display: flex; gap: 4px; margin: 8px 0 2px; }
+    .exemple .case { --t: 36px; width: 36px; height: 36px; font-size: 18px; animation: none; }
+    .exemple .case.v, .exemple .case.j, .exemple .case.g { background: var(--c); }
+    .monde { margin: 4px 0 0; font-size: 12.5px; color: var(--tres-doux); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Mot du jour <small id="numero"></small></h1>
+    <button class="icone mode" id="btnMode" title="Mode entraînement (mots au hasard)">Entraînement</button>
+    <button class="icone" id="btnAide" title="Comment jouer">?</button>
+    <button class="icone" id="btnStats" title="Statistiques">📊</button>
+  </header>
+  <main>
+    <div class="grille" id="grille"></div>
+  </main>
+  <div class="clavier" id="clavier"></div>
+  <div class="bulle" id="bulle" hidden></div>
+
+  <div class="voile" id="voileAide" hidden>
+    <div class="boite">
+      <button class="icone fermer" data-fermer>✕</button>
+      <h2>Comment jouer</h2>
+      <p>Trouve le mot de 5 lettres en 6 essais. Chaque essai doit être un vrai mot. Les accents ne comptent pas.</p>
+      <div class="exemple"><div class="case v">p</div><div class="case">l</div><div class="case">a</div><div class="case">g</div><div class="case">e</div></div>
+      <p>🟩 Le <b>P</b> est dans le mot, à la bonne place.</p>
+      <div class="exemple"><div class="case">c</div><div class="case j">h</div><div class="case">i</div><div class="case">e</div><div class="case">n</div></div>
+      <p>🟨 Le <b>H</b> est dans le mot, mais pas à cette place.</p>
+      <div class="exemple"><div class="case">t</div><div class="case">i</div><div class="case">g</div><div class="case g">r</div><div class="case">e</div></div>
+      <p>⬛ Le <b>R</b> n’est pas dans le mot.</p>
+      <p>Un nouveau mot chaque jour à minuit, le même pour tout le monde. Connecte-toi à ton compte pour garder ta série et entrer dans le Hall of Fame.</p>
+      <div class="actions"><button class="btn primaire" data-fermer>C’est parti</button></div>
+    </div>
+  </div>
+
+  <div class="voile" id="voileStats" hidden>
+    <div class="boite">
+      <button class="icone fermer" data-fermer>✕</button>
+      <h2 id="statsTitre">Statistiques</h2>
+      <p id="statsSous"></p>
+      <div class="chiffres" id="chiffres"></div>
+      <b style="font-size:13px">Nombre d’essais</b>
+      <div class="barres" id="barres"></div>
+      <p class="monde" id="monde"></p>
+      <div class="actions" id="statsActions"></div>
+      <div class="prochain" id="prochain"></div>
+    </div>
+  </div>
+
+  <script src="../assets/config.js"></script>
+<script type="module">
+import { VALIDES, REPONSES, motDuJour } from './motdujour/mots.js';
+import { numeroDuJour } from '../assets/progres-defs.js';
+
+const $ = id => document.getElementById(id);
+const stock = {
+  lire(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  ecrire(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* rien */ } }
+};
+const parent = nom => { try { return window.parent !== window ? window.parent[nom] : null; } catch (e) { return null; } };
+const normaliser = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/* ---------- Sons ---------- */
+let audio = null;
+function bip(f, d = 0.08, type = 'triangle', vol = 0.06, retard = 0) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const t = audio.currentTime + retard, o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(audio.destination); o.start(t); o.stop(t + d + 0.02);
+  } catch (e) { /* rien */ }
+}
+const sonActif = () => stock.lire('site-son', true) !== false;
+const SON = {
+  touche: () => sonActif() && bip(520, 0.04, 'triangle', 0.03),
+  case: (c, i) => sonActif() && bip(c === 'v' ? 660 : c === 'j' ? 520 : 300, 0.09, 'triangle', 0.05, i * 0.18 + 0.12),
+  non: () => sonActif() && bip(160, 0.18, 'square', 0.05),
+  gagne: () => sonActif() && [523, 659, 784, 1047].forEach((f, i) => bip(f, 0.14, 'square', 0.05, 1 + i * 0.1))
+};
+
+/* ---------- Partie ---------- */
+const NUMERO = numeroDuJour();
+let entrainement = false;
+let mot = motDuJour(NUMERO);
+let essais = [];              // mots déjà validés
+let saisie = '';
+let fini = false;
+const cleJour = () => 'motdujour-' + NUMERO;
+
+// couleurs d'un essai : v (bonne place), j (mal placée), g (absente) — en tenant compte des lettres en double
+function couleurs(essai, cible) {
+  const res = Array(5).fill('g');
+  const reste = {};
+  for (let i = 0; i < 5; i++) { if (essai[i] === cible[i]) res[i] = 'v'; else reste[cible[i]] = (reste[cible[i]] || 0) + 1; }
+  for (let i = 0; i < 5; i++) if (res[i] !== 'v' && reste[essai[i]]) { res[i] = 'j'; reste[essai[i]]--; }
+  return res;
+}
+
+function construire() {
+  $('grille').innerHTML = Array.from({ length: 6 }, (_, l) => `<div class="ligne" data-l="${l}">${Array.from({ length: 5 }, (_, i) => `<div class="case" style="--i:${i}"></div>`).join('')}</div>`).join('');
+  const rangs = ['azertyuiop', 'qsdfghjklm', '+wxcvbn-'];
+  $('clavier').innerHTML = rangs.map(r => `<div class="rangee">${[...r].map(c => c === '+' ? '<button class="touche large" data-t="Enter">Entrée</button>' : c === '-' ? '<button class="touche large" data-t="Backspace" aria-label="Effacer">⌫</button>' : `<button class="touche" data-t="${c}">${c}</button>`).join('')}</div>`).join('');
+}
+
+function dessinerLigne(l, texte, cols, anime) {
+  const cases = $('grille').children[l].children;
+  for (let i = 0; i < 5; i++) {
+    const c = cases[i];
+    c.textContent = texte[i] || '';
+    c.className = 'case' + (texte[i] ? ' pleine' : '') + (cols ? ' ' + cols[i] + (anime ? '' : ' deja') : '');
+  }
+}
+function majClavier() {
+  const etat = {};
+  const rang = { g: 1, j: 2, v: 3 };
+  for (const e of essais) couleurs(e, mot).forEach((c, i) => { if (!etat[e[i]] || rang[c] > rang[etat[e[i]]]) etat[e[i]] = c; });
+  document.querySelectorAll('.touche[data-t]').forEach(b => { const c = etat[b.dataset.t]; b.className = 'touche' + (b.dataset.t.length > 1 ? ' large' : '') + (c ? ' ' + c : ''); });
+}
+function toutRedessiner() {
+  essais.forEach((e, l) => dessinerLigne(l, e, couleurs(e, mot), false));
+  for (let l = essais.length; l < 6; l++) dessinerLigne(l, l === essais.length ? saisie : '', null);
+  majClavier();
+}
+
+let minuterieBulle = 0;
+function bulle(texte, duree = 1600) {
+  const b = $('bulle');
+  b.textContent = texte; b.hidden = false;
+  clearTimeout(minuterieBulle);
+  minuterieBulle = setTimeout(() => { b.hidden = true; }, duree);
+}
+
+function taper(t) {
+  if (fini || $('voileStats').hidden === false || $('voileAide').hidden === false) return;
+  if (t === 'Enter') return valider();
+  if (t === 'Backspace') { saisie = saisie.slice(0, -1); dessinerLigne(essais.length, saisie, null); return; }
+  if (/^[a-z]$/.test(t) && saisie.length < 5) {
+    saisie += t; SON.touche();
+    dessinerLigne(essais.length, saisie, null);
+  }
+}
+
+function valider() {
+  const ligne = $('grille').children[essais.length];
+  if (saisie.length < 5) { SON.non(); secouer(ligne); bulle('Il faut 5 lettres'); return; }
+  if (!VALIDES.has(saisie)) { SON.non(); secouer(ligne); bulle('Ce mot n’est pas dans le dictionnaire'); return; }
+  const cols = couleurs(saisie, mot);
+  essais.push(saisie);
+  dessinerLigne(essais.length - 1, saisie, cols, true);
+  cols.forEach((c, i) => SON.case(c, i));
+  saisie = '';
+  setTimeout(majClavier, 5 * 180 + 300);
+  const gagne = essais[essais.length - 1] === mot;
+  if (gagne || essais.length === 6) {
+    fini = true;
+    setTimeout(() => terminer(gagne), 5 * 180 + 450);
+  }
+  sauver();
+}
+function secouer(l) { l.classList.remove('secoue'); void l.offsetWidth; l.classList.add('secoue'); }
+
+function sauver() { if (!entrainement) stock.ecrire(cleJour(), { essais, fini }); }
+
+/* ---------- Fin, statistiques, série ---------- */
+const MOTS_BRAVO = ['Génial !', 'Magnifique !', 'Impressionnant !', 'Bravo !', 'Bien joué !', 'Ouf !'];
+function terminer(gagne) {
+  if (gagne) {
+    const l = $('grille').children[essais.length - 1];
+    l.classList.add('gagne');
+    SON.gagne();
+    bulle(MOTS_BRAVO[essais.length - 1], 2200);
+  } else bulle('Le mot était : ' + mot.toUpperCase(), 4000);
+  if (entrainement) { setTimeout(() => montrerStats(gagne), 2200); return; }
+  // statistiques de ce navigateur
+  const s = stock.lire('motdujour-stats', { joues: 0, gagnes: 0, serie: 0, max: 0, rep: [0, 0, 0, 0, 0, 0], dernier: 0 });
+  if (s.dernier !== NUMERO) {
+    s.joues++;
+    if (gagne) { s.gagnes++; s.rep[essais.length - 1]++; s.serie = s.dernier === NUMERO - 1 ? s.serie + 1 : 1; s.max = Math.max(s.max, s.serie); } else s.serie = 0;
+    s.dernier = NUMERO;
+    stock.ecrire('motdujour-stats', s);
+  }
+  envoyer(gagne);
+  setTimeout(() => montrerStats(gagne), 2400);
+}
+
+let serveur = null;   // { serie, meilleure } renvoyé par le serveur
+async function compte() {
+  let C = parent('DinoCompte');
+  if (!C && !window.DinoCompte) await new Promise(r => { const s = document.createElement('script'); s.src = '../assets/compte.js'; s.onload = r; s.onerror = r; document.head.append(s); });
+  return C || window.DinoCompte || null;
+}
+async function envoyer() {
+  const C = await compte();
+  if (!C || !C.connecte) return;
+  const attente = { numero: NUMERO, preuve: essais };
+  if (navigator.onLine === false) { stock.ecrire('motdujour-attente', attente); return; }
+  const r = await C.api('quotidien', { jeu: 'motdujour', numero: NUMERO, preuve: essais });
+  if (r && r.erreur && /joindre/.test(r.erreur)) { stock.ecrire('motdujour-attente', attente); return; }
+  if (r && !r.erreur) {
+    serveur = r;
+    const P = parent('DinoProgres') || window.DinoProgres;
+    if (P && P.notif && r.xp) P.notif('✨', `+${r.xp} XP`, r.gagne ? `Série : ${r.serie} jour${r.serie > 1 ? 's' : ''}` : '', '', 3000);
+    if (P && P.notif && r.defi) P.notif('🎯', 'Défi du jour réussi !', r.defi, 'vert', 5000);
+    if (!$('voileStats').hidden) montrerStats(r.gagne);
+  }
+}
+// une partie finie sans internet : on l'envoie dès que possible
+async function envoyerAttente() {
+  const a = stock.lire('motdujour-attente', null);
+  if (!a || navigator.onLine === false) return;
+  const C = await compte();
+  if (!C || !C.connecte) return;
+  const r = await C.api('quotidien', { jeu: 'motdujour', numero: a.numero, preuve: a.preuve });
+  if (!(r && r.erreur && /joindre/.test(r.erreur))) stock.ecrire('motdujour-attente', null);
+}
+addEventListener('online', envoyerAttente);
+
+async function chargerSerie() {
+  const C = await compte();
+  if (!C || !C.connecte || navigator.onLine === false) return;
+  const r = await C.api('quotidien-moi', { jeu: 'motdujour' });
+  if (r && !r.erreur) serveur = r;
+}
+
+function texteResultat() {
+  const lignes = essais.map(e => couleurs(e, mot).map(c => (c === 'v' ? '🟩' : c === 'j' ? '🟨' : '⬛')).join(''));
+  const gagne = essais[essais.length - 1] === mot;
+  return `Mot du jour n°${NUMERO} — ${gagne ? essais.length : 'X'}/6\n${lignes.join('\n')}\n${location.origin}/#jeu/motdujour`;
+}
+async function partager() {
+  const texte = texteResultat();
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ text: texte }); return; }
+    await navigator.clipboard.writeText(texte);
+    bulle('Résultat copié ! Colle-le où tu veux.');
+  } catch (e) { bulle('Impossible de copier'); }
+}
+
+async function montrerStats(gagne) {
+  const s = stock.lire('motdujour-stats', { joues: 0, gagnes: 0, serie: 0, max: 0, rep: [0, 0, 0, 0, 0, 0], dernier: 0 });
+  const serie = serveur ? serveur.serie : s.serie, max = serveur ? Math.max(serveur.meilleure, s.max) : s.max;
+  if (entrainement) {
+    $('statsTitre').textContent = gagne ? 'Trouvé !' : 'Perdu';
+    $('statsSous').textContent = `Le mot était ${mot.toUpperCase()}. Le mode entraînement ne compte pas dans les statistiques.`;
+  } else {
+    $('statsTitre').textContent = fini ? (essais[essais.length - 1] === mot ? `Trouvé en ${essais.length} essai${essais.length > 1 ? 's' : ''} !` : `Le mot était ${mot.toUpperCase()}`) : 'Statistiques';
+    $('statsSous').textContent = serveur ? 'Ta série est gardée sur ton compte.' : 'Connecte-toi pour garder ta série sur ton compte et entrer dans le Hall of Fame.';
+  }
+  $('chiffres').innerHTML = [[s.joues, 'parties'], [s.joues ? Math.round(s.gagnes / s.joues * 100) : 0, '% gagnées'], [serie, 'série en cours'], [max, 'meilleure série']].map(([v, t]) => `<div><b>${v}</b><small>${t}</small></div>`).join('');
+  const maxRep = Math.max(1, ...s.rep);
+  const moiIdx = !entrainement && fini && essais[essais.length - 1] === mot ? essais.length - 1 : -1;
+  $('barres').innerHTML = s.rep.map((n, i) => `<div class="barre${i === moiIdx ? ' moi' : ''}"><span>${i + 1}</span><i style="width:${Math.max(8, n / maxRep * 100)}%">${n}</i></div>`).join('');
+  $('statsActions').innerHTML = (fini && !entrainement ? '<button class="btn primaire" id="btnPartager">Partager</button>' : '') + `<button class="btn" id="btnEntrainement">${entrainement ? 'Encore un mot' : 'Mode entraînement'}</button>`;
+  const bp = $('btnPartager'); if (bp) bp.onclick = partager;
+  $('btnEntrainement').onclick = () => { fermer(); passerEntrainement(true); };
+  $('voileStats').hidden = false;
+  // ce qu'ont fait les autres aujourd'hui
+  $('monde').textContent = '';
+  const C = await compte();
+  if (C && navigator.onLine !== false && !entrainement) {
+    const r = await C.api('quotidien-stats', { jeu: 'motdujour' });
+    if (r && !r.erreur && r.joueurs) $('monde').textContent = `Aujourd’hui : ${r.reussi} joueur${r.reussi > 1 ? 's ont' : ' a'} trouvé sur ${r.joueurs} (avec un compte).`;
+  }
+}
+function fermer() { $('voileStats').hidden = true; $('voileAide').hidden = true; }
+
+// compte à rebours jusqu'au prochain mot (minuit à Bruxelles)
+setInterval(() => {
+  const el = $('prochain');
+  if ($('voileStats').hidden || entrainement) { el.textContent = ''; return; }
+  if (numeroDuJour() !== NUMERO) { el.innerHTML = '<b>Nouveau mot disponible !</b><button class="btn" onclick="location.reload()">Jouer</button>'; return; }
+  const maintenant = Date.now();
+  let fin = maintenant;
+  while (numeroDuJour(fin) === NUMERO) fin += 60000;      // à la minute près, c'est bien assez
+  const reste = Math.max(0, fin - maintenant);
+  const h = Math.floor(reste / 3600000), m = Math.floor(reste / 60000) % 60;
+  el.innerHTML = `Prochain mot dans<b>${h} h ${String(m).padStart(2, '0')}</b>`;
+}, 1000);
+
+/* ---------- Modes ---------- */
+function passerEntrainement(oui) {
+  entrainement = oui;
+  $('btnMode').classList.toggle('actif', oui);
+  $('btnMode').textContent = oui ? 'Mot du jour' : 'Entraînement';
+  $('numero').textContent = oui ? 'entraînement' : 'n°' + NUMERO;
+  saisie = '';
+  if (oui) {
+    let m; do { m = REPONSES[Math.floor(Math.random() * REPONSES.length)]; } while (m === motDuJour(NUMERO));
+    mot = m; essais = []; fini = false;
+  } else {
+    mot = motDuJour(NUMERO);
+    const e = stock.lire(cleJour(), { essais: [], fini: false });
+    essais = e.essais.filter(x => VALIDES.has(x)).slice(0, 6); fini = e.fini;
+  }
+  toutRedessiner();
+}
+
+/* ---------- Commandes ---------- */
+$('clavier').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) taper(b.dataset.t); });
+addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { fermer(); return; }
+  const k = e.key === 'Enter' || e.key === 'Backspace' ? e.key : normaliser(e.key);
+  if (k === 'Enter' || k === 'Backspace' || /^[a-z]$/.test(k)) { e.preventDefault(); taper(k); }
+});
+document.querySelectorAll('.voile').forEach(v => v.addEventListener('click', e => { if (e.target === v || e.target.closest('[data-fermer]')) fermer(); }));
+$('btnAide').onclick = () => { $('voileAide').hidden = false; };
+$('btnStats').onclick = () => montrerStats(false);
+$('btnMode').onclick = () => passerEntrainement(!entrainement);
+
+// pour les tests automatiques
+window.__motdujour = { get mot() { return mot; }, taper, get essais() { return essais; } };
+
+construire();
+passerEntrainement(false);
+if (!stock.lire('motdujour-vu', false)) { $('voileAide').hidden = false; stock.ecrire('motdujour-vu', true); }
+else if (fini) setTimeout(() => montrerStats(essais[essais.length - 1] === mot), 600);
+chargerSerie();
+setTimeout(envoyerAttente, 1500);
+</script>
+</body>
+</html>

@@ -155,6 +155,16 @@
       <div class="prose selectionnable">${a.content || ''}</div>`;
   }
 
+  // commentaires sous un article (assets/commentaires.js, chargé au besoin)
+  function monterCommentaires(el, url) {
+    if (!el) return;
+    const go = () => { if (window.DinoCommentaires) window.DinoCommentaires.monter(el, url); };
+    if (window.DinoCommentaires) { go(); return; }
+    const s = document.createElement('script');
+    s.src = 'assets/commentaires.js'; s.onload = go;
+    document.head.append(s);
+  }
+
   function categories(articles) {
     return [...new Set(articles.map(a => a.categorie).filter(Boolean))];
   }
@@ -783,7 +793,8 @@
         tete.innerHTML = `
           <div><b>Titre :</b> ${echapper(a.title)}</div>
           <div><b>Date :</b> ${echapper(dateFr(a.date))}${a.categorie ? ` &nbsp; <b>Catégorie :</b> ${echapper(a.categorie)}` : ''}${a.minutes ? ` &nbsp; <b>Lecture :</b> ${a.minutes} min` : ''}</div>`;
-        lecture.innerHTML = `<div class="contenu">${htmlArticle(a)}</div>`;
+        lecture.innerHTML = `<div class="contenu">${htmlArticle(a)}<div class="commentaires-zone"></div></div>`;
+        monterCommentaires($('.commentaires-zone', lecture), a.url);
         lecture.scrollTop = 0;
         $('.url', corps).textContent = (location.host || NOM) + a.url;
         const liste = visibles();
@@ -2385,7 +2396,11 @@
             <button class="btn btn-primaire" data-a="partager">${svg('partager', 16)}Partager</button>
             <button class="btn" data-a="lien">${svg('lien', 16)}Copier le lien</button>
           </div>
+          <div class="commentaires-zone"></div>
         </div>`, { icone: 'partager', nom: 'Partager', faire: () => partager(a) }, 'article/' + encodeURIComponent(a.url), false, pousser);
+      const zones = document.querySelectorAll('.m-article .commentaires-zone:not([data-monte])');
+      const zone = zones[zones.length - 1];
+      if (zone) { zone.dataset.monte = '1'; monterCommentaires(zone, a.url); }
     }
 
     function partager(a) {

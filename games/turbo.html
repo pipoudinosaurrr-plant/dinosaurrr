@@ -13,7 +13,8 @@
 <body>
   <canvas id="jeu" aria-label="Turbo : course de voitures"></canvas>
   <script src="arcade.js"></script>
-<script>
+<script type="module">
+import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
 (() => {
   'use strict';
   const A = window.Arcade;
@@ -43,7 +44,7 @@
   const HORS_PISTE_MAX = VITESSE_MAX / 4;
   const CENTRIFUGE = 0.3;
   const LARGEUR_VOITURE = 0.28;
-  const TOURS = 3;
+  const TOURS = TOURS_COMMUNS;
   const NITRO_FACTEUR = 1.28;
 
   /* ---------- outils mathématiques ---------- */
@@ -214,12 +215,7 @@
       ia: [0.84, 0.94],
       decor: ['palmier', 'palmier', 'palmier', 'buisson', 'rocher', 'bouee'],
       panneaux: ['panneau', 'panneau2'],
-      plan(R) {
-        R.droite(40); R.courbe(60, 2, 0); R.colline(40, 20); R.droite(50);
-        R.courbe(80, -3, 30); R.ondulations(); R.courbe(60, 2, -20); R.droite(80);
-        R.esses(); R.colline(60, 40); R.courbe(100, -2, -40); R.droite(60);
-        R.courbe(50, 4, 0); R.droite(40); R.courbe(70, -2, 20); R.bosses(); R.descenteFin();
-      }
+      plan: PLANS.plage
     },
     {
       id: 'foret', nom: 'Forêt noire', sous: 'Moyen · virages',
@@ -232,12 +228,7 @@
       ia: [0.88, 0.97],
       decor: ['sapin', 'sapin', 'arbre', 'arbre', 'buisson', 'rocher'],
       panneaux: ['fleche', 'panneau2'],
-      plan(R) {
-        R.droite(30); R.courbe(50, 4, 20); R.courbe(50, -4, -20); R.colline(50, 60);
-        R.esses(); R.courbe(80, 5, -40); R.droite(40); R.bosses(); R.courbe(60, -5, 30);
-        R.courbe(60, 3, -30); R.ondulations(); R.courbe(40, -6, 0); R.droite(40);
-        R.courbe(70, 4, 50); R.courbe(70, -4, -50); R.esses(); R.descenteFin();
-      }
+      plan: PLANS.foret
     },
     {
       id: 'neon', nom: 'Néon City', sous: 'Difficile · nuit',
@@ -250,12 +241,7 @@
       ia: [0.91, 0.99],
       decor: ['lampadaire', 'lampadaire', 'immeuble', 'immeuble', 'immeuble', 'neon'],
       panneaux: ['neon', 'panneau'],
-      plan(R) {
-        R.droite(60); R.courbe(40, 6, 0); R.droite(60); R.courbe(40, -6, 30); R.esses();
-        R.droite(80); R.colline(50, -40); R.courbe(60, 5, 40); R.courbe(30, -6, 0);
-        R.courbe(30, 6, 0); R.droite(70); R.bosses(); R.courbe(80, -4, -30); R.esses();
-        R.courbe(50, 6, 20); R.droite(40); R.descenteFin();
-      }
+      plan: PLANS.neon
     }
   ];
 
@@ -443,6 +429,7 @@
   }
 
   function rangJoueur() {
+    if (enLigne) return rangEnLigne();
     const dJ = distanceJoueur();
     return 1 + voitures.filter(v => distanceVoiture(v) > dJ).length;
   }
@@ -468,7 +455,7 @@
     const touches = A.touches;
     const pilote = etat === 'course';
 
-    majVoitures(dt, segJ);
+    if (enLigne) majVoituresEnLigne(dt); else majVoitures(dt, segJ);
 
     const avant = position;
     position = avancer(position, dt * vitesse, longueurPiste);
@@ -533,7 +520,7 @@
         toursFaits.push(tempsTour);
         const meilleur = meilleurTour === null || tempsTour < meilleurTour;
         if (meilleur) meilleurTour = tempsTour;
-        if (tour >= TOURS) return finir();
+        if (tour >= TOURS) return enLigne ? finirEnLigne() : finir();
         tour++;
         tempsTour = 0;
         afficherMessage(tour === TOURS ? 'DERNIER TOUR !' : `TOUR ${tour}`, meilleur && toursFaits.length > 0 ? 'Meilleur tour ' + A.chrono(meilleurTour) : '');
@@ -780,6 +767,14 @@
         const vx = interpoler(s.p1.ecran.x, s.p2.ecran.x, v.pct) + e * v.offset * LARGEUR_ROUTE * W / 2;
         const vy = interpoler(s.p1.ecran.y, s.p2.ecran.y, v.pct);
         dessinerSprite(v.image, LARGEUR_VOITURE, e, vx, vy, -0.5, -1, s.clip, W);
+        if (v.etiquette && e * W > 1.2 && vy < s.clip) {
+          const taille = Math.max(9, Math.min(15, e * W * 6));
+          ctx.font = `700 ${taille}px ${MONO}`; ctx.textAlign = 'center';
+          const tw = ctx.measureText(v.etiquette).width;
+          const ty = vy - LARGEUR_VOITURE * LARGEUR_ROUTE * e * W / 2 * 0.62 - 6;
+          ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(vx - tw / 2 - 4, ty - taille, tw + 8, taille + 5);
+          ctx.fillStyle = v.couleurNom || '#fff'; ctx.fillText(v.etiquette, vx, ty);
+        }
       }
       for (const sp of s.sprites) {
         const e = s.p1.ecran.echelle;
@@ -822,11 +817,11 @@
   function dessinerHUD(W, H) {
     if (etat === 'menu') return;
     const u = Math.max(0.7, Math.min(1.4, Math.min(W, H) / 560));
-    const m = 14 * u;
+    const m = 14 * u + (enLigne ? 34 : 0);      // en ligne : place pour le bouton « Quitter »
     // position et tour
     const rang = etat === 'fini' && classementFinal ? classementFinal : rangJoueur();
     texte(`${rang}`, m, m + 40 * u, 44 * u, rang === 1 ? '#facc15' : '#fff');
-    texte(`/8`, m + (rang >= 10 ? 56 : 30) * u, m + 40 * u, 18 * u, '#d4d4d4');
+    texte(`/${voitures.length + 1}`, m + (rang >= 10 ? 56 : 30) * u, m + 40 * u, 18 * u, '#d4d4d4');
     texte(`TOUR ${Math.min(tour, TOURS)}/${TOURS}`, m, m + 64 * u, 14 * u, '#d4d4d4', 'left', 700);
     // chrono
     texte(A.chrono(tempsCourse), W / 2, m + 26 * u, 22 * u, '#fff', 'center');
@@ -905,14 +900,126 @@
         texte: d.nom, sous: d.sous, actif: id === difficulte,
         action: () => { difficulte = id; A.stock.ecrire('turbo-difficulte', id); placerVoitures(); }
       })),
-      boutons: [{ texte: 'Démarrer la course', primaire: true, action: lancer }],
+      boutons: [{ texte: 'Démarrer la course', primaire: true, action: lancer }, { texte: '🌐 Course en ligne avec des amis', action: ouvrirEnLigne }],
       aide: A.TACTILE
         ? 'La voiture accélère toute seule. ◀ ▶ pour tourner, FREIN pour ralentir, NITRO pour le turbo.'
         : '↑ ou W accélérer · ↓ ou S freiner · ← → ou A D tourner · Espace ou Maj : nitro · P : pause · M : son'
     });
   }
 
+  /* ==========================================================
+     Course en ligne (salon commun des jeux à plusieurs : games/multi/salon.js)
+     Chaque pilote conduit dans son navigateur et envoie sa position ;
+     le serveur (games/multi/jeux/turbo.js) fait rouler les bots et fait le classement.
+     ========================================================== */
+  let enLigne = null;          // le salon (quand on est dans une course en ligne)
+  let salon = null, chargementSalon = null;
+  let courseVue = null, recuA = 0, dernierEnvoi = 0, monArrivee = 0;
+  async function ouvrirEnLigne() {
+    A.fermerPanneau();
+    etat = 'salon';
+    arreterMoteur();
+    manette.montrer(false);
+    if (salon) { salon.ouvrir(); return; }
+    if (chargementSalon) return;
+    chargementSalon = (async () => {
+      if (!document.querySelector('link[href="multi/salon.css"]')) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'multi/salon.css'; document.head.append(l); }
+      const [{ demarrerJeu }, { default: moteurTurbo }] = await Promise.all([import('./multi/salon.js'), import('./multi/jeux/turbo.js')]);
+      salon = demarrerJeu({
+        id: 'turbo',
+        moteur: moteurTurbo,
+        zone: T.canvas,
+        titre: 'Turbo en ligne',
+        intro: 'Une course de 3 tours jusqu’à 6 pilotes. Invite tes amis avec le code ; les places vides sont prises par des bots. Le circuit est tiré au sort.',
+        regles: [['Accélérer', '↑ ou W'], ['Tourner', '← → ou A D'], ['Nitro', 'Espace ou Maj']],
+        reglesTactile: [['Accélérer', 'tout seul'], ['Tourner', '◀ ▶'], ['Nitro', 'NITRO']],
+        sansSolo: true,
+        retour: { texte: '← Turbo solo', action: () => { enLigne = null; menu(); } },
+        surAccueil() { enLigne = null; courseVue = null; etat = 'salon'; arreterMoteur(); manette.montrer(false); },
+        debut(ctx) { enLigne = ctx; courseVue = null; monArrivee = 0; voitures = []; etat = 'attente'; },
+        afficher(v, ctx) { recevoirCourse(v, ctx); },
+        evenement(ev, ctx) {
+          if (ev[0] === 'arrivee' && ev[1] !== ctx.moi) afficherMessage(`${ctx.nom(ev[1])} a fini !`, A.chrono(ev[2] / 1000));
+        }
+      });
+    })();
+    await chargementSalon;
+  }
+  function recevoirCourse(v, ctx) {
+    enLigne = ctx;
+    const premiere = !courseVue || courseVue.circuit !== v.circuit;
+    courseVue = v; recuA = performance.now();
+    if (premiere) {
+      // on prépare le circuit tiré au sort, tout le monde sur la ligne de départ
+      circuit = CIRCUITS.find(c => c.id === v.circuit) || CIRCUITS[0];
+      construire();
+      for (const sg of segments) sg.voitures = [];
+      const moi = v.j.findIndex(j => j.id === ctx.moi);
+      voitures = v.j.filter(j => j.id !== ctx.moi).map((j, i) => ({
+        id: j.id, nom: ctx.nom(j.id), etiquette: ctx.nom(j.id).slice(0, 12), couleurNom: ctx.couleur(j.id), image: S.voitures[i % S.voitures.length],
+        offset: j.x, z: 0, tours: 0, vitesse: 0, pct: 0, d: j.d, dAffiche: j.d, vServeur: 0, fini: 0
+      }));
+      for (const vo of voitures) trouverSegment(vo.z).voitures.push(vo);
+      position = 0; vitesse = 0; joueurX = moi >= 0 ? v.j[moi].x : 0; tour = 1;
+      tempsCourse = 0; tempsTour = 0; meilleurTour = null; toursFaits = []; nitro = 1; nitroActif = false; message = null; classementFinal = null; secousse = 0;
+      afficherMessage(v.nomCircuit, '3 tours · ' + v.j.length + ' pilotes');
+      etat = 'decompte';
+      demarrerMoteur();
+      manette.montrer(true);
+    }
+    if (etat === 'decompte') decompte = v.depart / 1000;
+    for (const vo of voitures) {
+      const j = v.j.find(x => x.id === vo.id);
+      if (!j) continue;
+      vo.d = j.d; vo.vServeur = j.v; vo.cibleX = j.x; vo.fini = j.fini; vo.parti = j.parti;
+    }
+  }
+  // les autres voitures : on prolonge leur trajectoire entre deux nouvelles du serveur, puis on corrige en douceur
+  function majVoituresEnLigne(dt) {
+    if (!courseVue) return;
+    const depuis = Math.min(0.5, (performance.now() - recuA) / 1000);
+    for (const vo of voitures) {
+      const estime = vo.d + vo.vServeur * depuis;
+      vo.dAffiche += (estime - vo.dAffiche) * Math.min(1, dt * 6);
+      if (Math.abs(estime - vo.dAffiche) > SEG * 30) vo.dAffiche = estime;
+      vo.vitesse = vo.vServeur;
+      vo.offset += ((vo.cibleX ?? vo.offset) - vo.offset) * Math.min(1, dt * 5);
+      const ancien = trouverSegment(vo.z);
+      // (comme pour le joueur : la voiture est JOUEUR_Z devant la caméra)
+      vo.tours = Math.floor((vo.dAffiche + JOUEUR_Z) / longueurPiste);
+      vo.z = avancer(0, vo.dAffiche + JOUEUR_Z, longueurPiste);
+      vo.pct = reste(vo.z, SEG);
+      const nouveau = trouverSegment(vo.z);
+      if (ancien !== nouveau) { const i = ancien.voitures.indexOf(vo); if (i >= 0) ancien.voitures.splice(i, 1); nouveau.voitures.push(vo); }
+      if (vo.parti && nouveau.voitures.includes(vo)) nouveau.voitures.splice(nouveau.voitures.indexOf(vo), 1);
+    }
+  }
+  const maDistance = () => (monArrivee ? TOURS * longueurPiste : (tour - 1) * longueurPiste + position);
+  function rangEnLigne() {
+    const d = maDistance();
+    return 1 + voitures.filter(vo => !vo.parti && ((vo.fini && (!monArrivee || vo.fini < monArrivee)) || (!vo.fini && !monArrivee && vo.dAffiche > d))).length;
+  }
+  function envoyerPosition() {
+    const t = performance.now();
+    if (!enLigne || (etat !== 'course' && etat !== 'fini') || t - dernierEnvoi < 100) return;
+    if (etat === 'fini' && t - dernierEnvoi < 1000) return;
+    dernierEnvoi = t;
+    enLigne.envoyer({ t: 'pos', d: Math.round(maDistance()), x: Math.round(joueurX * 1000) / 1000, v: Math.round(vitesse) });
+  }
+  function finirEnLigne() {
+    etat = 'fini';
+    monArrivee = Math.max(1, Math.round(tempsCourse * 1000));
+    dernierEnvoi = 0;
+    envoyerPosition();
+    classementFinal = rangEnLigne();
+    A.son(classementFinal === 1 ? 'gagne' : classementFinal <= 3 ? 'bonus' : 'perdu');
+    afficherMessage(classementFinal === 1 ? 'VICTOIRE !' : `ARRIVÉE : ${classementFinal}e`, A.chrono(tempsCourse));
+    arreterMoteur();
+    manette.montrer(false);
+  }
+
   function pause() {
+    if (enLigne) return;      // en ligne, la course continue pour les autres : pas de pause
     if (etat !== 'course' && etat !== 'decompte') return;
     const avant = etat;
     etat = 'pause';
@@ -939,12 +1046,13 @@
 
   preparerSprites();
   menu();
+  if (/^#[A-Za-z0-9]{4}!?$/.test(location.hash)) ouvrirEnLigne();
 
   let tAttract = 0;
   A.boucle(dt => {
     if (A.vient('pause') && !A.panneauOuvert) pause();
-    if (A.vient('recommencer') && (etat === 'course' || etat === 'fini')) lancer();
-    if (etat === 'menu') {
+    if (A.vient('recommencer') && !enLigne && (etat === 'course' || etat === 'fini')) lancer();
+    if (etat === 'menu' || etat === 'salon' || etat === 'attente') {
       // démo : la caméra roule toute seule derrière le menu
       tAttract += dt;
       vitesse = VITESSE_MAX * 0.55;
@@ -958,6 +1066,7 @@
       maj(dt);
     }
     if (message) message.t -= dt;
+    if (enLigne) envoyerPosition();
     dessiner();
   });
 

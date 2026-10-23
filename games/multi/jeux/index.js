@@ -12,5 +12,7 @@ import hockey from './hockey.js';
 import uno from './uno.js';
 import bomberman from './bomberman.js';
 import loupgarou from './loupgarou.js';
+import duelblocs from './duelblocs.js';
+import turbo from './turbo.js';
 
-export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno, bomberman, loupgarou };
+export default { puissance4, morpion, navale, pong, tron, course, quiz, dessin, echecs, hockey, uno, bomberman, loupgarou, duelblocs, turbo };

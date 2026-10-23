@@ -64,6 +64,7 @@ export function demarrerJeu(cfg) {
 
     <section class="ecran" data-ecran="accueil">
       <div class="carte">
+        ${cfg.retour ? `<button class="btn petit" data-a="retour" style="float:right">${echapper(cfg.retour.texte)}</button>` : ''}
         <span class="pastille"><span class="point-vert"></span>Multijoueur · ${nbJoueurs}</span>
         <h1>${echapper(cfg.titre)}</h1>
         <p class="intro">${echapper(cfg.intro)}</p>
@@ -76,7 +77,7 @@ export function demarrerJeu(cfg) {
             <input type="text" class="code-saisi" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Code de la partie">
             <button class="btn grand" data-a="rejoindre">Rejoindre</button>
           </div>
-          ${moteur.bots ? `<button class="btn grand" data-a="solo">${echapper(cfg.texteSolo || 'Jouer contre l’ordinateur')}</button>` : ''}
+          ${moteur.bots && !cfg.sansSolo ? `<button class="btn grand" data-a="solo">${echapper(cfg.texteSolo || 'Jouer contre l’ordinateur')}</button>` : ''}
           ${cfg.deuxJoueurs ? `<button class="btn grand" data-a="deux">À 2 sur cet écran</button>` : ''}
         </div>
         <p class="message" hidden></p>
@@ -223,8 +224,17 @@ export function demarrerJeu(cfg) {
         publierLocal(change && !moteur.tempsReel);
       } else if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'jeu', d }));
     },
-    toast
+    toast,
+    // pour un jeu qui a aussi son propre menu (Turbo) : rouvrir ou cacher les écrans du salon
+    ouvrir() { montrer('accueil'); verifierServeur(); },
+    cacher() { cacher(); }
   };
+  function cacher() {
+    for (const el of Object.values(ecrans)) el.hidden = true;
+    barreJeu.hidden = true;
+    zone.hidden = false;
+    ecran = 'cache';
+  }
 
   function commencer(liste) {
     equipe = new Map(liste.map(j => [j.id, j]));
@@ -438,6 +448,7 @@ export function demarrerJeu(cfg) {
     arreterLocal();
     enLigne = false;
     montrer('accueil');
+    if (cfg.surAccueil) cfg.surAccueil();
     message(texte);
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* rien */ }
   }
@@ -500,6 +511,7 @@ export function demarrerJeu(cfg) {
       case 'deux': lancerSolo(true); break;
       case 'rejouer': lancerSolo(dernierMode === 'deux'); break;
       case 'menu': retourAccueil(''); break;
+      case 'retour': if (cfg.retour) { cacher(); cfg.retour.action(); } break;
       case 'quitter': quitter(); break;
       case 'admin': $('.panneau-admin').hidden = !$('.panneau-admin').hidden; break;
       case 'lancer': if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'lance' })); break;
