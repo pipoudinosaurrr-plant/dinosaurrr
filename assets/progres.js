@@ -18,6 +18,8 @@
     return new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = res; document.head.append(s); });
   }
   async function compte() {
+    // jeu ouvert tout seul (pas dans le site) : il faut l'adresse du serveur avant le compte
+    if (!window.DinoCompte && !window.SITE_CONFIG) await chargerScript(base + 'config.js');
     if (!window.DinoCompte) await chargerScript(base + 'compte.js');
     return window.DinoCompte || null;
   }
