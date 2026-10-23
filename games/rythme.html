@@ -28,8 +28,31 @@
 
   const VOIES = 4, LX = 70, LW = 95, LIGNE = H - 130;
   const COULEURS = ['#f43f5e', '#22d3ee', '#a3e635', '#facc15'];
-  const TOUCHES = { KeyD: 0, KeyF: 1, KeyJ: 2, KeyK: 3, ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3, KeyA: 0, KeyS: 1, KeyL: 3 };
-  const NOMS_TOUCHES = ['D', 'F', 'J', 'K'];
+  /* ---------- Les touches : plusieurs dispositions (clavier AZERTY, QWERTY…) ----------
+     On lit la lettre vraiment tapée (e.key) : « Q » est bien « Q », que le clavier soit AZERTY ou QWERTY.
+     Les flèches ← ↓ ↑ → marchent toujours en plus. */
+  const DISPOSITIONS = {
+    dfjk: { nom: 'D F J K', sous: 'Deux mains, tous claviers', touches: ['d', 'f', 'j', 'k'] },
+    azerty: { nom: 'Q S D F', sous: 'AZERTY, main gauche', touches: ['q', 's', 'd', 'f'] },
+    azerty2: { nom: 'J K L M', sous: 'AZERTY, main droite', touches: ['j', 'k', 'l', 'm'] },
+    qwerty: { nom: 'A S D F', sous: 'QWERTY, main gauche', touches: ['a', 's', 'd', 'f'] },
+    perso: { nom: 'À toi de choisir', sous: '4 touches au choix', touches: null }
+  };
+  const FLECHES = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3 };
+  let disposition = A.stock.lire('rythme-touches', 'dfjk');
+  if (!DISPOSITIONS[disposition]) disposition = 'dfjk';
+  let touchesPerso = A.stock.lire('rythme-touches-perso', null);
+  if (!Array.isArray(touchesPerso) || touchesPerso.length !== 4) touchesPerso = ['d', 'f', 'j', 'k'];
+  const mesTouches = () => (disposition === 'perso' ? touchesPerso : DISPOSITIONS[disposition].touches);
+  const nomTouche = k => (k === ' ' ? 'Espace' : k.length === 1 ? k.toUpperCase() : k);
+  let NOMS_TOUCHES = mesTouches().map(nomTouche);
+  // quelle colonne pour cette touche ?
+  function voieDe(e) {
+    if (FLECHES[e.code] !== undefined) return FLECHES[e.code];
+    const k = (e.key || '').toLowerCase();
+    const i = mesTouches().indexOf(k);
+    return i >= 0 ? i : undefined;
+  }
   const FENETRES = [[45, 'PARFAIT', 300, '#facc15'], [90, 'SUPER', 200, '#4ade80'], [140, 'BIEN', 100, '#38bdf8']];
   const DIFFICULTES = {
     facile: { nom: 'Facile', ecart: 0.42, chute: 2.0, garder: 0.45 },
@@ -213,10 +236,45 @@
       }),
       titreChoix2: 'Difficulté',
       choix2: Object.entries(DIFFICULTES).map(([id, d]) => ({ texte: d.nom, actif: id === difficulte, action: () => { difficulte = id; A.stock.ecrire('rythme-difficulte', id); } })),
-      lignes: A.TACTILE ? [['Jouer', 'Touche les 4 colonnes en bas']] : [['Jouer', 'D F J K (ou ← ↓ ↑ →)'], ['Pause', 'Échap']],
-      boutons: [{ texte: 'Jouer', primaire: true, action: lancer }]
+      lignes: A.TACTILE ? [['Jouer', 'Touche les 4 colonnes en bas']] : [['Touches', `${NOMS_TOUCHES.join(' ')} (ou ← ↓ ↑ →)`], ['Pause', 'Échap']],
+      boutons: [{ texte: 'Jouer', primaire: true, action: lancer }, ...(A.TACTILE ? [] : [{ texte: '⌨️ Changer les touches', action: menuTouches }])]
     });
   }
+  // choisir ses touches : des dispositions toutes prêtes, ou 4 touches au choix
+  let enregistrement = null;
+  function menuTouches() {
+    A.panneau({
+      pastille: 'Rythme', titre: 'Les touches',
+      texte: 'Choisis les 4 touches pour les 4 colonnes (de gauche à droite). Les flèches marchent toujours aussi.',
+      choix: Object.entries(DISPOSITIONS).map(([id, d]) => ({
+        texte: id === 'perso' ? `${d.nom}${disposition === 'perso' ? ' : ' + touchesPerso.map(nomTouche).join(' ') : ''}` : d.nom, sous: d.sous, actif: id === disposition,
+        action: () => { if (id === 'perso') enregistrerTouches(); else { disposition = id; A.stock.ecrire('rythme-touches', id); NOMS_TOUCHES = mesTouches().map(nomTouche); menuTouches(); } }
+      })),
+      boutons: [{ texte: 'OK', primaire: true, action: menu }]
+    });
+  }
+  function enregistrerTouches() {
+    enregistrement = [];
+    const suite = () => A.panneau({ pastille: 'Rythme', titre: `Appuie sur la touche de la colonne ${enregistrement.length + 1} sur 4`, texte: enregistrement.length ? 'Déjà choisies : ' + enregistrement.map(nomTouche).join(' ') : 'Colonne la plus à gauche d’abord.', boutons: [{ texte: 'Annuler', action: () => { enregistrement = null; menuTouches(); } }] });
+    enregistrement.suite = suite;
+    suite();
+  }
+  addEventListener('keydown', e => {
+    if (!enregistrement) return;
+    const k = (e.key || '').toLowerCase();
+    if (!k || k === 'escape' || k === 'enter' || k.startsWith('arrow') || ['shift', 'control', 'alt', 'meta', 'tab'].includes(k)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (enregistrement.includes(k)) return;
+    enregistrement.push(k);
+    if (enregistrement.length < 4) { enregistrement.suite(); return; }
+    touchesPerso = [...enregistrement];
+    enregistrement = null;
+    disposition = 'perso';
+    A.stock.ecrire('rythme-touches', 'perso'); A.stock.ecrire('rythme-touches-perso', touchesPerso);
+    NOMS_TOUCHES = mesTouches().map(nomTouche);
+    menuTouches();
+  }, true);
+
   function pause() {
     if (etat !== 'jeu' || !audio) return;
     etat = 'pause';
@@ -226,13 +284,17 @@
   A.surPerteFocus = pause;
 
   /* ---------- Commandes ---------- */
+  // en « capture » : une touche de colonne ne déclenche rien d'autre (par ex. M qui coupe le son, P la pause)
   addEventListener('keydown', e => {
-    if (e.code === 'Escape' || e.code === 'KeyP') { pause(); return; }
-    const v = TOUCHES[e.code];
-    if (v === undefined || e.repeat) return;
-    e.preventDefault();
-    taper(v);
-  });
+    if (enregistrement) return;
+    const v = voieDe(e);
+    if (v !== undefined) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (!e.repeat) taper(v);
+      return;
+    }
+    if (e.code === 'Escape' || e.code === 'KeyP') pause();
+  }, true);
   T.canvas.addEventListener('pointerdown', e => {
     if (etat !== 'jeu') return;
     const p = T.point(e);
