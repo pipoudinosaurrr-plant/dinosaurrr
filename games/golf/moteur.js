@@ -166,6 +166,7 @@ export const PARCOURS = {
     ]
   }
 };
+// les parcours officiels (les trous créés dans l'éditeur sont ajoutés à part, dans PARCOURS.perso)
 export const PARCOURS_IDS = Object.keys(PARCOURS);
 export const parTotal = id => PARCOURS[id].trous.reduce((s, t) => s + t.par, 0);
 
@@ -180,9 +181,67 @@ function dansPoly(pts, x, y) {
 }
 export { dansPoly };
 
+/* ---------- Les trous dessinés dans l'éditeur : une grille de 20 × 30 cases de 20 px ----------
+   chaque case : '.' rien (hors du terrain), 'g' gazon, 'S' sable, 'I' glace, 'E' eau, 'L' lave,
+   'a' 'b' 'c' 'd' pente vers le haut / le bas / la gauche / la droite, 'A' 'B' 'C' 'D' tapis accélérateur (mêmes sens) */
+export const CASE = 20, COLS = 20, LIGS = 30;
+export const SENS = { a: [0, -1], b: [0, 1], c: [-1, 0], d: [1, 0] };
+const plein = (g, c, l) => c >= 0 && l >= 0 && c < COLS && l < LIGS && g[l * COLS + c] !== '.';
+function depuisGrille(def) {
+  const g = def.grille;
+  // les bordures : les côtés des cases qui touchent le vide (on rallonge les côtés alignés)
+  const traits = [];
+  for (let l = 0; l <= LIGS; l++) {
+    let debut = -1;
+    for (let c = 0; c <= COLS; c++) {
+      const bord = c < COLS && plein(g, c, l - 1) !== plein(g, c, l);
+      if (bord && debut < 0) debut = c;
+      if (!bord && debut >= 0) { traits.push([debut * CASE, l * CASE, c * CASE, l * CASE]); debut = -1; }
+    }
+  }
+  for (let c = 0; c <= COLS; c++) {
+    let debut = -1;
+    for (let l = 0; l <= LIGS; l++) {
+      const bord = l < LIGS && plein(g, c - 1, l) !== plein(g, c, l);
+      if (bord && debut < 0) debut = l;
+      if (!bord && debut >= 0) { traits.push([c * CASE, debut * CASE, c * CASE, l * CASE]); debut = -1; }
+    }
+  }
+  // les zones : les cases pareilles d'une même ligne forment un rectangle
+  const zones = [];
+  for (let l = 0; l < LIGS; l++) {
+    let c = 0;
+    while (c < COLS) {
+      const k = g[l * COLS + c];
+      let f = c;
+      while (f + 1 < COLS && g[l * COLS + f + 1] === k) f++;
+      const forme = rect(c * CASE, l * CASE, (f - c + 1) * CASE, CASE);
+      if (k === 'S') zones.push({ sol: 'sable', forme });
+      else if (k === 'I') zones.push({ sol: 'glace', forme });
+      else if (k === 'E') zones.push({ eau: true, forme });
+      else if (k === 'L') zones.push({ lave: true, forme });
+      else if (SENS[k]) zones.push({ pente: SENS[k].map(v => v * 260), forme });
+      else if (SENS[k.toLowerCase()] && k !== k.toLowerCase()) zones.push({ tapis: SENS[k.toLowerCase()].map(v => v * 1300), forme });
+      c = f + 1;
+    }
+  }
+  return { traits, zones: [...zones, ...(def.zones || [])] };
+}
+
 export function construireTrou(def) {
   const o = formes({ r: RAIL, e: 0.72, f: 0.1 });
-  for (const b of def.bords) o.poly([...b, b[0]]);
+  let contours, zones = def.zones || [], dedans;
+  if (def.grille) {
+    const g = depuisGrille(def);
+    for (const [x1, y1, x2, y2] of g.traits) o.seg(x1, y1, x2, y2);
+    contours = g.traits.map(([a, b, c, d]) => [[a, b], [c, d]]);
+    zones = g.zones;
+    dedans = (x, y) => plein(def.grille, Math.floor(x / CASE), Math.floor(y / CASE));
+  } else {
+    for (const b of def.bords) o.poly([...b, b[0]]);
+    contours = [...def.bords.map(b => [...b, b[0]]), ...(def.murs || []).map(([a, b, c, d]) => [[a, b], [c, d]])];
+    dedans = (x, y) => def.bords.some(bo => dansPoly(bo, x, y));
+  }
   for (const [x1, y1, x2, y2] of def.murs || []) o.seg(x1, y1, x2, y2);
   for (const [x, y, r] of def.ronds || []) o.rond(x, y, r, { e: 0.7, f: 0.08 });
   for (const [x, y, r] of def.bumpers || []) o.rond(x, y, r, { e: 0.9, f: 0.02, nom: 'bumper' });
@@ -190,7 +249,8 @@ export function construireTrou(def) {
   return {
     def,
     murs: o.c,
-    zones: def.zones || [],
+    contours, dedans,
+    zones,
     moulins: def.moulins || [],
     portes: def.portes || [],
     tunnels: def.tunnels || []
@@ -390,7 +450,7 @@ function sousPas(p, h) {
 
   // l'eau (et sécurité : la balle ne peut pas sortir du terrain)
   const s2 = sol(T, b.x, b.y);
-  if (s2.eau || !T.def.bords.some(bo => dansPoly(bo, b.x, b.y))) {
+  if (s2.eau || !T.dedans(b.x, b.y)) {
     p.phase = 'plouf'; b.vx = b.vy = 0; evt(p, 'plouf', { danger: s2.danger || 'eau' });
     return;
   }

@@ -15,6 +15,7 @@
   <script src="arcade.js"></script>
 <script type="module">
 import * as G from './golf/moteur.js';
+import { creerEditeur, encoder, decoder, mesTrous } from './golf/editeur.js';
 
 const A = window.Arcade;
 const W = 420, H = 700, FX = 10, FY = 90;          // le terrain (400 × 600) commence en (FX, FY)
@@ -53,9 +54,8 @@ const SON = {
 
 /* ---------- Partie ---------- */
 function lancer(id = parcoursChoisi) {
-  parcoursChoisi = id;
-  A.stock.ecrire('golf-parcours', id);
-  theme = THEMES[id];
+  if (id !== 'perso') { parcoursChoisi = id; A.stock.ecrire('golf-parcours', id); }
+  theme = THEMES[id] || THEMES[(G.PARCOURS[id] && G.PARCOURS[id].theme) || 'jardin'];
   p = G.creerPartie(id);
   preparerTrou();
   etat = 'jeu';
@@ -92,6 +92,7 @@ function evenements() {
 }
 
 function finParcours() {
+  if (p.parcours === 'perso') return finPerso();
   etat = 'fin';
   const total = G.total(p), par = G.parTotal(p.parcours);
   const r = A.record(cleRecord(p.parcours), total, false);
@@ -107,6 +108,57 @@ function finParcours() {
   });
 }
 
+/* ---------- Trous créés dans l'éditeur ---------- */
+let editeur = null, depuisEditeur = false;
+function definirPerso(def) {
+  G.PARCOURS.perso = { nom: def.nom, sous: 'Trou perso', theme: def.theme, sol: def.theme === 'espace' ? 'espace' : undefined, trous: [def] };
+}
+function jouerPerso(def, avecEditeur) {
+  depuisEditeur = avecEditeur;
+  boutonsCoin(true);
+  definirPerso(def);
+  if (editeur) editeur.afficher(false);
+  lancer('perso');
+}
+function finPerso() {
+  etat = 'fin';
+  const coups = p.cartes[0], par = p.trou.def.par;
+  A.son(coups <= par ? 'gagne' : 'ligne');
+  const def = p.trou.def;
+  A.panneau({
+    pastille: 'Trou perso', titre: `${def.nom} : ${coups} coup${coups > 1 ? 's' : ''}`, texte: G.nomScore(coups, par) + ` (par ${par})`,
+    boutons: [{ texte: 'Rejouer', primaire: true, action: () => jouerPerso(def, depuisEditeur) },
+      ...(depuisEditeur ? [{ texte: 'Retour à l’éditeur', action: ouvrirEditeur }] : [{ texte: 'Le modifier', action: () => { ouvrirEditeur(); editeur.charger(def); } }]),
+      { texte: 'Menu', action: menu }]
+  });
+}
+function apercu(def) {
+  // une « partie » qui ne bouge pas, juste pour dessiner le trou en cours de création
+  theme = THEMES[def.theme] || THEMES.jardin;
+  definirPerso(def);
+  const t = p ? p.t : 0;
+  p = G.creerPartie('perso'); p.t = t; p.phase = 'edit';
+  preparerTrou(); message = null;
+}
+// les boutons son / pause en haut à droite gênent la barre de l'éditeur
+const boutonsCoin = oui => document.querySelectorAll('.arcade-son, .arcade-pause').forEach(b => { b.style.display = oui ? '' : 'none'; });
+function ouvrirEditeur() {
+  A.fermerPanneau();
+  etat = 'editeur';
+  boutonsCoin(false);
+  if (!editeur) {
+    editeur = creerEditeur({
+      stock: { lire: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } }, ecrire: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* rien */ } } },
+      point: e => { const pt = T.point(e); return { x: pt.x - FX, y: pt.y - FY }; },
+      rafraichir: apercu,
+      tester: def => jouerPerso(def, true),
+      quitter: () => { editeur = null; boutonsCoin(true); menu(); },
+      toast: texte => { message = { titre: texte, t: 2.2 }; },
+      choisir: (titre, options) => A.panneau({ titre, choix: options.map(o => ({ texte: o.texte, action: () => { A.fermerPanneau(); etat = 'editeur'; o.action(); } })), boutons: [{ texte: 'Fermer', action: () => { A.fermerPanneau(); etat = 'editeur'; } }] })
+    });
+  } else { editeur.afficher(true); apercu(editeur.def); }
+}
+
 /* ---------- Commandes ---------- */
 const terrain = e => { const pt = T.point(e); return { x: pt.x - FX, y: pt.y - FY }; };
 const peutTirer = () => etat === 'jeu' && p && p.phase === 'vise' && !A.panneauOuvert;
@@ -117,19 +169,20 @@ function tirVisee() {
   return { angle: Math.atan2(dy, dx), force: Math.min(1, Math.max(0, (d - 8) / 150)), d };
 }
 T.canvas.addEventListener('pointerdown', e => {
+  if (etat === 'editeur' && editeur) { T.canvas.setPointerCapture(e.pointerId); editeur.bas(e); return; }
   if (!peutTirer()) return;
   T.canvas.setPointerCapture(e.pointerId);
   visee = terrain(e);
   clavier.actif = false;
 });
-T.canvas.addEventListener('pointermove', e => { if (visee) visee = terrain(e); });
+T.canvas.addEventListener('pointermove', e => { if (etat === 'editeur' && editeur) { editeur.bouge(e); return; } if (visee) visee = terrain(e); });
 const lacher = () => {
   if (!visee) return;
   const v = tirVisee();
   visee = null;
   if (v && v.d > 14 && peutTirer()) G.tirer(p, v.angle, v.force);
 };
-T.canvas.addEventListener('pointerup', lacher);
+T.canvas.addEventListener('pointerup', e => { if (editeur) editeur.haut(); lacher(e); });
 T.canvas.addEventListener('pointercancel', () => { visee = null; });
 addEventListener('keydown', e => {
   if (!peutTirer()) return;
@@ -164,9 +217,13 @@ function fleches(pts, ax, ay, t, couleur, vitesse) {
 
 function dessinerTerrain(t) {
   const Tr = p.trou, def = Tr.def;
-  // le gazon tondu en bandes
-  for (const b of def.bords) {
-    ctx.save(); chemin(b); ctx.fillStyle = theme.herbe; ctx.fill(); ctx.clip();
+  // le gazon tondu en bandes (trous de l'éditeur : case par case)
+  const surfaces = def.grille ? [null] : def.bords;
+  for (const b of surfaces) {
+    ctx.save();
+    if (b) chemin(b);
+    else { ctx.beginPath(); for (let k = 0; k < G.COLS * G.LIGS; k++) if (def.grille[k] !== '.') ctx.rect((k % G.COLS) * G.CASE, Math.floor(k / G.COLS) * G.CASE, G.CASE, G.CASE); }
+    ctx.fillStyle = theme.herbe; ctx.fill(); ctx.clip();
     ctx.fillStyle = theme.herbe2;
     for (let k = -600; k < 800; k += 44) { ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k + 22, 0); ctx.lineTo(k + 22 + 600, 600); ctx.lineTo(k + 600, 600); ctx.fill(); }
     ctx.restore();
@@ -260,7 +317,7 @@ function dessinerTerrain(t) {
 function dessinerBords() {
   const Tr = p.trou, def = Tr.def;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  const traits = [...def.bords.map(b => [...b, b[0]]), ...(def.murs || []).map(([a, b, c, d]) => [[a, b], [c, d]])];
+  const traits = Tr.contours;
   for (const [larg, coul] of [[12, 'rgba(0,0,0,.35)'], [10, theme.rail], [3, theme.railClair]]) {
     ctx.lineWidth = larg; ctx.strokeStyle = coul;
     for (const tr of traits) { ctx.beginPath(); tr.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + (larg === 12 ? 2 : larg === 3 ? -1.5 : 0)) : ctx.moveTo(x, y + (larg === 12 ? 2 : larg === 3 ? -1.5 : 0)))); ctx.stroke(); }
@@ -396,12 +453,13 @@ function dessiner(t) {
   ctx.fillStyle = theme.fond; ctx.fillRect(0, 0, W, H);
   if (theme === THEMES.glacier || theme === THEMES.espace) for (const [x, y, k] of etoiles) { ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.35 * Math.abs(Math.sin(t * (0.5 + k) + k * 9))})`; ctx.fillRect(x, y, 1.5, 1.5); }
   if (!p) return;
-  dessinerHaut();
+  if (etat !== 'editeur') dessinerHaut();
   ctx.save(); ctx.translate(FX, FY);
   dessinerTerrain(t);
   dessinerBords();
   dessinerMobiles();
   dessinerBalle(t);
+  if (etat === 'editeur' && editeur) editeur.surcouche(ctx);
   ctx.restore();
   dessinerMessage();
   if (etat === 'jeu' && p.phase === 'vise' && p.coups === 0 && p.n === 0 && !visee && !clavier.actif) {
@@ -439,16 +497,31 @@ function menu() {
       ? [['Viser', 'Pose le doigt et tire en arrière'], ['Taper', 'Lâche']]
       : [['Viser', 'Clique et tire en arrière'], ['Force', 'Longueur de l’élastique'], ['Taper', 'Lâche le clic'], ['Au clavier', '← → ↑ ↓ puis Espace']],
     aide: `Au-delà de ${G.COUPS_MAX} coups, on passe au trou suivant. L’eau coûte 1 coup de pénalité.`,
-    boutons: [{ texte: 'Jouer', primaire: true, action: () => lancer(parcoursChoisi) }]
+    boutons: [{ texte: 'Jouer', primaire: true, action: () => lancer(parcoursChoisi) }, { texte: '✏️ Créer un trou', action: ouvrirEditeur },
+      ...(mesTrous({ lire: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } } }).length ? [{ texte: 'Mes trous', action: menuMesTrous }] : [])]
   });
+}
+function menuMesTrous() {
+  const liste = mesTrous({ lire: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } } });
+  A.panneau({ titre: 'Mes trous', texte: 'Les trous que tu as partagés depuis l’éditeur.', choix: liste.map(t => ({ texte: t.nom, action: () => { const d = decoder(t.code); if (d) jouerPerso(d, false); } })), boutons: [{ texte: 'Retour', action: menu }] });
+}
+// un lien de trou partagé : #GF1…
+function lireLien() {
+  const d = decoder(location.hash);
+  if (!d) return false;
+  definirPerso(d);
+  A.panneau({ pastille: 'Trou partagé', titre: d.nom, texte: `Un trou de mini-golf créé par un joueur (par ${d.par}).`, boutons: [{ texte: 'Jouer', primaire: true, action: () => jouerPerso(d, false) }, { texte: 'Le modifier', action: () => { ouvrirEditeur(); editeur.charger(d); } }, { texte: 'Menu', action: menu }] });
+  return true;
 }
 
 A.boutonsCoin(pause);
 // pour les tests automatiques
-window.__golf = { get p() { return p; }, G, lancer, get etat() { return etat; } };
+window.__golf = { get p() { return p; }, G, lancer, get etat() { return etat; }, ouvrirEditeur, get editeur() { return editeur; }, encoder, decoder, jouerPerso };
 menu();
+lireLien();
 
 A.boucle((dt, t) => {
+  if (p && etat === 'editeur') p.t += dt;
   if (p && (etat === 'jeu' || etat === 'menu' || etat === 'fin')) {
     if (etat !== 'menu') G.avancer(p, dt);
     else p.t += dt;   // au menu, les moulins tournent quand même

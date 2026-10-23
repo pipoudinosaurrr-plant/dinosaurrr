@@ -52,6 +52,10 @@ Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (
 
 **Blocs en duel** (2 à 4 joueurs, moteur `games/multi/jeux/duelblocs.js` : les lignes faites montent chez l'adversaire). **Turbo en ligne** (bouton dans le menu de Turbo, moteur `games/multi/jeux/turbo.js`, circuits partagés dans `games/turbo/pistes.js`).
 
+**Poker** (Texas Hold'em 2 à 6 joueurs, jetons virtuels, moteur `games/multi/jeux/poker.js`, bots qui calculent leurs chances et bluffent), **Micro** (course vue de dessus jusqu'à 4, en ligne ou sur le même écran, moteur `games/multi/jeux/micro.js`, circuits dans `games/micro/pistes.js`), **Qui est-ce ?** (`games/multi/jeux/quiestce.js`, 24 personnages inventés tirés au hasard), **Rythme** (`games/rythme.html` : les notes sont fabriquées à partir de tes musiques Pages CMS par analyse du son, et à partir de la partition pour les chiptunes).
+
+**Éditeurs** : trous de mini-golf (`games/golf/editeur.js`, grille de 20 × 30 cases, lien `#jeu/golf/GF1…`) et circuits Turbo (`games/turbo/editeur.js`, lien `#jeu/turbo/TB1…`).
+
 **Commentaires du blog** (`assets/commentaires.js`, compte obligatoire, passés au filtre du chat, supprimables par l'auteur et l'admin).
 
 **Mini-golf** (`games/golf.html`, moteur et parcours dans `games/golf/moteur.js` : 4 parcours de 9 trous : Jardin, Glacier, Volcan, Espace ; pentes, bosses, sable, glace, eau, lave, trous noirs, tunnels, moulins et portes). Les collisions de la balle sont partagées avec le Flipper dans `games/physique/collisions.js`. Pour ajouter un trou : une ligne dans `PARCOURS` (bords, murs, zones…).

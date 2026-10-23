@@ -134,7 +134,7 @@ content:
         label: Icône
         type: select
         options:
-          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux, bomberman, loupgarou, defense, golf, motdujour, echecsjour, duelblocs]
+          values: [cercle, puissance4, morpion, navale, pong, tron, chrono, quiz, crayon, mine, meteore, processeur, histoire, eclair, bouton, carte, palette, manette, turbo, blaster, aventure, serpent, blocs, briques, echecs, hockey, dinorun, flap, tuiles, pendu, cartes, dinoio, trophee, chat, tournoi, musique, flipper, uno, route, tuyaux, bomberman, loupgarou, defense, golf, motdujour, echecsjour, duelblocs, poker, micro, quiestce, rythme]
       - name: fichier
         label: Fichier du jeu
         description: Par exemple games/pong.html. Pour un nouveau jeu, copie games/modele.html.
@@ -486,6 +486,14 @@ content:
                   label: "Jeu : Échecs du jour"
                 - name: jeu-duelblocs
                   label: "Jeu : Blocs en duel"
+                - name: jeu-poker
+                  label: "Jeu : Poker"
+                - name: jeu-micro
+                  label: "Jeu : Micro"
+                - name: jeu-quiestce
+                  label: "Jeu : Qui est-ce ?"
+                - name: jeu-rythme
+                  label: "Jeu : Rythme"
                 - name: jeu-flipper
                   label: "Jeu : Flipper"
                 - name: jeu-route

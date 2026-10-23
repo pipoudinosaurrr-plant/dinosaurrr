@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Qui est-ce ?</title>
+  <link rel="stylesheet" href="jeu.css">
+  <link rel="stylesheet" href="multi/salon.css">
+  <style>
+    #jeu { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 52px 12px max(12px, env(safe-area-inset-bottom)); background: radial-gradient(800px 460px at 50% -10%, rgba(59, 130, 246, .14), transparent 70%), #05070c; overflow: hidden; }
+    #jeu[hidden] { display: none; }
+    .tete { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .statut { font-size: 15px; } .statut b { color: #fde047; }
+    .chrono { width: 140px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; } .chrono i { display: block; height: 100%; background: #60a5fa; }
+    .grille { min-height: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; align-content: start; overflow-y: auto; padding: 2px; }
+    .perso { position: relative; padding: 4px 4px 6px; border: 2px solid rgba(255,255,255,.08); border-radius: 12px; background: #0f172a; cursor: pointer; transition: transform .35s, opacity .35s, filter .35s; transform-style: preserve-3d; font: inherit; color: inherit; }
+    .perso svg { display: block; width: 100%; height: auto; border-radius: 8px; }
+    .perso .nom { display: block; margin-top: 3px; font-size: 12px; font-weight: 700; text-align: center; }
+    .perso.baisse { opacity: .22; filter: grayscale(1); transform: scale(.94); }
+    .perso.cible { border-color: #f43f5e; box-shadow: 0 0 0 3px rgba(244,63,94,.25); }
+    .perso:hover { border-color: rgba(255,255,255,.25); }
+    .cote { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+    .secret { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(0,0,0,.35); }
+    .secret svg { width: 64px; border-radius: 8px; }
+    .secret small { color: var(--doux); display: block; font-size: 12px; }
+    .boite { padding: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(0,0,0,.35); }
+    .boite h3 { margin: 0 0 8px; font-size: 13px; }
+    .questions { display: flex; flex-wrap: wrap; gap: 5px; max-height: 240px; overflow-y: auto; }
+    .questions button { padding: 5px 9px; border: 1px solid var(--bord2); border-radius: 999px; background: transparent; color: var(--texte); font: 600 12px var(--police); cursor: pointer; }
+    .questions button:hover:not(:disabled) { border-color: #60a5fa; color: #bfdbfe; }
+    .questions button:disabled { opacity: .3; cursor: default; }
+    .questions .titre { width: 100%; margin-top: 4px; color: var(--tres-doux); font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+    .histo { flex: 1; min-height: 60px; overflow-y: auto; display: grid; align-content: start; gap: 5px; font-size: 12.5px; }
+    .histo .oui { color: #4ade80; font-weight: 700; } .histo .non { color: #f87171; font-weight: 700; }
+    .btn-deviner.actif { background: #f43f5e; color: #fff; border-color: #f43f5e; }
+    @media (max-width: 800px) {
+      #jeu { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1.4fr) minmax(0, 1fr); padding-left: 8px; padding-right: 8px; gap: 8px; }
+      .grille { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+      .perso { padding: 2px 2px 3px; border-radius: 8px; } .perso .nom { font-size: 9.5px; }
+      .cote { overflow-y: auto; }
+      .questions { max-height: 150px; }
+      .secret svg { width: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <main id="jeu" hidden>
+    <div class="tete"><span class="statut" id="statut"></span><div class="chrono"><i id="chrono"></i></div></div>
+    <div class="grille" id="grille"></div>
+    <div class="cote">
+      <div class="secret" id="secret"></div>
+      <div class="boite"><h3>Pose une question</h3><div class="questions" id="questions"></div></div>
+      <button class="btn btn-deviner" id="btnDeviner">🎯 Je sais qui c’est !</button>
+      <div class="boite histo" id="histo"></div>
+    </div>
+  </main>
+
+  <script src="../assets/config.js"></script>
+  <script type="module">
+    import { demarrerJeu, echapper } from './multi/salon.js';
+    import moteur, { QUESTIONS } from './multi/jeux/quiestce.js';
+
+    const $ = id => document.getElementById(id);
+    const PEAU = { claire: '#f6d2b4', mate: '#d9a77a', foncée: '#8d5a3b' };
+    const CHEVEUX = { noirs: '#1f1f1f', bruns: '#6b3e1f', blonds: '#e8c15a', roux: '#c2501f', blancs: '#e5e5e5' };
+    const YEUX = { marron: '#6b3e1f', bleus: '#3b82f6', verts: '#16a34a' };
+    const HAUT = { rouge: '#ef4444', bleu: '#3b82f6', vert: '#22c55e', jaune: '#eab308' };
+    const FONDS = ['#e0f2fe', '#fef3c7', '#ede9fe', '#dcfce7', '#ffe4e6', '#f1f5f9'];
+
+    // le portrait d'un personnage, dessiné à partir de ses traits
+    function visage(p) {
+      const peau = PEAU[p.peau], ch = CHEVEUX[p.cheveux], fond = FONDS[p.id % FONDS.length];
+      const sombre = p.peau === 'foncée' ? '#5c3a24' : '#b9826a';
+      let s = `<svg viewBox="0 0 80 90" aria-label="${echapper(p.nom)}"><rect width="80" height="90" fill="${fond}"/>`;
+      if (p.coiffure === 'longs') s += `<path d="M18 40 Q16 72 24 80 L56 80 Q64 72 62 40 Z" fill="${ch}"/>`;
+      s += `<path d="M14 90 Q16 70 40 68 Q64 70 66 90 Z" fill="${HAUT[p.haut]}"/><rect x="34" y="58" width="12" height="12" fill="${peau}"/>`;
+      s += `<ellipse cx="40" cy="42" rx="19" ry="22" fill="${peau}"/>`;
+      s += `<ellipse cx="21" cy="44" rx="3" ry="5" fill="${peau}"/><ellipse cx="59" cy="44" rx="3" ry="5" fill="${peau}"/>`;
+      if (p.boucles) s += `<circle cx="21" cy="50" r="2.2" fill="#facc15" stroke="#a16207" stroke-width=".6"/><circle cx="59" cy="50" r="2.2" fill="#facc15" stroke="#a16207" stroke-width=".6"/>`;
+      // cheveux
+      if (p.coiffure === 'courts' || p.coiffure === 'longs') s += `<path d="M21 38 Q20 18 40 17 Q60 18 59 38 Q54 27 40 27 Q26 27 21 38 Z" fill="${ch}"/>`;
+      if (p.coiffure === 'bouclés') s += [[24, 30], [30, 22], [38, 19], [46, 20], [53, 24], [57, 31], [21, 37], [59, 38]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="${ch}"/>`).join('');
+      if (p.coiffure === 'chauve') s += `<ellipse cx="46" cy="25" rx="6" ry="3" fill="#fff" opacity=".35"/>`;
+      if (p.chapeau) s += `<path d="M20 30 Q21 14 40 13 Q59 14 60 30 Z" fill="${p.haut === 'rouge' ? '#1d4ed8' : '#dc2626'}"/><path d="M38 30 Q58 28 68 33 Q58 35 40 33 Z" fill="${p.haut === 'rouge' ? '#1e3a8a' : '#991b1b'}"/>`;
+      // sourcils, yeux
+      s += `<path d="M28 34 L36 33 M44 33 L52 34" stroke="${p.coiffure === 'chauve' ? sombre : ch}" stroke-width="2" stroke-linecap="round"/>`;
+      s += `<ellipse cx="32" cy="40" rx="4" ry="3" fill="#fff"/><ellipse cx="48" cy="40" rx="4" ry="3" fill="#fff"/><circle cx="32" cy="40" r="2" fill="${YEUX[p.yeux]}"/><circle cx="48" cy="40" r="2" fill="${YEUX[p.yeux]}"/><circle cx="32" cy="40" r=".8" fill="#000"/><circle cx="48" cy="40" r=".8" fill="#000"/>`;
+      if (p.lunettes) s += `<circle cx="32" cy="40" r="6" fill="none" stroke="#111" stroke-width="1.6"/><circle cx="48" cy="40" r="6" fill="none" stroke="#111" stroke-width="1.6"/><path d="M38 40 L42 40" stroke="#111" stroke-width="1.6"/>`;
+      s += `<path d="M40 43 Q38 49 40 50" stroke="${sombre}" stroke-width="1.4" fill="none"/>`;
+      if (p.taches) s += [[27, 47], [30, 49], [26, 50], [53, 47], [50, 49], [54, 50]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".8" fill="#b45309"/>`).join('');
+      if (p.barbe) s += `<path d="M23 48 Q24 66 40 66 Q56 66 57 48 Q52 60 40 60 Q28 60 23 48 Z" fill="${p.coiffure === 'chauve' ? '#3f3f46' : ch}"/>`;
+      if (p.moustache) s += `<path d="M33 53 Q40 49 47 53 Q40 55 33 53 Z" fill="${p.coiffure === 'chauve' ? '#3f3f46' : ch}"/>`;
+      s += p.sourire ? `<path d="M33 55 Q40 63 47 55 Z" fill="#7f1d1d"/><path d="M34 55.5 L46 55.5 L45 57 L35 57 Z" fill="#fff"/>` : `<path d="M35 57 Q40 59 45 57" stroke="#7f1d1d" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+      return s + '</svg>';
+    }
+
+    let vue = null, ctxJeu = null, modeDeviner = false, recuA = 0, choisi = null;
+    const GROUPES = [['Cheveux', q => q.id.startsWith('cheveux') || q.id.startsWith('coiffure')], ['Visage', q => ['lunettes', 'barbe', 'moustache', 'taches', 'sourire'].includes(q.id) || q.id.startsWith('yeux') || q.id.startsWith('peau')], ['Accessoires et habits', q => ['chapeau', 'boucles'].includes(q.id) || q.id.startsWith('haut')]];
+
+    function afficher(v, ctx) {
+      vue = v; ctxJeu = ctx; recuA = Date.now();
+      const monTour = v.tour === ctx.moi && !v.fini;
+      if (!monTour) modeDeviner = false;
+      $('grille').innerHTML = v.persos.map(p => `<button class="perso${v.baisses.includes(p.id) ? ' baisse' : ''}${modeDeviner ? ' cible' : ''}" data-p="${p.id}">${visage(p)}<span class="nom">${echapper(p.nom)}</span></button>`).join('');
+      const s = v.persos[v.secret];
+      $('secret').innerHTML = s ? `${visage(s)}<div><small>Ton personnage secret</small><b>${echapper(s.nom)}</b><small>L’autre a encore ${v.restantsAdv} personnage${v.restantsAdv > 1 ? 's' : ''} debout</small></div>` : '';
+      $('questions').innerHTML = GROUPES.map(([titre, f]) => `<span class="titre">${titre}</span>` + QUESTIONS.filter(f).map(q => `<button data-q="${q.id}" ${!monTour || v.deja.includes(q.id) ? 'disabled' : ''} title="${echapper(q.texte)}">${echapper(q.texte.replace(/^(A-t-il\/elle|Porte-t-il\/elle|Est-il\/elle|A-t-il|Sourit-il\/elle) /, '').replace(/ \?$/, ''))}</button>`).join('')).join('');
+      $('btnDeviner').disabled = !monTour;
+      $('btnDeviner').classList.toggle('actif', modeDeviner);
+      $('btnDeviner').textContent = modeDeviner ? 'Clique le personnage (ou ici pour annuler)' : '🎯 Je sais qui c’est !';
+      $('histo').innerHTML = v.histo.length ? [...v.histo].reverse().map(h => `<div><b style="color:${ctx.couleur(h.de)}">${echapper(ctx.nom(h.de))}</b> : ${h.q ? `${echapper(h.texte)} <span class="${h.oui ? 'oui' : 'non'}">${h.oui ? 'Oui' : 'Non'}</span>` : `C’est ${echapper(v.persos[h.devine].nom)} ? <span class="${h.oui ? 'oui' : 'non'}">${h.oui ? 'Gagné !' : 'Raté !'}</span>`}</div>`).join('') : '<div style="color:var(--tres-doux)">Pose des questions pour retourner les personnages qui ne vont pas.</div>';
+      $('statut').innerHTML = v.fini ? (v.gagnant === ctx.moi ? '<b>Gagné !</b>' : 'Perdu…') + (v.secretAdv !== null ? ` Son personnage était <b>${echapper(v.persos[v.secretAdv].nom)}</b>.` : '') : monTour ? '<b>À toi !</b> Pose une question ou devine.' : `${echapper(ctx.nom(v.tour))} réfléchit…`;
+    }
+    setInterval(() => { if (vue && !vue.fini) $('chrono').style.width = Math.max(0, (vue.reste - (Date.now() - recuA)) / 450) + '%'; }, 200);
+
+    $('grille').addEventListener('click', e => {
+      const b = e.target.closest('[data-p]');
+      if (!b || !vue || vue.fini) return;
+      const k = Number(b.dataset.p);
+      if (modeDeviner) {
+        // deux clics sur le même personnage pour confirmer (si c'est faux, on perd)
+        if (choisi === k) { ctxJeu.envoyer({ t: 'deviner', perso: k }); modeDeviner = false; choisi = null; return; }
+        choisi = k;
+        document.querySelectorAll('.perso').forEach(el => el.style.outline = Number(el.dataset.p) === k ? '3px solid #f43f5e' : '');
+        ctxJeu.toast(`C’est ${vue.persos[k].nom} ? Clique encore pour confirmer (si c’est faux, tu perds !)`, 3500);
+        return;
+      }
+      ctxJeu.envoyer({ t: 'baisser', perso: k });
+    });
+    $('questions').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b && !b.disabled) ctxJeu.envoyer({ t: 'question', q: b.dataset.q }); });
+    $('btnDeviner').onclick = () => { modeDeviner = !modeDeviner; choisi = null; if (vue) afficher(vue, ctxJeu); };
+
+    demarrerJeu({
+      id: 'quiestce',
+      moteur,
+      zone: $('jeu'),
+      titre: 'Qui est-ce ?',
+      intro: 'Chacun a un personnage secret parmi les 24. Pose des questions (lunettes ? chapeau ? cheveux roux ?) pour deviner le sien avant qu’il trouve le tien. Les réponses sont automatiques : impossible de mentir !',
+      regles: [['Question', 'Choisis une question : les personnages qui ne vont pas se retournent tout seuls.'], ['Deviner', '« Je sais qui c’est ! » puis clique le personnage. Si c’est faux, tu perds.'], ['Retourner', 'Clique un personnage pour le baisser ou le relever toi-même.']],
+      soloBots: 1,
+      afficher,
+      evenement(ev, ctx) { if (ev[0] === 'temps' && ev[1] === ctx.moi) ctx.toast('Trop long : ton tour est passé'); }
+    });
+  </script>
+</body>
+</html>

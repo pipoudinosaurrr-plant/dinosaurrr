@@ -241,6 +241,39 @@
     <path d="M23 22h4v-4h-4z" fill="#f97316" stroke="#9a3412" stroke-width=".6"/>
     <path d="M10 9h9M16 6l3.5 3L16 12" stroke="#ef4444" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
+  // Poker : deux cartes et des jetons sur un tapis vert
+  D.poker = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#14532d" stroke="#052e16"/>
+    <rect x="6" y="6" width="12" height="17" rx="2" fill="#fafafa" stroke="#a1a1aa" stroke-width=".6" transform="rotate(-10 12 14)"/>
+    <rect x="12" y="5" width="12" height="17" rx="2" fill="#fafafa" stroke="#a1a1aa" stroke-width=".6" transform="rotate(8 18 13)"/>
+    <text x="9.5" y="14" font-size="6" font-weight="800" fill="#18181b" font-family="sans-serif" transform="rotate(-10 12 14)">A</text>
+    <path d="M18.5 11.5c1.2-1.6 3.4-.6 2.6 1.2-.5 1.1-2.6 2.6-2.6 2.6s-2.1-1.5-2.6-2.6c-.8-1.8 1.4-2.8 2.6-1.2z" fill="#dc2626" transform="rotate(8 18 13)"/>
+    <ellipse cx="9" cy="25.5" rx="5" ry="2.2" fill="#b91c1c" stroke="#fff" stroke-width=".8" stroke-dasharray="1.5 1.2"/><ellipse cx="9" cy="24" rx="5" ry="2.2" fill="#dc2626" stroke="#fff" stroke-width=".8" stroke-dasharray="1.5 1.2"/>
+    <ellipse cx="22" cy="25.5" rx="5" ry="2.2" fill="#1d4ed8" stroke="#fff" stroke-width=".8" stroke-dasharray="1.5 1.2"/></svg>`;
+
+  // Micro : une petite voiture sur une route vue de dessus
+  D.micro = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#2f6b2f" stroke="#14532d"/>
+    <path d="M3 22c6-1 8-9 14-9s8 6 12 6" fill="none" stroke="#3a3a3e" stroke-width="9"/>
+    <path d="M3 22c6-1 8-9 14-9s8 6 12 6" fill="none" stroke="#fff" stroke-width=".8" stroke-dasharray="2 2"/>
+    <g transform="rotate(-18 15 15)"><rect x="9" y="11" width="12" height="7" rx="2" fill="#ef4444" stroke="#7f1d1d" stroke-width=".6"/><rect x="16" y="12" width="3" height="5" fill="#111" opacity=".6"/><rect x="20" y="12" width="1" height="1.6" fill="#fef08a"/><rect x="20" y="15.4" width="1" height="1.6" fill="#fef08a"/></g></svg>`;
+
+  // Qui est-ce ? : un visage et un point d'interrogation
+  D.quiestce = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#1e3a8a" stroke="#172554"/>
+    <rect x="5" y="5" width="15" height="21" rx="2" fill="#e0f2fe"/>
+    <path d="M7 26c0-4 2.5-5.5 5.5-5.5S18 22 18 26z" fill="#3b82f6"/><ellipse cx="12.5" cy="14" rx="4.6" ry="5.4" fill="#f6d2b4"/>
+    <path d="M8 12c0-4 2-5.5 4.5-5.5S17 8 17 12c-1.2-2-2.6-2.6-4.5-2.6S9.2 10 8 12z" fill="#c2501f"/>
+    <circle cx="10.8" cy="14" r="1.6" fill="none" stroke="#111" stroke-width=".7"/><circle cx="14.4" cy="14" r="1.6" fill="none" stroke="#111" stroke-width=".7"/>
+    <text x="21" y="22" font-size="13" font-weight="900" fill="#facc15" font-family="sans-serif">?</text></svg>`;
+
+  // Rythme : des notes qui tombent sur 4 colonnes
+  D.rythme = `<svg viewBox="0 0 32 32">
+    <rect x="2.5" y="2.5" width="27" height="27" rx="5" fill="#170a2e" stroke="#0b0620"/>
+    <path d="M9.5 3v26M16 3v26M22.5 3v26" stroke="#ffffff18"/>
+    <rect x="4" y="8" width="5" height="3" rx="1.5" fill="#f43f5e"/><rect x="17" y="13" width="5" height="3" rx="1.5" fill="#a3e635"/><rect x="10.5" y="18" width="5" height="3" rx="1.5" fill="#22d3ee"/><rect x="23.5" y="5" width="5" height="3" rx="1.5" fill="#facc15"/>
+    <path d="M4 24.5h24" stroke="#fff" stroke-width="1.4"/><circle cx="6.5" cy="24.5" r="2.4" fill="none" stroke="#f43f5e"/><circle cx="13" cy="24.5" r="2.4" fill="none" stroke="#22d3ee"/><circle cx="19.5" cy="24.5" r="2.4" fill="none" stroke="#a3e635"/><circle cx="26" cy="24.5" r="2.4" fill="none" stroke="#facc15"/></svg>`;
+
   // Installer l'appli : un téléphone et une flèche verte
   D.telecharger = `<svg viewBox="0 0 32 32"><defs>${lin('tlt', '#3a3a3a', '#0e0e0e')}${lin('tlf', '#86efac', '#16a34a')}</defs>
     <rect x="8.5" y="2.5" width="15" height="27" rx="3" fill="url(#tlt)" stroke="#000"/><rect x="10.5" y="5.5" width="11" height="19" rx="1" fill="#1e3a5f"/>

@@ -79,7 +79,7 @@ export const CLASSEMENTS = {
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
   'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
-  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2', 'golf3', 'golf4', 'duelblocs', 'turbo']);
+  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2', 'golf3', 'golf4', 'duelblocs', 'turbo', 'poker', 'micro', 'quiestce', 'rythme']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }
@@ -127,6 +127,10 @@ export const SUCCES = [
   { id: 'motdujour7', nom: 'Dictionnaire vivant', desc: 'Trouver le mot du jour 7 jours d’affilée.', icone: '📖', test: e => e.ev && e.ev.jeu === 'motdujour' && Number(e.ev.score) >= 7 },
   { id: 'echecsjour7', nom: 'Tacticien', desc: 'Réussir le problème d’échecs du jour 7 jours d’affilée.', icone: '♞', test: e => e.ev && e.ev.jeu === 'echecsjour' && Number(e.ev.score) >= 7 },
   { id: 'duelblocs', nom: 'Démolisseur', desc: 'Gagner une partie de Blocs en duel.', icone: '🧱', test: gagne('duelblocs') },
+  { id: 'poker', nom: 'Bluffeur', desc: 'Gagner une partie de Poker (tous les jetons !).', icone: '🃏', test: gagne('poker') },
+  { id: 'micro', nom: 'Petit bolide', desc: 'Gagner une course de Micro.', icone: '🚗', test: gagne('micro') },
+  { id: 'quiestce', nom: 'Détective', desc: 'Gagner une partie de Qui est-ce ?', icone: '🕵️', test: gagne('quiestce') },
+  { id: 'rythme', nom: 'Dans le rythme', desc: 'Finir un morceau de Rythme avec au moins 80 % de précision.', icone: '🎵', test: gagne('rythme') },
   { id: 'turboenligne', nom: 'Pilote en ligne', desc: 'Gagner une course de Turbo en ligne contre un vrai joueur.', icone: '🏎️', test: e => e.ev && e.ev.jeu === 'turbo' && e.ev.gagne && e.ev.enligne }
 ];
 
@@ -162,7 +166,10 @@ export const DEFIS = [
   { texte: 'Finis le Jardin du Mini-golf au par ou mieux.', jeu: 'golf', gagne: true },
   { texte: 'Trouve le mot du jour.', jeu: 'motdujour', gagne: true },
   { texte: 'Réussis le problème d’échecs du jour.', jeu: 'echecsjour', gagne: true },
-  { texte: 'Gagne une partie de Blocs en duel.', jeu: 'duelblocs', gagne: true }
+  { texte: 'Gagne une partie de Blocs en duel.', jeu: 'duelblocs', gagne: true },
+  { texte: 'Gagne une course de Micro.', jeu: 'micro', gagne: true },
+  { texte: 'Gagne une partie de Qui est-ce ?', jeu: 'quiestce', gagne: true },
+  { texte: 'Finis un morceau de Rythme avec 80 % de précision.', jeu: 'rythme', gagne: true }
 ];
 
 // le jour (à Bruxelles) sous la forme 2026-10-21

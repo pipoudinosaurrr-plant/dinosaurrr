@@ -79,6 +79,7 @@ export function demarrerJeu(cfg) {
           </div>
           ${moteur.bots && !cfg.sansSolo ? `<button class="btn grand" data-a="solo">${echapper(cfg.texteSolo || 'Jouer contre l’ordinateur')}</button>` : ''}
           ${cfg.deuxJoueurs ? `<button class="btn grand" data-a="deux">À 2 sur cet écran</button>` : ''}
+          ${cfg.joueursLocaux ? `<div class="ligne">${Array.from({ length: cfg.joueursLocaux - 1 }, (_, k) => `<button class="btn grand" data-a="local" data-n="${k + 2}">${k + 2} sur cet écran</button>`).join('')}</div>` : ''}
         </div>
         <p class="message" hidden></p>
         <div class="parties-ouvertes" hidden><span class="etiquette">Parties ouvertes</span><ul></ul></div>
@@ -209,6 +210,8 @@ export function demarrerJeu(cfg) {
     get equipe() { return equipe; },
     get solo() { return !!local; },
     get deux() { return !!(local && local.deux); },
+    // nombre de joueurs sur le même écran (1 en solo ou en ligne)
+    get locaux() { return local && typeof local.deux === 'number' ? local.deux : local && local.deux ? 2 : 1; },
     // à 2 sur le même écran : le 2e joueur joue avec cette fonction
     envoyerPour(id, d) {
       if (!local) return;
@@ -248,14 +251,18 @@ export function demarrerJeu(cfg) {
   /* ---------- Solo ---------- */
 
   let dernierMode = 'solo';
+  // deux = true : 2 joueurs sur le même écran ; deux = un nombre : autant de joueurs sur le même écran (+ des bots pour compléter)
   function lancerSolo(deux = false) {
     message('');
     arreterLocal();
-    dernierMode = deux ? 'deux' : 'solo';
+    dernierMode = deux ? deux : 'solo';
     const n = cfg.soloBots ?? (moteur.max === 2 ? 1 : 3);
-    const liste = deux
-      ? [{ id: 'moi', nom: cfg.nomJoueur1 || 'Joueur 1', couleur: COULEURS[0] }, { id: 'moi2', nom: cfg.nomJoueur2 || 'Joueur 2', couleur: COULEURS[2] }]
-      : [{ id: 'moi', nom: pseudo(), couleur: COULEURS[0] }, ...Array.from({ length: n }, (_, i) => ({ id: 'bot' + i, nom: NOMS_BOTS[i], couleur: COULEURS[(i + 1) % COULEURS.length], bot: true }))];
+    const bots = k => Array.from({ length: k }, (_, i) => ({ id: 'bot' + i, nom: NOMS_BOTS[i], couleur: COULEURS[(i + 4) % COULEURS.length], bot: true }));
+    const liste = typeof deux === 'number'
+      ? [...Array.from({ length: deux }, (_, i) => ({ id: i ? 'moi' + (i + 1) : 'moi', nom: 'Joueur ' + (i + 1), couleur: COULEURS[i] })), ...bots(Math.max(0, (cfg.totalLocal || moteur.max) - deux))]
+      : deux
+        ? [{ id: 'moi', nom: cfg.nomJoueur1 || 'Joueur 1', couleur: COULEURS[0] }, { id: 'moi2', nom: cfg.nomJoueur2 || 'Joueur 2', couleur: COULEURS[2] }]
+        : [{ id: 'moi', nom: pseudo(), couleur: COULEURS[0] }, ...Array.from({ length: n }, (_, i) => ({ id: 'bot' + i, nom: NOMS_BOTS[i], couleur: COULEURS[(i + 1) % COULEURS.length], bot: true }))];
     moi = 'moi';
     enLigne = false;
     local = { e: moteur.creer(liste, Date.now()), dernier: Date.now(), annonce: false, deux };
@@ -509,7 +516,8 @@ export function demarrerJeu(cfg) {
       }
       case 'solo': lancerSolo(); break;
       case 'deux': lancerSolo(true); break;
-      case 'rejouer': lancerSolo(dernierMode === 'deux'); break;
+      case 'rejouer': lancerSolo(dernierMode === 'solo' ? false : dernierMode); break;
+      case 'local': lancerSolo(Number(b.dataset.n) || 2); break;
       case 'menu': retourAccueil(''); break;
       case 'retour': if (cfg.retour) { cacher(); cfg.retour.action(); } break;
       case 'quitter': quitter(); break;

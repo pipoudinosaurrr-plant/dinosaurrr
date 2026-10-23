@@ -87,21 +87,21 @@
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return bruit;
   }
-  function note(a, t, f, duree, type, vol) {
+  function note(a, t, f, duree, type, vol, vers = sortie) {
     const o = a.createOscillator(), g = a.createGain();
     o.type = type; o.frequency.value = f;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
-    o.connect(g).connect(sortie);
+    o.connect(g).connect(vers);
     o.start(t); o.stop(t + duree + 0.02);
   }
-  function percu(a, t, type) {
+  function percu(a, t, type, vers = sortie) {
     if (type === 'kick') {
       const o = a.createOscillator(), g = a.createGain();
       o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
       g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      o.connect(g).connect(sortie); o.start(t); o.stop(t + 0.2);
+      o.connect(g).connect(vers); o.start(t); o.stop(t + 0.2);
       return;
     }
     const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
@@ -110,7 +110,33 @@
     f.frequency.value = type === 'caisse' ? 1800 : 7000;
     const d = type === 'caisse' ? 0.14 : 0.04;
     g.gain.setValueAtTime(type === 'caisse' ? 0.35 : 0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-    s.connect(f).connect(g).connect(sortie); s.start(t); s.stop(t + d + 0.02);
+    s.connect(f).connect(g).connect(vers); s.start(t); s.stop(t + d + 0.02);
+  }
+
+  // pour le jeu de rythme : la partition d'un morceau (avec le temps de chaque pas) et le morceau « enregistré » d'un coup
+  function partition(index) {
+    const m = MORCEAUX[index];
+    const duree = 60 / m.tempo / 4;
+    return { tempo: m.tempo, pas: composer(m).map((p, i) => ({ ...p, t: i * duree })), duree };
+  }
+  async function rendre(index) {
+    const m = MORCEAUX[index];
+    const pas = composer(m);
+    const d = 60 / m.tempo / 4;
+    const total = pas.length * d + 1.5;
+    const Hors = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const a = new Hors(1, Math.ceil(44100 * total), 44100);
+    const vers = a.createGain(); vers.gain.value = 0.3; vers.connect(a.destination);
+    pas.forEach((p, i) => {
+      const t = i * d + 0.05;
+      if (p.basse) note(a, t, freq(p.basse), d * 1.8, 'triangle', 0.32, vers);
+      if (p.arpege) note(a, t, freq(p.arpege), d * 0.9, 'square', 0.035, vers);
+      if (p.melodie) note(a, t, freq(p.melodie), d * (m.style === 'calme' ? 3.2 : 1.7), m.style === 'calme' ? 'triangle' : 'square', m.style === 'calme' ? 0.16 : 0.07, vers);
+      if (p.kick) percu(a, t, 'kick', vers);
+      if (p.caisse) percu(a, t, 'caisse', vers);
+      if (p.charley) percu(a, t, 'charley', vers);
+    });
+    return a.startRendering();
   }
 
   // lecture : on programme les notes un peu à l'avance (lecture fluide même si la page est occupée)
@@ -320,5 +346,5 @@
     })();
   }
 
-  window.DinoMusique = { lecteur, morceaux: MORCEAUX, pistes: PISTES, arreter };
+  window.DinoMusique = { lecteur, morceaux: MORCEAUX, pistes: PISTES, arreter, partition, rendre };
 })();

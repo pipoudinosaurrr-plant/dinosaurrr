@@ -16,6 +16,7 @@
   <script src="arcade.js"></script>
 <script type="module">
 import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
+import { creerEditeur as creerEditeurTurbo, decoder as decoderCircuit, planDepuis } from './turbo/editeur.js';
 (() => {
   'use strict';
   const A = window.Arcade;
@@ -535,6 +536,7 @@ import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
   function afficherMessage(texte, sous = '') { message = { texte, sous, t: 1.8 }; }
 
   function finir() {
+    if (circuitPerso) return finirPerso();
     etat = 'fini';
     // (à cet instant la position du joueur est déjà repartie à zéro pour un nouveau tour :
     //  sa place = 1 + le nombre d'adversaires déjà arrivés)
@@ -865,7 +867,7 @@ import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
      ========================================================== */
   function lancer() {
     A.fermerPanneau();
-    circuit = CIRCUITS[circuitChoisi];
+    circuit = circuitPerso || CIRCUITS[circuitChoisi];
     construire();
     placerVoitures();
     position = 0; vitesse = 0; joueurX = 0; tour = 1;
@@ -878,7 +880,47 @@ import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
     manette.montrer(true);
   }
 
+  /* ---------- Circuits créés dans l'éditeur (games/turbo/editeur.js) ---------- */
+  let circuitPerso = null, editeurTurbo = null, depuisEditeur = false;
+  const stockTexte = { lire: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, ecrire: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* rien */ } } };
+  function jouerPerso(c, avecEditeur) {
+    depuisEditeur = avecEditeur;
+    const decor = CIRCUITS.find(x => x.id === c.decor) || CIRCUITS[0];
+    circuitPerso = { ...decor, id: 'perso', nom: c.nom, plan: planDepuis(c.pieces), donnees: c };
+    lancer();
+  }
+  function finirPerso() {
+    etat = 'fini';
+    const rang = 1 + voitures.filter(v => v.fini).length;
+    classementFinal = rang;
+    A.son(rang === 1 ? 'gagne' : rang <= 3 ? 'bonus' : 'perdu');
+    afficherMessage(rang === 1 ? 'VICTOIRE !' : `${rang}e / 8`);
+    arreterMoteur();
+    const c = circuitPerso.donnees;
+    setTimeout(() => {
+      if (etat !== 'fini') return;
+      A.panneau({
+        pastille: 'Circuit perso · ' + D().nom, titre: rang === 1 ? '🏆 Victoire !' : `${rang}e sur 8`, texte: `« ${c.nom} » · temps ${A.chrono(tempsCourse)}`,
+        lignes: [['Meilleur tour', A.chrono(meilleurTour)]],
+        boutons: [{ texte: 'Rejouer', primaire: true, action: () => jouerPerso(c, depuisEditeur) },
+          { texte: depuisEditeur ? 'Retour à l’éditeur' : 'Le modifier', action: () => ouvrirEditeurTurbo(depuisEditeur ? null : c) },
+          { texte: 'Menu', action: menu }]
+      });
+    }, 1600);
+  }
+  function ouvrirEditeurTurbo(charger) {
+    A.fermerPanneau();
+    arreterMoteur();
+    manette.montrer(false);
+    etat = 'editeur';
+    if (!editeurTurbo) editeurTurbo = creerEditeurTurbo({ stock: stockTexte, tester: c => jouerPerso(c, true), quitter: () => { editeurTurbo = null; menu(); }, toast: t => afficherMessage(t) });
+    else editeurTurbo.montrer();
+    if (charger) editeurTurbo.charger(charger);
+  }
+
   function menu() {
+    if (editeurTurbo) { editeurTurbo.fermer(); editeurTurbo = null; }
+    circuitPerso = null;
     etat = 'menu';
     arreterMoteur();
     manette.montrer(false);
@@ -901,7 +943,7 @@ import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
         texte: d.nom, sous: d.sous, actif: id === difficulte,
         action: () => { difficulte = id; A.stock.ecrire('turbo-difficulte', id); placerVoitures(); }
       })),
-      boutons: [{ texte: 'Démarrer la course', primaire: true, action: lancer }, { texte: '🌐 Course en ligne avec des amis', action: ouvrirEnLigne }],
+      boutons: [{ texte: 'Démarrer la course', primaire: true, action: lancer }, { texte: '🌐 Course en ligne avec des amis', action: ouvrirEnLigne }, { texte: '✏️ Créer un circuit', action: () => ouvrirEditeurTurbo() }],
       aide: A.TACTILE
         ? 'La voiture accélère toute seule. ◀ ▶ pour tourner, FREIN pour ralentir, NITRO pour le turbo.'
         : '↑ ou W accélérer · ↓ ou S freiner · ← → ou A D tourner · Espace ou Maj : nitro · P : pause · M : son'
@@ -1048,12 +1090,15 @@ import { PLANS, TOURS as TOURS_COMMUNS } from './turbo/pistes.js';
   preparerSprites();
   menu();
   if (/^#[A-Za-z0-9]{4}!?$/.test(location.hash)) ouvrirEnLigne();
+  // un circuit partagé : #TB1…
+  const partage = decoderCircuit(location.hash);
+  if (partage) A.panneau({ pastille: 'Circuit partagé', titre: partage.nom, texte: `Un circuit créé par un joueur (${partage.pieces.length} morceaux de route).`, boutons: [{ texte: 'Faire la course', primaire: true, action: () => jouerPerso(partage, false) }, { texte: 'Le modifier', action: () => ouvrirEditeurTurbo(partage) }, { texte: 'Menu', action: menu }] });
 
   let tAttract = 0;
   A.boucle(dt => {
     if (A.vient('pause') && !A.panneauOuvert) pause();
     if (A.vient('recommencer') && !enLigne && (etat === 'course' || etat === 'fini')) lancer();
-    if (etat === 'menu' || etat === 'salon' || etat === 'attente') {
+    if (etat === 'menu' || etat === 'salon' || etat === 'attente' || etat === 'editeur') {
       // démo : la caméra roule toute seule derrière le menu
       tAttract += dt;
       vitesse = VITESSE_MAX * 0.55;
