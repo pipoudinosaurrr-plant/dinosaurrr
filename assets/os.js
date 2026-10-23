@@ -161,12 +161,49 @@
 
   /* ---------- Les jeux ---------- */
 
+  // les jeux qui ne marchent qu'avec internet (pas de mode contre l'ordinateur) ; tous les autres marchent hors ligne
+  const JEUX_INTERNET = new Set(['dinoio', 'dessin']);
   function htmlCarteJeu(j) {
     return `
-      <button class="carte-jeu" data-jeu="${echapper(j.id)}">
-        <div class="haut"><span class="tuile">${svg(j.icone, 21)}</span><span class="badges">${j.nouveau ? '<span class="badge-nouveau">Nouveau</span>' : j.multi ? '<span class="badge-multi">En ligne</span>' : ''}</span></div>
+      <button class="carte-jeu" data-jeu="${echapper(j.id)}"${JEUX_INTERNET.has(j.id) ? ' data-internet' : ''}>
+        <div class="haut"><span class="tuile">${svg(j.icone, 21)}</span><span class="badges"><span class="badge-internet">Internet</span>${j.nouveau ? '<span class="badge-nouveau">Nouveau</span>' : j.multi ? '<span class="badge-multi">En ligne</span>' : ''}</span></div>
         <div><h3>${echapper(j.titre)}</h3><p>${echapper(j.description)}</p></div>
       </button>`;
+  }
+
+  /* ---------- Hors ligne ----------
+     <html class="hors-ligne"> quand il n'y a pas d'internet (les jeux qui en ont besoin sont grisés)
+     + un petit bandeau quand la connexion part ou revient */
+  function suivreConnexion() {
+    let bandeau = null, minuterie = 0;
+    const montrer = (texte, duree) => {
+      if (!bandeau) { bandeau = document.createElement('div'); bandeau.className = 'bandeau-connexion'; bandeau.setAttribute('role', 'status'); document.body.append(bandeau); }
+      bandeau.textContent = texte;
+      bandeau.classList.add('visible');
+      clearTimeout(minuterie);
+      minuterie = setTimeout(() => bandeau.classList.remove('visible'), duree);
+    };
+    const maj = annoncer => {
+      const hors = navigator.onLine === false;
+      document.documentElement.classList.toggle('hors-ligne', hors);
+      if (annoncer) montrer(hors ? '📴 Hors ligne : tes jeux marchent quand même' : '📶 De retour en ligne', hors ? 6000 : 2500);
+    };
+    addEventListener('online', () => maj(true));
+    addEventListener('offline', () => maj(true));
+    maj(navigator.onLine === false);
+  }
+  suivreConnexion();
+
+  // combien de jeux sont prêts sans internet ? (demandé au service worker, sw.js)
+  function etatHorsLigne() {
+    return new Promise(resolve => {
+      const sw = navigator.serviceWorker;
+      if (!sw || !sw.controller) { resolve(null); return; }
+      const fin = setTimeout(() => resolve(null), 3000);
+      const recu = e => { if (e.data && e.data.type === 'etat-hors-ligne') { clearTimeout(fin); sw.removeEventListener('message', recu); resolve(e.data); } };
+      sw.addEventListener('message', recu);
+      sw.controller.postMessage({ type: 'etat-hors-ligne' });
+    });
   }
 
   /* ---------- Démarrage commun ---------- */
@@ -2022,6 +2059,7 @@
         </div>
         <div class="m-carte m-carte-compte"></div>
         <div class="m-carte m-carte-appli" hidden></div>
+        <div class="m-carte m-carte-hors-ligne" hidden></div>
         <div class="m-carte">
           <h3>Jeux en ligne</h3>
           <p class="bio" style="margin:0 0 12px"><span class="m-enligne" hidden><i></i><span></span></span></p>
@@ -2032,6 +2070,7 @@
         <p class="m-pied">Sur ordinateur, le site s'ouvre en mode bureau.</p>`;
       majCarteCompte();
       majCarteAppli();
+      majCarteHorsLigne();
       $('.m-bascule-notifs', vues.moi).addEventListener('click', () => {
         const coupees = stockage.lire('site-notifs-parties', 'oui') === 'non';
         stockage.ecrire('site-notifs-parties', coupees ? 'oui' : 'non');
@@ -2040,6 +2079,27 @@
         majEnLigne();
       });
     }
+
+    // les jeux sans internet
+    async function majCarteHorsLigne() {
+      const zone = $('.m-carte-hors-ligne', vues.moi);
+      if (!zone) return;
+      const e = await etatHorsLigne();
+      if (!e) { zone.hidden = true; return; }
+      const enJeu = JEUX.filter(j => JEUX_INTERNET.has(j.id)).map(j => j.titre);
+      const attente = window.DinoProgres && window.DinoProgres.enAttente;
+      zone.hidden = false;
+      zone.innerHTML = `
+        <h3>Jouer sans internet</h3>
+        <p class="bio" style="margin:0">${e.prets >= e.total
+          ? `✓ <b>${e.prets} jeux</b> sont prêts : tu peux jouer même sans réseau (en solo et contre l’ordinateur).`
+          : `Téléchargement des jeux… <b>${e.prets} / ${e.total}</b>. Garde l’appli ouverte un moment avec internet.`}
+        ${enJeu.length ? `<br><span style="color:var(--texte-2)">Besoin d’internet : ${enJeu.map(echapper).join(', ')}, le chat et les parties en ligne.</span>` : ''}
+        ${attente ? `<br>📴 ${attente} partie${attente > 1 ? 's' : ''} jouée${attente > 1 ? 's' : ''} hors ligne, envoyée${attente > 1 ? 's' : ''} au retour d’internet.` : ''}</p>`;
+      if (e.prets < e.total) setTimeout(() => { if (zone.isConnected) majCarteHorsLigne(); }, 4000);
+    }
+    addEventListener('online', () => majCarteHorsLigne());
+    addEventListener('offline', () => majCarteHorsLigne());
 
     // installer le site comme une appli (assets/appli.js)
     function majCarteAppli() {

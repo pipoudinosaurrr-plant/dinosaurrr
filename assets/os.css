@@ -253,6 +253,30 @@ img { -webkit-user-drag: none; }
   text-transform: uppercase;
 }
 
+.badge-internet {
+  display: none;
+  padding: 3px 8px;
+  border: 1px solid rgba(250, 204, 21, .35);
+  border-radius: 999px;
+  background: rgba(250, 204, 21, .08);
+  color: #fde047;
+  font: 500 10px var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+/* hors ligne : les jeux qui ont besoin d'internet sont grisés */
+.hors-ligne .carte-jeu[data-internet] { opacity: .45; }
+.hors-ligne .carte-jeu[data-internet] .badge-internet { display: inline-block; }
+.hors-ligne .carte-jeu[data-internet] .badge-multi, .hors-ligne .carte-jeu[data-internet] .badge-nouveau { display: none; }
+.bandeau-connexion {
+  position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); z-index: 2147482000;
+  max-width: min(92vw, 460px); padding: 9px 14px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 12px;
+  background: rgba(12, 12, 12, .94); color: #fff; font: 600 13px var(--police, system-ui); text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45); pointer-events: none;
+  opacity: 0; transform: translate(-50%, -12px); transition: opacity .3s, transform .3s;
+}
+.bandeau-connexion.visible { opacity: 1; transform: translate(-50%, 0); }
+
 /* Article */
 .article-tete { margin-bottom: 28px; }
 .article-tete h1 { margin: 14px 0 12px; color: #fff; font: 700 34px/1.12 var(--police); letter-spacing: -.03em; }

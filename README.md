@@ -54,7 +54,7 @@ Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (
 
 **Chat** : un salon par jeu à plusieurs et des messages privés entre amis (`chat.html#mp/Pseudo`, gardés par l'objet `Presence` du serveur). **Statistiques admin** (Mon compte → ⚡ Admin) : visites, visiteurs uniques, parties par jeu, heures, téléphone/ordi, comptes actifs, sur 7, 30 ou 90 jours. **Flipper** : 2 tables, Nova et Volcan (orbite, kickback, éruption).
 
-**Appli à installer** : `manifest.webmanifest`, `sw.js` (hors ligne, toujours la dernière version quand on est connecté), `assets/appli.js` (bouton « Installer » dans Moi sur téléphone et dans le menu démarrer), icônes dans `assets/appli/`.
+**Appli à installer** : `manifest.webmanifest`, `sw.js` (télécharge d'avance tous les jeux de `_data/jeux.json` et ce dont ils ont besoin, pour jouer **sans internet** ; toujours la dernière version quand on est connecté ; les parties jouées hors ligne sont envoyées au retour du réseau par `assets/progres.js` ; les jeux qui ont besoin d'internet sont dans `JEUX_INTERNET` de `assets/os.js`), `assets/appli.js` (bouton « Installer » dans Moi sur téléphone et dans le menu démarrer), icônes dans `assets/appli/`.
 
 **Profils publics** : `profil.html?nom=Pseudo` (aussi `#profil/Pseudo`), ouverts en cliquant sur un pseudo (Hall of Fame, chat, contacts). Le Hall of Fame a un classement **de la semaine** (remis à zéro le lundi) et affiche le champion de la semaine d'avant.
 
