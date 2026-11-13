@@ -73,13 +73,14 @@ export const CLASSEMENTS = {
   golf3: { nom: 'Mini-golf · Volcan', sens: '-', unite: 'coups' },
   golf4: { nom: 'Mini-golf · Espace', sens: '-', unite: 'coups' },
   motdujour: { nom: 'Mot du jour (série)', sens: '+', unite: 'jours' },
-  echecsjour: { nom: 'Échecs du jour (série)', sens: '+', unite: 'jours' }
+  echecsjour: { nom: 'Échecs du jour (série)', sens: '+', unite: 'jours' },
+  favlus: { nom: 'Favlus balls', sens: '+' }
 };
 
 // les jeux qui peuvent envoyer une fin de partie
 export const JEUX_PROGRES = new Set(['dinorun', 'flap', '2048', 'serpent', 'blocs', 'briques', 'blaster', 'meteorites', 'dinoio', 'solitaire', 'reflexes',
   'turbo', 'aventure', 'pendu', 'demineur', 'clicker', 'bouton', 'cercle', 'puissance4', 'morpion', 'navale', 'pong', 'tron', 'course', 'quiz', 'dessin', 'echecs', 'hockey',
-  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2', 'golf3', 'golf4', 'duelblocs', 'turbo', 'poker', 'micro', 'quiestce', 'rythme']);
+  'flipper', 'route', 'tuyaux', 'uno', 'bomberman', 'loupgarou', 'defense', 'golf', 'golf2', 'golf3', 'golf4', 'duelblocs', 'turbo', 'poker', 'micro', 'quiestce', 'rythme', 'favlus']);
 
 /* ---------- Succès ----------
    test(e) : e = { ev: la partie qui vient de finir (ou null), parties, victoires, jeux, defis, niveau, amis, chat, tournois }

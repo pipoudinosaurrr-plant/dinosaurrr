@@ -52,6 +52,16 @@
     <circle cx="20" cy="20" r="5.2" fill="url(#m)" stroke="#7c2d12" stroke-width=".8"/>
     <circle cx="9" cy="24" r=".8" fill="#fff"/><circle cx="25" cy="8" r=".7" fill="#fff"/><circle cx="24" cy="26" r=".5" fill="#fff"/></svg>`;
 
+  // Favlus balls : balle bleu nuit sur une piste blanche qui file vers l'horizon
+  D.favlus = `<svg viewBox="0 0 32 32"><defs>${lin('fvc', '#f4f7f9', '#cfd8df')}${rad('fvb', '#4a5670', '#1d2433', '#0b0f18', .38, .3)}</defs>
+    <rect x="2.5" y="3.5" width="27" height="25" rx="4" fill="url(#fvc)" stroke="#8a96a3"/>
+    <path d="M4 28.5 13.5 14h5L28 28.5z" fill="#fff" stroke="#c2ccd6" stroke-width=".6"/>
+    <path d="M8.2 22h15.6M10.6 18.3h10.8" stroke="#c2ccd6" stroke-width=".7"/>
+    <circle cx="16" cy="13" r="6.2" fill="url(#fvb)" stroke="#0b0f18" stroke-width=".8"/>
+    <path d="M10.2 12.6c3.8 1.3 7.8 1.3 11.6 0" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <path d="M16 6.9c-1.9 3.6-1.9 8.6 0 12.2" stroke="#fff" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <circle cx="25" cy="7.5" r="1.6" fill="#ff5a43"/></svg>`;
+
   // Turbo Dino : voiture de course vue de face sur la route
   D.turbo = `<svg viewBox="0 0 32 32"><defs>${lin('tbc', '#38bdf8', '#e0f2fe')}${lin('tbv', '#4ade80', '#15803d')}</defs>
     <rect x="2.5" y="3.5" width="27" height="25" rx="4" fill="url(#tbc)" stroke="#0c4a6e"/>

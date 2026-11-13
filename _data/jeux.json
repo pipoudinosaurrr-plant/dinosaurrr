@@ -1,5 +1,18 @@
 [
   {
+    "id": "favlus",
+    "titre": "Favlus balls",
+    "description": "Ta balle dévale une piste suspendue en 3D : tremplins, murs aimantés, chemins d’une case, moulinets et cristaux. La vitesse ne redescend jamais.",
+    "icone": "favlus",
+    "fichier": "games/favlus.html",
+    "largeur": 960,
+    "hauteur": 600,
+    "bureau": true,
+    "nouveau": true,
+    "multi": false,
+    "cache": false
+  },
+  {
     "id": "motdujour",
     "titre": "Mot du jour",
     "description": "Trouve le mot de 5 lettres en 6 essais. Un nouveau mot chaque jour, le même pour tout le monde : garde ta série et partage ton résultat !",

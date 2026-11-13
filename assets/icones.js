@@ -77,6 +77,7 @@ window.ICONES = {
   micro: '<path d="M3 17c5-1 6-7 10-7s6 5 8 5"/><rect x="8" y="8" width="8" height="5" rx="1.5" transform="rotate(-15 12 10)"/>',
   quiestce: '<rect x="3" y="3" width="12" height="17" rx="2"/><circle cx="9" cy="10" r="3"/><path d="M5 18c0-2.5 2-3.5 4-3.5s4 1 4 3.5"/><path d="M17 8a2.5 2.5 0 1 1 3 2.5V12M20 15v.5"/>',
   rythme: '<path d="M6 3v18M12 3v18M18 3v18"/><path d="M3 18h18"/><rect x="4" y="6" width="4" height="2" rx="1"/><rect x="10" y="11" width="4" height="2" rx="1"/><rect x="16" y="8" width="4" height="2" rx="1"/>',
+  favlus: '<path d="M3 21l5-8h8l5 8"/><path d="M7 17h10"/><circle cx="12" cy="7.5" r="4"/><path d="M8.2 7.5h7.6"/>',
   golf: '<path d="M12 18V3l7 3-7 3"/><ellipse cx="12" cy="19" rx="7" ry="2.5"/><circle cx="5" cy="14" r="1.6"/>',
   loupgarou: '<circle cx="17" cy="7" r="4"/><path d="M4 21l2-6 2-2 1-4 2-2 1 3 3 1-1 2h-3l1 3 2 5"/>',
   defense: '<path d="M7 21V10h10v11"/><path d="M6 10V5h3v2h2V5h2v2h2V5h3v5"/><path d="M11 21v-4h2v4"/><path d="M3 21h18"/>',

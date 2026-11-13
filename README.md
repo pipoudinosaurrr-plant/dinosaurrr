@@ -70,6 +70,8 @@ Les jeux à plusieurs (en ligne ou contre l'ordinateur) : Le Cercle, Arène.io (
 
 **Filtre du chat** : la liste est dans `_data/filtre-chat.json` (Pages CMS « Filtre du chat »), le code dans `serveur/filtre.js`. Il bloque aussi les pseudos insultants.
 
+**Favlus balls** (`games/favlus.html`, en 3D avec three.js rangé dans `games/favlus/three.min.js` pour jouer sans internet) : une balle dévale une piste générée au hasard (tremplins, murs aimantés, chemins d'une case, moulinets, plateformes en hauteur, cristaux et combo). Le score va au classement « Favlus balls ».
+
 Nouveaux jeux solo : **Flipper** (`games/flipper.html` ; la physique et les règles sont dans `games/flipper/moteur.js` : bille, murs arrondis, flippers qui tournent vraiment, 720 calculs par seconde), **Traverse la route** (`games/route.html`) et **Tuyaux** (`games/tuyaux.html`).
 
 Les jeux en solo : Turbo (course de voitures 3D), Blaster (shooter spatial), Aventure (plateformes), Blocs, Serpent, Casse-briques, Runner, Flap, 2048, Pendu, Solitaire, Démineur, Pluie de météorites, Data Clicker, L'histoire du jeu vidéo, Test de réflexes, Le bouton qui fuit, Générateur de pseudo et Paint.
