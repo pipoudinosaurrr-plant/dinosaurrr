@@ -207,6 +207,7 @@ kbd{background:#fff;border-color:#b9c3cc;font-family:var(--mono)}
         <span><span class="sw sw-gem"></span>cristal : points</span>
       </dd></div>
       <div><dt>Combo</dt><dd>Cristaux, sauts, frôlements et lignes roses enchaînés font monter le multiplicateur jusqu'à x5</dd></div>
+      <div><dt>En hauteur</dt><dd>Les petits tremplins sur le bord mènent à des plateformes pleines de cristaux</dd></div>
       <div><dt>Murs aimantés</dt><dd>Garde la direction vers le mur : la bille monte et reste collée</dd></div>
       <div class="row-kbd"><dt>Clavier</dt><dd><kbd>←</kbd><kbd>→</kbd> ou <kbd>Q</kbd><kbd>D</kbd></dd></div>
       <div><dt>Tactile</dt><dd>Garde le doigt à gauche ou à droite de l'écran</dd></div>
@@ -550,7 +551,7 @@ function startPente(data) {
     const d0 = G.d, y0 = G.y, yBase = y0 - slope * LR;
     const row = {
       d0, d1: d0 + LR, y0, y1: yBase + (o.rise || 0), lanes: new Set(lanes), obs: [], pads: [], gems: [], arms: [],
-      tileM: [], bldM: [], boostM: [], jumpM: [], railM: [], mt: [], kind: o.kind || 'n', L: G.L, R: G.R, built: false,
+      tileM: [], bldM: [], boostM: [], jumpM: [], railM: [], mt: [], surfs: [], kind: o.kind || 'n', L: G.L, R: G.R, built: false,
       a: 0, Ls: LR, cy: 0, cz: 0, cx: 0, H0: 0, H1: 0, mv: null, boostLine: false, boostUsed: false, pipeMesh: null,
       th: o.th || T
     };
@@ -942,6 +943,86 @@ function startPente(data) {
     G.L = C - 2; G.R = C + 2; G.S = C;
     for (let i = 0; i < 3; i++) makeRow(range(G.L, G.R));
   }
+  /* Plateformes en hauteur sur le côté : un petit tremplin (1 ou 2 cases) ou une dalle de saut
+     y envoie ; la piste principale continue à côté, plus étroite, avec quelques blocs.
+     Parfois un deuxième étage, puis on retombe sur la piste. */
+  function patPerch() {
+    setSpan(5);
+    const lead = Math.max(2, G.hold + 1, G.unionRows + 1);
+    for (let i = 0; i < lead; i++) makeRow(baseLanes());
+    clearHold();
+    const L0 = G.L, R0 = G.R, side = Math.random() < 0.5 ? -1 : 1, w = Math.random() < 0.5 ? 1 : 2;
+    const da = side > 0 ? R0 - w + 1 : L0, db = side > 0 ? R0 : L0 + w - 1;
+    const main = side > 0 ? range(L0, R0 - w) : range(L0 + w, R0);
+    G.S = main[Math.floor(main.length / 2)];
+    const v = vExp(), fr = fRange(), usePad = Math.random() < 0.35;
+    let dz, A, B, launchEnd;
+    if (usePad) {
+      /* dalle de saut jaune sur le bord de la piste */
+      const pr = makeRow(range(L0, R0)); addPad(pr, da, db, 'jump', 0.12, 0.55);
+      const dL = pr.d0 + 0.12 * LR, dL2 = dL + 0.8;
+      dz = rnd(1.1, 1.6);
+      for (let tries = 0; tries < 8; tries++) {
+        A = flightPad(v, dz, fr[0]); B = flightPad(v, dz, fr[1]);
+        if (A && B) { const front = G.d + Math.max(0, Math.ceil((dL2 + B[0] + 1.4 - G.d) / LR)) * LR; if (front <= dL + A[1] - 2) break; }
+        dz *= 0.85;
+      }
+      while (G.d < dL2 + B[0] + 1.4) makeRow(main);
+      launchEnd = dL2 + B[1];
+    } else {
+      /* tremplin étroit (1 ou 2 cases) */
+      const h = clamp(rnd(15, 18) * LR / v, 0.8, 3.2), u = h * v / LR;
+      const kr = makeRow(range(L0, R0)); kr.surfs.push({ a: da, b: db, dz: 0, kick: h });
+      let k = rnd(0.45, 0.62), dzr = 0, gap = 1;
+      for (let tries = 0; tries < 8; tries++) {
+        dzr = k * u * u / (2 * GRAV);
+        A = flight(v, u, dzr, fr[0]); B = flight(v, u, dzr, fr[1]);
+        if (A && B) { gap = Math.ceil((A[0] + 1.4) / LR); if (gap * LR <= A[1] - 2) break; }
+        k *= 0.8;
+      }
+      for (let i = 0; i < clamp(gap, 1, 7); i++) makeRow(main);
+      dz = h + dzr;
+      launchEnd = kr.d1 + B[1];
+    }
+    /* premier étage : cristaux tout du long */
+    /* blocs sur la piste du bas : un couloir libre qui ne se décale que d'une case, avec le temps de suivre */
+    let free = G.S, nextBlock = 2;
+    const mainBlocks = (r, i) => {
+      if (i < nextBlock) return;
+      nextBlock = i + Math.max(3, cool() + 1);
+      if (Math.random() < 0.5) { const nf = free + (Math.random() < 0.5 ? -1 : 1); if (main.includes(nf)) free = nf; }
+      for (const k of main) if (k !== free && Math.random() < 0.6) addObs(r, k * CELL);
+    };
+    let i = 0;
+    while (G.d < launchEnd + 6 || i < 4) {
+      const r = makeRow(main); r.surfs.push({ a: da, b: db, dz, kick: 0 });
+      if (i % 2 === 1) addGem(r, (da + db) / 2 * CELL, r.d0 + LR / 2, dz + 1.0);
+      mainBlocks(r, i); i++;
+    }
+    for (let j = 0; j < ri(1, 3); j++, i++) { const r = makeRow(main); r.surfs.push({ a: da, b: db, dz, kick: 0 }); if (i % 2 === 1) addGem(r, (da + db) / 2 * CELL, r.d0 + LR / 2, dz + 1.0); mainBlocks(r, i); }
+    let top = dz;
+    /* deuxième étage, plus haut, avec un tremplin posé sur la plateforme */
+    if (Math.random() < 0.5) {
+      const v2 = vExp(), fr2 = fRange(), h2 = clamp(rnd(14, 17) * LR / v2, 0.8, 3.0), u2 = h2 * v2 / LR;
+      const kr = makeRow(main); kr.surfs.push({ a: da, b: db, dz, kick: h2 });
+      let k = rnd(0.4, 0.58), dzr = 0, gap = 1, A2 = null, B2 = null;
+      for (let tries = 0; tries < 8; tries++) {
+        dzr = k * u2 * u2 / (2 * GRAV);
+        A2 = flight(v2, u2, dzr, fr2[0]); B2 = flight(v2, u2, dzr, fr2[1]);
+        if (A2 && B2) { gap = Math.ceil((A2[0] + 1.4) / LR); if (gap * LR <= A2[1] - 2) break; }
+        k *= 0.8;
+      }
+      for (let j = 0; j < clamp(gap, 1, 7); j++, i++) { const r = makeRow(main); mainBlocks(r, i); }
+      const dz2 = dz + h2 + dzr, end2 = kr.d1 + B2[1] + 6;
+      let j = 0;
+      while (G.d < end2 || j < 4) { const r = makeRow(main); r.surfs.push({ a: da, b: db, dz: dz2, kick: 0 }); if (j % 2 === 0) addGem(r, (da + db) / 2 * CELL, r.d0 + LR / 2, dz2 + 1.0); mainBlocks(r, i); j++; i++; }
+      top = dz2;
+    }
+    /* fin des plateformes : on retombe sur la piste, qui reprend toute sa largeur */
+    G.L = L0; G.R = R0;
+    const fallEnd = G.d + vExp() * fRange()[1] * Math.sqrt(2 * (top + 3) / GRAV) + 8;
+    while (G.d < fallEnd) makeRow(range(G.L, G.R));
+  }
   function patPipe() {
     const C = G.S;
     clearHold(); G.L = C - 3; G.R = C + 3;
@@ -1003,6 +1084,7 @@ function startPente(data) {
   const INTRO = [
     [0, () => { boostRow(); patJump({ lead: 3, wide: true }); }],
     [90, () => patUp(1)],
+    [140, () => patPerch()],
     [170, () => patZigzag(10)],
     [250, () => patPadWall()],
     [320, () => patMag()],
@@ -1017,7 +1099,7 @@ function startPente(data) {
     const D = Math.min(1, G.d / 8000);
     const opts = [
       ['jump', 0.6], ['chain', 0.3 + 0.3 * D], ['up', 0.6], ['islands', 0.55], ['cliff', 0.3], ['hop', 0.3],
-      ['padhop', 0.55], ['padwall', 0.5], ['padup', 0.5], ['zigzag', 0.6 + 0.2 * D], ['split', 0.45],
+      ['perch', 0.8], ['padhop', 0.55], ['padwall', 0.5], ['padup', 0.5], ['zigzag', 0.6 + 0.2 * D], ['split', 0.45],
       ['mag', 0.55], ['pipe', 0.4], ['arms', G.d > 400 ? 0.55 : 0],
       ['move', G.d > 350 ? 0.3 : 0], ['pistons', G.d > 500 ? 0.35 : 0], ['sliders', G.d > 350 ? 0.35 : 0],
       ['holes', 0.45], ['blocks', 0.4], ['open', 0.08]
@@ -1035,6 +1117,7 @@ function startPente(data) {
       case 'padhop': patPadHop(ri(2, 4)); break;
       case 'padwall': patPadWall(); break;
       case 'padup': patPadUp(); break;
+      case 'perch': patPerch(); break;
       case 'zigzag': patZigzag(ri(8, 14)); break;
       case 'split': patSplit(ri(8, 14)); break;
       case 'mag': patMag(); break;
@@ -1123,6 +1206,14 @@ function startPente(data) {
       const dd = row.d0 + (p.t0 + p.t1) / 2 * LR, ys = baseAt(row, dd), off = PAD_H / 2 + 0.02;
       (p.kind === 'boost' ? row.boostM : row.jumpM).push(
         boxM((p.a + p.b) / 2 * CELL, ys + Math.cos(a) * off, -dd - Math.sin(a) * off, (p.b - p.a + 1) * CELL - 0.35, PAD_H, (p.t1 - p.t0) * Ls, -a));
+    }
+    /* Plateformes en hauteur (blocs pleins, posés à côté de la piste) et petits tremplins étroits */
+    for (const sf of row.surfs) {
+      const x = (sf.a + sf.b) / 2 * CELL, w = (sf.b - sf.a + 1) * CELL;
+      const yA = row.y0 + sf.dz, yB = row.y1 + sf.dz + sf.kick;
+      const ak = Math.atan2(yA - yB, LR), Lk = Math.hypot(LR, yA - yB), th = sf.dz + sf.kick + T;
+      const cyk = (yA + yB) / 2 - Math.cos(ak) * th / 2, czk = zm + Math.sin(ak) * th / 2;
+      (sf.kick > 0 ? row.jumpM : row.tileM).push(boxM(x, cyk, czk, w, th, Lk, -ak));
     }
     /* Rail rouge au sol : montre d'avance la zone que balaie un bloc glissant */
     if (row.kind !== 'pipe') for (const o of row.obs) {
@@ -1226,8 +1317,19 @@ function startPente(data) {
     return (d >= r.d0 && d < r.d1) ? r : null;
   }
   /* Surface sous la bille : hauteur, pente latérale (fx) et pente en descente (fd) */
-  function surfaceAt(r, x, d, t) {
+  function surfaceAt(r, x, d, t, yb) {
     const tt = (d - r.d0) / LR, base = r.y0 + (r.y1 - r.y0) * tt, fdB = (r.y1 - r.y0) / LR;
+    if (r.surfs.length) {
+      const lane = Math.round(x / CELL);
+      let best = null;
+      for (const sf of r.surfs) {
+        if (lane < sf.a || lane > sf.b) continue;
+        const y = base + sf.dz + sf.kick * tt;
+        if (yb != null && yb < y - 0.9) continue;
+        if (!best || y > best.y) best = { y, fx: 0, fd: fdB + sf.kick / LR, pipe: false, u: 0, lane, surf: sf };
+      }
+      if (best) return best;
+    }
     if (r.kind === 'mag') {
       const u = x - r.cx;
       if (!r.floor || Math.abs(u) > r.F / 2 + 0.8) return null;
@@ -1424,6 +1526,16 @@ function startPente(data) {
     }
     return false;
   }
+  /* La bille rentre dans le flanc ou l'avant d'une plateforme en hauteur */
+  function deckHit(r) {
+    const lane = Math.round(ball.x / CELL), base = baseAt(r, ball.d), tt = (ball.d - r.d0) / LR;
+    for (const sf of r.surfs) {
+      if (sf.dz <= 0 || lane < sf.a || lane > sf.b) continue;
+      const top = base + sf.dz + sf.kick * tt;
+      if (ball.y - R < top - 0.6 && ball.y + R > base - T) return true;
+    }
+    return false;
+  }
   function collectGems() {
     for (let i = Math.max(0, cursor - 1); i <= Math.min(rows.length - 1, cursor + 1); i++) {
       const r = rows[i];
@@ -1536,7 +1648,7 @@ function startPente(data) {
       if (!ball.grounded) ball.vy -= GRAV * h;
       ball.y += ball.vy * h;
       r = rowAt(ball.d);
-      s = r ? surfaceAt(r, ball.x, ball.d, simT) : null;
+      s = r ? surfaceAt(r, ball.x, ball.d, simT, ball.y - R) : null;
       if (s) {
         const roff = R * Math.sqrt(1 + s.fx * s.fx), bottom = ball.y - roff;
         const stick = ball.grounded ? 0.35 : 0;
@@ -1579,6 +1691,7 @@ function startPente(data) {
       comboT += h; if (combo && comboT > 4) combo = 0;
       const base = r ? baseAt(r, ball.d) : ball.y;
       if (!g && s && !s.pipe && !s.mag && r.th > T + 0.01 && ball.y - R < s.y - 0.25 && ball.y + R > s.y - r.th) die('hit');
+      else if (!g && r && r.surfs.length && deckHit(r)) die('hit');
       else if (ball.y < base - 3.2) die('fall');
       else if (hitTest(simT)) die('hit');
     } else if (state === 'dying') {
